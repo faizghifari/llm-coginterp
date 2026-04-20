@@ -1282,3 +1282,4 @@ deepseek-r1-zero,DeepSeek-R1-Zero,DeepSeek-V3,DeepSeek,671B,MoE,,,,open-weights
 grok-3,Grok-3,Grok,xAI,Unknown,Proprietary,,,,closed
 olmo-2-1124-7b-instruct,OLMo-2-1124-7B-Instruct,OLMo-2,AllenAI,7B,Dense,,,,open-weights
 olmo-2-1124-13b-instruct,OLMo-2-1124-13B-Instruct,OLMo-2,AllenAI,13B,Dense,,,,open-weights
+claude-1-3,Claude-v1.3,Claude1,Anthropic,Unknown,Dense,,,,closed
