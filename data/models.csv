@@ -1244,3 +1244,7 @@ claude_4_sonnet,claude-4-sonnet,claude,,,,,,,closed
 gemini_2.5_pro,gemini-2.5-pro,gemini,,,,,,,closed
 claude,claude,claude,,,,,,,closed
 gpt_4o,gpt-4o,gpt,,,,,,,closed
+gpt_4,gpt-4,gpt-4,,,,,,,closed
+mpt_30b_chat,mpt-30b-chat,mpt,,,,,,,open
+gpt_3.5,gpt-3.5,gpt-3,,,,,,,closed
+llama_2_70b_chat,llama-2-70b-chat,llama,,,,,,,open
