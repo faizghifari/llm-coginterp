@@ -14,11 +14,6 @@ No description available.
 
 No description available.
 
-### Cultural Value Alignment (`cultural_value_alignment`) [Link](https://huggingface.co/datasets/cultural-alignment/CulturalValueAlignment)
-**Subcategory:** value-alignment
-
-No description available.
-
 ### CulturalBench (`culturalbench`) [Link](https://huggingface.co/datasets/cultural-alignment/CulturalBench)
 **Subcategory:** cultural-knowledge
 
@@ -26,6 +21,11 @@ No description available.
 
 ### CultureScope (`culturescope`) [Link](https://arxiv.org/abs/2509.16188)
 **Subcategory:** cultural-knowledge
+
+No description available.
+
+### CultureVLM (`culturevlm`) [Link](https://arxiv.org/html/2501.01282v1)
+**Subcategory:** multimodal-culture
 
 No description available.
 
@@ -54,6 +54,11 @@ No description available.
 
 No description available.
 
+### NormAd (`NormAd`)
+**Subcategory:** cultural-norms
+
+No description available.
+
 ### Thai-H6: Thai Cultural & Knowledge Evaluation (`thaih6`) [Link](https://arxiv.org/abs/2504.05898)
 **Subcategory:** thai-culture
 
@@ -68,4 +73,3 @@ No description available.
 **Subcategory:** cultural-reasoning
 
 No description available.
-

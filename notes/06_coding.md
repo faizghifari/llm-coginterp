@@ -4,17 +4,18 @@ This document categorizes benchmarks related to coding and software engineering.
 
 ## Coding Benchmarks
 
-###  (`aider_edit`)
-No description available.
+### BigCodeBench (`bigcodebench`) [Link](https://huggingface.co/spaces/bigcode/bigcodebench-leaderboard)
+**Subcategory:** code-generation
 
-###  (`aider_polyglot`)
-No description available.
-
-###  (`aider_refactor`)
 No description available.
 
 ### CRUXEval: A Benchmark for Code Reasoning, Understanding and Execution (`cruxeval`) [Link](https://arxiv.org/abs/2401.03065)
 **Subcategory:** code-execution
+
+No description available.
+
+### FlashInfer-Bench (`FlashInfer-Bench`)
+**Subcategory:** inference
 
 No description available.
 
@@ -28,13 +29,9 @@ No description available.
 
 No description available.
 
-###  (`livebench_coding`)
-No description available.
+### LiveCodeBench (`livecodebench`)
+**Subcategory:** code-generation
 
-###  (`livebench_data_analysis`)
-No description available.
-
-###  (`livecodebench`)
 No description available.
 
 ### MBPP (`mbpp`) [Link](https://huggingface.co/datasets/google-research-datasets/mbpp)
@@ -52,8 +49,7 @@ No description available.
 
 No description available.
 
-
-### BigCodeBench (`bigcodebench`) [Link](https://huggingface.co/spaces/bigcode/bigcodebench-leaderboard)
-**Subcategory:** code-generation
+### Vericoding Benchmark (`Vericoding`) [Link](https://arxiv.org/abs/2509.22908)
+**Subcategory:** code-verification
 
 No description available.

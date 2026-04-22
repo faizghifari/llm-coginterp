@@ -15,6 +15,21 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## Batch 1 — Safety/Red-teaming
+
+### Added
+- **XSTest** — NAACL 2024. Refusal rate on safe prompts for 5 models (Llama2.0, Llama2.1, Mistral-7B-Instruct, Mistral-7B+Guardrails, GPT-4).
+- **Do-Not-Answer** — EMNLP 2023. Harmful response rate for 3 models (LLaMA-2-7B-Chat, ChatGLM2, Vicuna-13B).
+- **JailbreakBench** — NeurIPS 2024. Attack success rate for 2 models (Llama-2-7B-Chat, GPT-4) via Random Search attack.
+- **HarmBench** — arXiv 2024. GCG attack success rate for 1 model (Zephyr-7B: 31.8%).
+- **TrustLLM** — arXiv 2024. Benign prompt refusal rate for 2 models (Llama2-7B: 57%, GPT-4: 80.5%).
+
+### Total
+- Benchmarks added: 5
+- Result rows added: 13
+
+---
+
 ## Process Group 4 — Morality/Ethics Batch
 
 ### Added

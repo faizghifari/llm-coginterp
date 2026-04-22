@@ -29,6 +29,21 @@ No description available.
 
 No description available.
 
+### ELEPHANT (`elephant`) [Link](https://arxiv.org/abs/2505.13995)
+**Subcategory:** social-behavior
+
+No description available.
+
+### EmoBench (`emobench`) [Link](https://arxiv.org/abs/2402.12071)
+**Subcategory:** emotional-intelligence
+
+No description available.
+
+### EQ-Bench (`eqbench`) [Link](https://arxiv.org/abs/2312.06281)
+**Subcategory:** emotional-intelligence
+
+No description available.
+
 ### ExamsV (`exams_v`) [Link](https://aclanthology.org/2020.emnlp-main.438/)
 **Subcategory:** knowledge
 
@@ -36,6 +51,16 @@ No description available.
 
 ### GPQA (`gpqa`) [Link](https://huggingface.co/datasets/Idavidrein/gpqa)
 **Subcategory:** graduate-reasoning
+
+No description available.
+
+### GTBench (`gtbench`) [Link](https://arxiv.org/abs/2402.12348)
+**Subcategory:** game-theory
+
+No description available.
+
+### LLM Chess (`llmchess`) [Link](https://arxiv.org/abs/2512.01992)
+**Subcategory:** strategic-reasoning
 
 No description available.
 
@@ -59,6 +84,21 @@ No description available.
 
 No description available.
 
+### RPGBench (`rpgbench`) [Link](https://arxiv.org/abs/2502.00595)
+**Subcategory:** role-playing
+
+No description available.
+
+### SI-Bench (`sibench`) [Link](https://arxiv.org/abs/2510.23182)
+**Subcategory:** social-intelligence
+
+No description available.
+
+### SOTOPIA (`sotopia`) [Link](https://arxiv.org/abs/2310.11667)
+**Subcategory:** social-simulation
+
+No description available.
+
 ### TemporalBench (`temporalbench`) [Link](https://arxiv.org/abs/2410.10818)
 **Subcategory:** temporal-reasoning
 
@@ -73,4 +113,3 @@ No description available.
 **Subcategory:** theory-of-mind
 
 No description available.
-

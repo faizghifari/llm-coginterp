@@ -24,11 +24,6 @@ No description available.
 
 40 tasks across school levels; STEM, social sciences, humanities, Arabic language
 
-### BasqueGLUE (`basqueglue`) [Link](https://huggingface.co/datasets/orai-nlp/BasqueGLUE)
-**Subcategory:** low-resource
-
-No description available.
-
 ### Batayan: Filipino NLP Benchmark (`batayan`) [Link](https://arxiv.org/abs/2502.14911)
 **Subcategory:** filipino-nlp
 
@@ -44,11 +39,6 @@ Parallel dataset enabling direct cross-lingual comparison
 
 Tests instruction following, code generation, long context understanding, math/science reasoning, tool use
 
-### BG-GLUE (Bulgarian GLUE) (`bgGLUE`) [Link](https://huggingface.co/datasets/undertheseanlp/bgGLUE)
-**Subcategory:** low-resource
-
-No description available.
-
 ### BharatBench (`bharatbench`) [Link](https://huggingface.co/datasets/ai4bharat/BharatBench)
 **Subcategory:** south-asian
 
@@ -61,11 +51,6 @@ No description available.
 
 ### BLEND (`blend`) [Link](https://github.com/nlee0212/BLEnD)
 **Subcategory:** cross-lingual
-
-No description available.
-
-### Bengali MMLU (`bnMMLU`) [Link](https://arxiv.org/abs/2505.18951)
-**Subcategory:** south-asian
 
 No description available.
 
@@ -104,11 +89,6 @@ No description available.
 
 No description available.
 
-### HuLU (Hungarian GLUE) (`huLU`) [Link](https://aclanthology.org/2024.lrec-main.733.pdf)
-**Subcategory:** low-resource
-
-No description available.
-
 ### ILAKKANAM: Tamil Linguistic Benchmark (`ilakkanam`) [Link](https://arxiv.org/abs/2511.12387)
 **Subcategory:** tamil-linguistics
 
@@ -129,18 +109,8 @@ Covers low-resource Indic languages for the first time; largest Indic gen benchm
 
 No description available.
 
-### IndoNLU (`indonlu`) [Link](https://huggingface.co/datasets/indolem/IndoNLU)
-**Subcategory:** indonesian-nlp
-
-No description available.
-
 ### IrokoBench (`irokobench`) [Link](https://huggingface.co/datasets/masakhane/IrokoBench)
 **Subcategory:** african-languages
-
-No description available.
-
-### JGLUE (`jglue`) [Link](https://huggingface.co/datasets/oshizo/jglue)
-**Subcategory:** japanese
 
 No description available.
 
@@ -159,11 +129,6 @@ No description available.
 
 First comprehensive multilingual benchmarking of generative LLMs
 
-### MEGAVERSE: Benchmarking LLMs Across Languages; Modalities; Models and Tasks (`megaverse`) [Link](https://arxiv.org/abs/2311.07463)
-**Subcategory:** multi-task
-
-Extension of MEGA; adds vision models (LLaVA; GPT-4V; Gemini-Pro-Vision)
-
 ### MENA-Bench (`mena_bench`) [Link](https://huggingface.co/datasets/QCRI/MENA-Bench)
 **Subcategory:** middle-east-north-africa
 
@@ -176,11 +141,6 @@ No description available.
 
 ### MILU (`milu`) [Link](https://arxiv.org/html/2411.02538v1)
 **Subcategory:** indigenous
-
-No description available.
-
-### MMAU (`mmau`) [Link](https://arxiv.org/html/2410.19168v1)
-**Subcategory:** australian-languages
 
 No description available.
 
@@ -214,21 +174,6 @@ No description available.
 
 No description available.
 
-### RussianSuperGLUE (`russiansuperglue`) [Link](https://huggingface.co/datasets/RussianNLP/RussianSuperGLUE)
-**Subcategory:** slavic-languages
-
-No description available.
-
-### ScandEval (`scandeval`) [Link](https://huggingface.co/datasets/ScandEval/scandeval)
-**Subcategory:** scandinavian
-
-No description available.
-
-### ScanEval (`scaneval`) [Link](https://arxiv.org/abs/2304.00906)
-**Subcategory:** scandinavian
-
-No description available.
-
 ### SEA-Exam (`sea_exam`) [Link](https://huggingface.co/datasets/aisingapore/sea-exam)
 **Subcategory:** sea-exams
 
@@ -243,11 +188,6 @@ No description available.
 **Subcategory:** sea-multilingual
 
 Covers 38 SEA languages across 13 tasks in 3 modalities
-
-### SuperLim (`superlim`) [Link](https://huggingface.co/datasets/superlim/superlim)
-**Subcategory:** scandinavian
-
-No description available.
 
 ### ThaiExam: Thai Language Benchmark (`thaiexam`) [Link](https://arxiv.org/abs/2312.13951)
 **Subcategory:** thai-nlp
@@ -268,4 +208,3 @@ No description available.
 **Subcategory:** instruction-following
 
 No description available.
-

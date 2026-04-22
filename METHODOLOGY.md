@@ -1,20 +1,20 @@
 # LLM Benchmark Dataset: Methodology & Descriptive Statistics
 
-## 1. Descriptive Statistics
+## Current Dataset State (as of 2026-04-22)
 
-**Benchmarks (`benchmarks.csv`)**
-- **Total Benchmarks:** 162
-- **Source URL Coverage:** 100% (Every benchmark has at least one verified working link to its ArXiv Paper, GitHub Repo, or HuggingFace Dataset).
+| File | Count |
+|---|---|
+| `data/benchmarks.csv` | 183 benchmarks |
+| `data/models.csv` | 1,074 models |
+| `data/results.csv` | 7,436 evaluation rows |
 
-**Evaluation Results (`results.csv`)**
-- **Total Evaluation Rows:** 8444
-- **Model Types:** 6446 Open Weights, 1719 Closed/API Models, 279 Unknown.
-- **Inference Info Coverage:** 6857 / 8444 rows (81.2%)
-- **Generation Config Coverage:** 5316 / 8444 rows (63.0%)
+**Known data quality issues:**
+- 57 results rows have a blank `score` field.
+- ~5,059 rows (~68%) are sourced from HF Open LLM Leaderboard v1/v2 and are pending replacement with the "Only Official Providers" filter.
 
 ---
 
-## 2. General Data Collection Methodology
+## General Data Collection Methodology
 
 The core philosophy of this data collection effort is **"Strict Source Verification"**. To prevent the hallucination or fabrication of evaluation parameters, no data was inferred using generalized heuristics (e.g., assuming all open models use HuggingFace Transformers). If a detail was not explicitly documented by the benchmark's authors or the evaluator, the field was intentionally left blank.
 
@@ -26,7 +26,7 @@ The core philosophy of this data collection effort is **"Strict Source Verificat
 
 ---
 
-## 3. Model Inclusion Criteria
+## Model Inclusion Criteria
 
 We enforce strict criteria for which models are tracked in this dataset. The core requirement is that the model must be a **generative language model capable of handling arbitrary prompts**.
 
@@ -39,16 +39,33 @@ We enforce strict criteria for which models are tracked in this dataset. The cor
 - Classification-only or encoder-only models (e.g., BERT, RoBERTa) that cannot generate arbitrary text.
 - Task-specific models restricted to narrow inputs/outputs (e.g., dedicated TTS, ASR, or specialized translation models that cannot be prompted generally).
 - Community-uploaded models (e.g., random HuggingFace uploads) that are experimental, undocumented, or lack reliable provenance and evaluation data.
+- Models that represent a different *setup* of the same model (e.g., different context length, CoT prompting, effort levels). These are captured via the `setup` and `reasoning_enabled` columns instead of as separate model entries.
 
 ---
 
-## 4. Data Normalization (Tasks 1-3)
-- **Model Normalization:** Model families were normalized without erasing crucial variant details. For instance, Llama models were carefully disambiguated using heuristics like `model_size` and `year_evaluated` (e.g., 7B/13B/70B -> Llama 2, 405B -> Llama 3.1) instead of grouping them into a monolithic "Llama" category.
-- **Data Integrity:** Ensured that structural updates to the CSVs preserved all historical metrics.
+## Data Normalization
+
+### Benchmark Normalization
+- `benchmark_id` is always lowercase, used as the primary key.
+- 22 zero-result benchmark stubs were removed from `benchmarks.csv`. Two (`CRUX`, `VerifyQA`) were confirmed duplicates of existing entries (`cruxeval`, `simpleqa`); the remaining 20 were genuine empty stubs with no associated results. All 20 have been added to `notes/pending_benchmarks.md` for future data collection.
+
+### Model Normalization
+- **HuggingFace org prefix stripping:** All model IDs had organization prefixes removed (e.g., `meta-llama/Llama-3-8B` → `Llama-3-8B`). One collision was pre-resolved before stripping (`mistral-community/Mixtral-8x22B-v0.1` merged into `mistralai/Mixtral-8x22B-v0.1`).
+- **Thinking/reasoning tag removal:** Model names with thinking-mode or effort-level tags (e.g., `claude-3-7-sonnet-thinking`, `o3 high`) were merged into their canonical base names; affected rows received `reasoning_enabled = True`.
+- **Context-length variants merged:** `gpt-4-32k`, `gpt-4-128k`, etc. were merged into `GPT-4` since context length is an evaluation setup, not a model identity.
+- **Llama family disambiguation:** Llama variants were kept distinct using `model_size` + `year_evaluated` heuristics (e.g., 7B/13B/70B → Llama 2; 405B → Llama 3.1). Llama 4 variants (Scout, Maverick) are tracked as separate entries.
+- **Non-LLM removal:** Models that are not generative LLMs (e.g., SeamlessM4T, encoder-only models) were removed from both `models.csv` and `results.csv`.
+- Net result: models.csv reduced from ~1,174 to 1,074 entries; results.csv grew from ~4,309 to 7,436 rows (new benchmarks added in parallel).
+
+### Data Integrity
+- FK violations (results rows referencing unknown benchmarks or models): **0**
+- Models with zero result rows: **0**
+- Benchmarks with zero result rows: **0**
 
 ---
 
-## 4. Inference Environment Collection (Task 4)
+## Inference Environment Collection
+
 We mapped the `inference_platform` and `inference_engine` used for each evaluation row.
 
 **Methodology:**
@@ -57,17 +74,18 @@ We mapped the `inference_platform` and `inference_engine` used for each evaluati
 3. If the source was an official benchmark, we scanned the GitHub README and ArXiv paper for explicit mentions of frameworks (e.g., `vLLM`, `lm-eval-harness`, `SGLang`, `Lighteval`).
 
 **Assumptions Applied:**
-- **Closed Models via API:** We applied a safe deduction that models with `model_type == 'closed'` (e.g., GPT-4, Claude 3.5, Gemini 1.5) cannot be run locally. Therefore, their `inference_platform` was universally set to `api` and engine to `api (unspecified)`.
+- **Closed Models via API:** Models with `model_type == 'closed'` (e.g., GPT-4, Claude 3.5, Gemini 1.5) cannot be run locally. Their `inference_platform` was universally set to `api` and engine to `api (unspecified)`.
 
 ---
 
-## 5. Generation Configuration (Task 5)
+## Generation Configuration
+
 We collected explicit generation parameters (`generation_temperature`, `generation_max_tokens`, `generation_top_p`).
 
 **Methodology:**
-1. Scanned all 147 benchmarks' original GitHub READMEs and ArXiv HTML papers.
+1. Scanned all benchmarks' original GitHub READMEs and ArXiv HTML papers, or the benchmark sources.
 2. Filtered for keywords: `temperature`, `max_tokens`, `top_p`, `greedy decoding`.
-3. Extracted only explicit, stated values (e.g., "We suggest using greedy decoding", "temperature was fixed at 0"). 
+3. Extracted only explicit, stated values (e.g., "We suggest using greedy decoding", "temperature was fixed at 0").
 4. Benchmarks that relied on "bring your own predictions" (e.g., PubMedQA) or whose papers omitted decoding parameters were strictly left blank.
 
 **Assumptions Applied:**
@@ -75,8 +93,9 @@ We collected explicit generation parameters (`generation_temperature`, `generati
 
 ---
 
-## 6. Quality Assurance (URL Validation)
+## Quality Assurance (URL Validation)
+
 Before finalizing the dataset, a multi-threaded URL validator was run across both CSVs:
 - Validated HTTP status codes (ignoring false-positive 403s from anti-bot protections on ArXiv/Cloudflare).
-- Hunted down and replaced dead links (404s), such as resolving moved GitHub repositories (e.g., `HiTZ/BasqueGLUE` -> `orai-nlp/BasqueGLUE`) or finding mirrors for dead DOI links.
+- Hunted down and replaced dead links (404s), such as resolving moved GitHub repositories (e.g., `HiTZ/BasqueGLUE` → `orai-nlp/BasqueGLUE`) or finding mirrors for dead DOI links.
 - Filled in 53 entirely blank benchmark source links by cross-referencing benchmark names with active ArXiv/GitHub links.

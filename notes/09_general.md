@@ -10,6 +10,13 @@ This document categorizes benchmarks related to general capabilities.
 No description available.
 
 ### Artificial Analysis Intelligence (`artificial_analysis_intelligence`)
+**Subcategory:** multi-task
+
+No description available.
+
+### Artificial Analysis Intel (`artificial_analysis_intel`)
+**Subcategory:** multi-task
+
 No description available.
 
 ### FreshQA (`freshqa`) [Link](https://github.com/NVIDIA-AI-Blueprints/aiq/blob/develop/frontends/benchmarks/freshqa/README.md)
@@ -22,26 +29,14 @@ No description available.
 
 No description available.
 
-###  (`humanitys_last_exam`)
-No description available.
-
-### IntentQA (`intentqa`) [Link](https://arxiv.org/html/2311.13627v3)
-**Subcategory:** qa
+### Humanity's Last Exam (`humanitys_last_exam`)
+**Subcategory:** hard-reasoning
 
 No description available.
 
 ### LiveBench: A Challenging, Contamination-Free LLM Benchmark (`livebench`) [Link](https://github.com/livebench/livebench)
 **Subcategory:** multi-task
 
-No description available.
-
-###  (`livebench_global`)
-No description available.
-
-###  (`livebench_if`)
-No description available.
-
-###  (`livebench_language`)
 No description available.
 
 ### MARCO Bench MIF (`marco_bench_mif`) [Link](https://arxiv.org/abs/2507.11882)
@@ -59,6 +54,11 @@ No description available.
 
 No description available.
 
+### MT-Bench (`mt_bench`) [Link](https://huggingface.co/datasets/lmsys/mt_bench)
+**Subcategory:** conversational
+
+No description available.
+
 ### MuSR: Testing the Limits of Chain-of-thought with Multistep Soft Reasoning (`musr`) [Link](https://github.com/Zayne-sprague/MuSR)
 **Subcategory:** reasoning
 
@@ -69,8 +69,28 @@ No description available.
 
 No description available.
 
+### OpenCompass (`opencompass`) [Link](https://rank.opencompass.org.cn/leaderboard-llm)
+**Subcategory:** multi-task
+
+No description available.
+
+### Prophet Arena (`ProphetArena`) [Link](https://openreview.net/forum?id=VpiHkMSPqI)
+**Subcategory:** prediction
+
+No description available.
+
+### Shopping MMLU (`ShoppingMMLU`)
+**Subcategory:** knowledge
+
+No description available.
+
 ### SimpleQA (`simpleqa`) [Link](https://huggingface.co/datasets/openai/simpleqa)
 **Subcategory:** qa
+
+No description available.
+
+### LLM Spirals of Delusion (`SpiralBench`) [Link](https://arxiv.org/abs/2604.06188)
+**Subcategory:** hallucination
 
 No description available.
 
@@ -81,20 +101,5 @@ No description available.
 
 ### WinoGrande: An Adversarial Winograd Schema Challenge (`winogrande`)
 **Subcategory:** commonsense
-
-No description available.
-
-
-### MT-Bench (`mt_bench`) [Link](https://huggingface.co/datasets/lmsys/mt_bench)
-**Subcategory:** conversational
-
-No description available.
-
-
-### Artificial Analysis Intel (`artificial_analysis_intel`)
-No description available.
-
-### OpenCompass (`opencompass`) [Link](https://rank.opencompass.org.cn/leaderboard-llm)
-**Subcategory:** multi-task
 
 No description available.
