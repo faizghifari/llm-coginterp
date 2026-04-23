@@ -19,11 +19,11 @@
 **Moral Machine for LLMs** (2024) — https://arxiv.org/abs/2407.02273 ⚠️ MIS scores only in Figure 2a (visual); need to extract from paper repo at https://github.com/causalNLP/multiTP
 
 ## 🎵 Music
-**MSU-Bench** (2025)
-**ABC-Eval** (2025) — https://arxiv.org/abs/2509.23350
-**WildScore** (2025) — https://arxiv.org/abs/2509.04744
-**MASSIVE Music Evaluation** (2024)
-**MuchoMusic** (2024)
+~~**MSU-Bench** (2025) — https://arxiv.org/abs/2511.20697~~ ✅ Batch 4
+~~**ABC-Eval** (2025) — https://arxiv.org/abs/2509.23350~~ ✅ Previously added
+~~**WildScore** (2025) — https://arxiv.org/abs/2509.04744~~ ✅ Previously added
+**MASSIVE Music Evaluation / ZIQI-Eval** (2024) — https://arxiv.org/abs/2406.15885 ✅ Batch 4
+~~**MuchoMusic** (2024) — https://arxiv.org/abs/2408.01337~~ ✅ Batch 4
 
 ## ⚽ Sports
 ~~**SportQA** (2024) — https://arxiv.org/abs/2402.15862~~ ✅ Batch 3
