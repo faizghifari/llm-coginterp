@@ -30,6 +30,17 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## Batch 2 — Coding/Debugging
+
+### Added
+- **DebugBench** — ACL 2024 Findings. Pass rate for 5 models (GPT-4: 65%, GPT-3.5: 45%, DeepSeek-Coder-33B: 42%, CodeLlama-7B: 22%, Mixtral-8x7B: 15%) across C++, Java, Python.
+
+### Total
+- Benchmarks added: 1
+- Result rows added: 5
+
+---
+
 ## Process Group 4 — Morality/Ethics Batch
 
 ### Added

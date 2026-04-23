@@ -42,7 +42,8 @@ Current pending list by cluster:
 ~~XSTest ✓~~ ~~TrustLLM ✓~~ ~~HarmBench ✓~~ ~~JailbreakBench ✓~~ ~~Do-Not-Answer ✓~~
 
 **Coding and debugging**
-- CRITIQUE, DebugBench
+~~DebugBench ✓~~
+- CRITIQUE
 
 After adding: run `python3 verify_data.py` and `python3 export_eee_jsonl.py`.
 

@@ -14,6 +14,11 @@ No description available.
 
 No description available.
 
+### DebugBench (`debugbench`) [Link](https://arxiv.org/abs/2401.04621)
+**Subcategory:** debugging
+
+First comprehensive debugging benchmark. 4,253 instances across C++, Java, Python covering Syntax, Reference, Logic, and Multiple bug types. Pass rates: GPT-4 65%, GPT-3.5 45%, DeepSeek-Coder-33B 42%, CodeLlama-7B 22%, Mixtral-8x7B 15%.
+
 ### FlashInfer-Bench (`FlashInfer-Bench`)
 **Subcategory:** inference
 
