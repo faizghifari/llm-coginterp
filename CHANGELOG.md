@@ -15,6 +15,20 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## Batch 3 — Sports
+
+### Added
+- **SportQA** — NAACL 2024. Level-3 (hardest) accuracy for 4 models (GPT-4: 23.01%, GPT-3.5-Turbo: 19.24%, PaLM-2-Bison: 16.74%, Llama-2-13B-Chat: 8.79%) on 70,592 MCQs across 35 sports. Human experts score 91.84%.
+- **SPORTU** — ICLR 2025. Video MCQ accuracy for 4 MLLMs (Qwen2-VL-72B: 70.94%, Claude-3.5-Sonnet: 70.18%, GPT-4o: 68.79%, LLaVA-NeXT-72B: 63.72%) on 12,048 QA pairs across 7 sports.
+- **SportsMetrics** — ACL 2024. Mean absolute error on NBA game points for 4 models (GPT-3.5-Turbo-1106: 9.45, Gemini Pro: 17.62, claude-2.1: 21.73, Llama-2-13B-Chat: 70.77) on 28,492 NBA games + 5,867 NFL games.
+
+### Total
+- Benchmarks added: 3
+- Models added: 2 (LLaVA-NeXT-72B, GPT-3.5-Turbo-1106)
+- Result rows added: 12
+
+---
+
 ## Batch 1 — Safety/Red-teaming
 
 ### Added

@@ -26,9 +26,9 @@
 **MuchoMusic** (2024)
 
 ## ⚽ Sports
-**SportQA** (2024) — https://arxiv.org/abs/2402.15862
-**SportU** (2024) — https://arxiv.org/abs/2410.08474
-**SportsMetrics** (2024) — https://arxiv.org/abs/2402.10979
+~~**SportQA** (2024) — https://arxiv.org/abs/2402.15862~~ ✅ Batch 3
+~~**SportU** (2024) — https://arxiv.org/abs/2410.08474~~ ✅ Batch 3
+~~**SportsMetrics** (2024) — https://arxiv.org/abs/2402.10979~~ ✅ Batch 3
 
 ## 🎭 Deception, manipulation
 **Sycophancy Is Not One Thing** (2025) — https://arxiv.org/abs/2509.21305

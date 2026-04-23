@@ -1072,3 +1072,5 @@ codellama-34b,CodeLlama-34B,Llama,Meta,,,,,,open,34.0,,,,,,,,,,,,,
 semcoder-6.7b,SemCoder-6.7B,,,,,,,,open,6.7,,,,,,,,,,,,,
 semcoder-s-6.7b,SemCoder-S-6.7B,,,,,,,,open,6.7,,,,,,,,,,,,,
 Qwen3-4B,Qwen3 4B,Qwen 3,Alibaba Cloud,,,,,,open,4.0,,,,,,,,,,,,,
+LLaVA-NeXT-72B,LLaVA-NeXT-72B,llava,Salesforce / LLaVA Team,72B,,0,0,,open,72B,open,multimodal,,,,,,,,,,72.0
+GPT-3.5-Turbo-1106,GPT-3.5-Turbo-1106,gpt,OpenAI,,,0,0,,closed,,closed,text,,2023,openai_api,https://api.openai.com/v1,,,,,,
