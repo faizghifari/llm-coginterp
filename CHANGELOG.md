@@ -4,14 +4,68 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
-## [Unreleased]
+## Batch 6 — Reasoning / Counterfactual Reasoning ✓
 
 ### Added
-- EmoBench results
-- EQ-Bench results
+- **CounterfactualReasoningEval** — ICLR 2026 (arXiv 2505.11839). Decompositional evaluation of counterfactual reasoning across 4 stages using Pearl's SCM framework: (I) Causal Variable Identification, (II) Causal Graph Construction, (III) Counterfactual Intervention Identification, (IV) Outcome Reasoning. 11 datasets spanning text, vision-language, math (symbol), and code modalities. Evaluated 7 models. F1 scores per decompositional stage: GPT-5 leads on exposure identification (avg ~87%), but performance drops sharply on mediator-outcome reasoning (~60% avg). Llama-4-S and Llama-4-M (both new model entries) evaluated alongside ChatGPT-5, o1, Qwen3-Max, Gemini-2.5-Pro, DeepSeek-V3. Results include 4 sub-metrics per dataset-model pair: TaskIII_F1_Exposure, TaskIII_F1_Covariate, TaskIII_F1_Mediator, TaskIII_F1_Outcome, TaskIV_F1_M_prime, TaskIV_F1_Y_prime — total 462 result rows (7 models × 11 datasets × 3 task phases × 2 sub-dimensions).
+
+### Removed from pending
+- **Sycophancy Is Not One Thing** (arXiv 2509.21305) — Mechanistic interpretability study on causal separation of sycophantic behaviors, NOT a benchmark with leaderboard scores. Does not fit EEE schema (no model-vs-model score table).
+- **DiploBench** — Explicitly labeled by authors as "not a benchmark yet" in EQ-Bench; consists of single game runs with high variance between iterations. Not suitable for standard benchmark tracking.
+- **Cultural Variations in Moral Judgments** (arXiv 2506.12433) — Correlation study comparing LLM moral judgments to human survey data across countries using correlation coefficients, NOT a standard benchmark with accuracy/F1 scores.
+
+### Total
+- Benchmarks added: 1 new
+- Models added: 2 new (Llama-4-S, Llama-4-M); mapped from paper model aliases (GPT-o4→o1, GPT-5→gpt-5, Qwen3→qwen3 max, Gemini2.5→gemini-2.5-pro, DeepSeek→deepseek-v3)
+- Result rows added: 462
+
+---
+
+## Batch 7 — Engineering & GPU kernels ✓
+
+### Added
+- **EngiBench** — ICLR 2026 (arXiv 2509.17677). Hierarchical engineering benchmark: Level 1 (1717 problems, foundational knowledge retrieval across systems/control, physics/structural, chemical/biological), Level 2 (511 problems, multi-step contextual reasoning), Level 3 (43 open-ended modeling tasks with rubric scoring max 10). Each L1/L2 has 3 variants: original, perturbed, knowledge-enhanced, and math abstraction. Evaluated 14 models across 5 metrics per model (Level 1 orig/perturbed accuracy, Level 2 orig/perturbed accuracy, Level 3 rubric score). GPT-4.1 leads with Level 3 score 7.0; Tier 2 models (~6.0 avg); Tier 3/7B-class models (~3.5 avg).
+- **KernelBench** — ICML 2025 (arXiv 2502.10517, corrected from pending URL 2601.00227 which is FlashInfer-Bench). GPU kernel generation benchmark with 3 levels: Level 1 (100 individual ops), Level 2 (100 operator sequences for fusion testing), Level 3 (50 end-to-end architectures). Metric: fast_p (fraction correct AND speedup >p over PyTorch Eager). Evaluated 5 models. DeepSeek-R1 achieves best L2 at 36% (72% with iterative refinement feedback). Reasoning models better at avoiding crashes but equally weak on functional correctness. CUDA is only 0.073% of code corpora explaining low performance overall.
 
 ### Fixed
-- Blank `score` column: All previously blank rows now have scores filled in
+- **KernelBench URL corrected**: arXiv 2601.00227 was FlashInfer-Bench, real KernelBench is arXiv 2502.10517
+
+### Removed from pending
+- **BioNovice Lab Performance** — LLM-assisted human trial (arXiv 2602.16703), not a standard model-vs-model benchmark with leaderboard scores. Should be tracked separately if needed.
+
+### Total
+- Benchmarks added: 2 new (EngiBench, KernelBench)
+- Models verified/added: 3 new (Claude-3.7-Sonnet, Gemini-2.0-Flash, GLM-4-32B); all others existed in CSVs
+- Result rows added: 96 (80 EngiBench + 16 KernelBench)
+- Totals after batch: 198 benchmarks, 1118 models, 8024 result entries
+
+## Batch 8 — Critique-Correct Reasoning ✓
+
+### Added
+- **CriticBench** — ACL 2024 Findings (arXiv 2402.14809). General reasoning benchmark evaluating LLMs' ability to generate, critique, and correct their own reasoning across 5 domains: Math (GSM8K), Commonsense (CSQA), Algorithmic, Coding (MBPP/HumanEval), Symbolic (BIG-Bench). 3,800 instances from 15 datasets. Evaluated 17 models from LLaMA/Vicuna/GPT families in generation/correction phases; critique phase evaluated 12 models. Uses binary discrimination F1 for critique (CritF1), accuracy for generation (GenAcc) and correction (CorrAcc). Key finding: linear GQC relationship, critique-focused training boosts performance even over larger RLHF models. Added per-model averages across all domains (3 metrics × 12 models = 36 result rows).
+
+### Total
+- Benchmarks added: 1 new
+- Models added: 3 new (Mixtral-8x7b inst, Vicuna-33b, Vicuna-13B — existing FK aliases normalized); 9 mapped from lowercase names to canonical models.csv entries
+- Result rows added: 36
+- Totals after batch: 200 benchmarks, 1121 models, 8060 result entries
+
+### Removed from pending
+- **CRITIQUE** (CriticBench) — Added as Batch 8
+
+## Batch 9 — Malicious Prompt Resistance ✓
+
+### Added
+- **MaliciousInstruct** — ICLR 2024 (arXiv 2310.06987). Safety/red-teaming benchmark evaluating LLM resistance to jailbreaks via "generation exploitation" attack. 100 malicious prompts across 10 categories: psychological manipulation, sabotage, theft, defamation, cyberbullying, false accusation, tax fraud, hacking, fraud, illegal drug use. Evaluated 11 open-source models (Vicuna 7B/13B/33B, MPT 7B/30B, Falcon 7B/40B, LLaMA2 7B/13B + both chat variants). ASR measured under 6 decoding conditions: greedy with/without system prompt, varied temperature, varied top-k, varied top-p, and combined varied all. Key finding: default evaluations yield <5% ASR on aligned models, but simple decoding manipulation pushes ASR to >95% across all models. Safety-aligned LLaMA2-chat models drop from 0% (default) to 8-16% under single-condition exploitation, reaching 71-88% under varied decoding.
+
+### Total
+- Benchmarks added: 1 new
+- Models added: 5 new (MPT-7B, MPT-30B, Falcon-7B, Falcon-40B, Llama-2-13B base); 6 mapped from lowercase to canonical names
+- Result rows added: 66 (11 models × 6 ASR metrics)
+- Totals after batch: 202 benchmarks, 1126 models, 8126 result entries
+
+### Removed from pending
+- **MaliciousInstruct** — Added as Batch 9
 
 ---
 

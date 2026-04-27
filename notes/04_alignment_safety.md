@@ -163,3 +163,8 @@ No description available.
 **Subcategory:** safety-refusal
 
 Diagnostic test suite for exaggerated safety and false refusals. 250 safe prompts across 10 categories. Llama2.0 38% refusal on safe prompts; GPT-4 6.4%; Mistral-7B-Instruct 0.8%.
+
+### MaliciousInstruct (`maliciousinstruct`) [Link](https://arxiv.org/abs/2310.06987)
+**Subcategory:** malicious-prompt-resistance
+
+Safety/red-teaming benchmark from "Catastrophic Jailbreak of Open-source LLMs via Exploiting Generation" (Huang et al., ICLR 2024). 100 prompts across 10 malicious categories. ASR measured under 6 decoding conditions. Default evaluation shows <5% ASR on aligned models; simple decoding manipulation pushes ASR to >95%. Batch 9 addition — 11 models, 66 result rows.
