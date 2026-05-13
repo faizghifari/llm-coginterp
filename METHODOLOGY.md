@@ -1,18 +1,4 @@
-# LLM Benchmark Dataset: Methodology & Descriptive Statistics
-
-## Current Dataset State (as of 2026-04-22)
-
-| File | Count |
-|---|---|
-| `data/benchmarks.csv` | 183 benchmarks |
-| `data/models.csv` | 1,074 models |
-| `data/results.csv` | 7,436 evaluation rows |
-
-**Known data quality issues:**
-- 57 results rows have a blank `score` field.
-- ~5,059 rows (~68%) are sourced from HF Open LLM Leaderboard v1/v2 and are pending replacement with the "Only Official Providers" filter.
-
----
+# LLM Benchmark Dataset: Methodology
 
 ## General Data Collection Methodology
 
@@ -47,20 +33,21 @@ We enforce strict criteria for which models are tracked in this dataset. The cor
 
 ### Benchmark Normalization
 - `benchmark_id` is always lowercase, used as the primary key.
-- 22 zero-result benchmark stubs were removed from `benchmarks.csv`. Two (`CRUX`, `VerifyQA`) were confirmed duplicates of existing entries (`cruxeval`, `simpleqa`); the remaining 20 were genuine empty stubs with no associated results. All 20 have been added to `notes/pending_benchmarks.md` for future data collection.
+- 22 zero-result benchmark stubs were removed from `benchmarks.csv`. Two (`CRUX`, `VerifyQA`) were confirmed duplicates of existing entries (`cruxeval`, `simpleqa`); the remaining 20 were genuine empty stubs with no associated results. All 20 were added to `notes/pending_benchmarks.md` for future data collection.
+- Benchmarks with zero result rows must not exist in benchmarks.csv.
 
 ### Model Normalization
 - **HuggingFace org prefix stripping:** All model IDs had organization prefixes removed (e.g., `meta-llama/Llama-3-8B` → `Llama-3-8B`). One collision was pre-resolved before stripping (`mistral-community/Mixtral-8x22B-v0.1` merged into `mistralai/Mixtral-8x22B-v0.1`).
 - **Thinking/reasoning tag removal:** Model names with thinking-mode or effort-level tags (e.g., `claude-3-7-sonnet-thinking`, `o3 high`) were merged into their canonical base names; affected rows received `reasoning_enabled = True`.
 - **Context-length variants merged:** `gpt-4-32k`, `gpt-4-128k`, etc. were merged into `GPT-4` since context length is an evaluation setup, not a model identity.
-- **Llama family disambiguation:** Llama variants were kept distinct using `model_size` + `year_evaluated` heuristics (e.g., 7B/13B/70B → Llama 2; 405B → Llama 3.1). Llama 4 variants (Scout, Maverick) are tracked as separate entries.
+- **Llama family disambiguation:** Llama variants are kept distinct using `model_size` + `year_evaluated` heuristics (e.g., 7B/13B/70B → Llama 2; 405B → Llama 3.1). Llama 4 variants (Scout, Maverick) are tracked as separate entries.
 - **Non-LLM removal:** Models that are not generative LLMs (e.g., SeamlessM4T, encoder-only models) were removed from both `models.csv` and `results.csv`.
-- Net result: models.csv reduced from ~1,174 to 1,074 entries; results.csv grew from ~4,309 to 7,436 rows (new benchmarks added in parallel).
 
 ### Data Integrity
-- FK violations (results rows referencing unknown benchmarks or models): **0**
-- Models with zero result rows: **0**
-- Benchmarks with zero result rows: **0**
+- FK violations (results rows referencing unknown benchmarks or models): **0** (benchmarks), **26** (models — aliases pending normalization).
+- Models with zero result rows: **0**.
+- Benchmarks with zero result rows: **0**.
+- Always run `verify_data.py` after making changes to the 3 main data: `results.csv`, `benchmarks.csv`, `results.csv`
 
 ---
 
@@ -99,3 +86,15 @@ Before finalizing the dataset, a multi-threaded URL validator was run across bot
 - Validated HTTP status codes (ignoring false-positive 403s from anti-bot protections on ArXiv/Cloudflare).
 - Hunted down and replaced dead links (404s), such as resolving moved GitHub repositories (e.g., `HiTZ/BasqueGLUE` → `orai-nlp/BasqueGLUE`) or finding mirrors for dead DOI links.
 - Filled in 53 entirely blank benchmark source links by cross-referencing benchmark names with active ArXiv/GitHub links.
+
+---
+
+## Export Outputs
+
+### EEE JSONL (`export_eee_jsonl.py`)
+- `data/eee_output/by_benchmark/{benchmark_id}.jsonl` — one file per benchmark (EEE schema v0.2.1)
+- `data/eee_output/all_evaluations.jsonl` — single consolidated file with all 8,126 records
+- `evaluation_id` is an MD5 hash of `model_name + benchmark_id + source_url`
+
+### Excel Workbook (`export_xlsx.py`)
+- `data/llm_benchmarks_export.xlsx` — three-sheet workbook (benchmarks / models / results)
