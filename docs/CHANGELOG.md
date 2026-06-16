@@ -2,7 +2,49 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 215 benchmarks, 1096 models, 8264 result entries.
+**Current totals:** 215 benchmarks, 1096 models, 7829 result entries.
+
+---
+
+## HF Open LLM Leaderboard Dupe Resolution — live re-verification ✓
+
+`scripts/manage_data.py dupes` found 519 duplicate-evaluation groups (same
+model+benchmark+metric+setup+source, conflicting data). Investigated the
+source rather than guessing a winner mechanically:
+
+- **24 redundant** (identical score reported twice) — collapsed, zero
+  information loss.
+- **369 conflicting, all HF Open LLM Leaderboard** (256 from the
+  deprecated v1 "old" space, 113 from the current v2 space) — root cause:
+  this dataset had scraped the same model's leaderboard entry at two
+  different points in time, and the leaderboard's own number had drifted
+  between scrapes (re-runs, harness version bumps, or — in the v1 case —
+  the model owner resubmitting). There was no usable timestamp in our
+  data to mechanically pick a winner (`date_recorded` was a constant
+  placeholder for all of them), so each was **re-verified against the
+  live source** instead of guessed:
+  - v2: cross-checked against the live `open-llm-leaderboard/contents`
+    HF dataset (113/113 resolved — one of the two stored scores always
+    matched the current published value).
+  - v1: cross-checked against the per-model timestamped JSON result
+    files in `open-llm-leaderboard-old/results`, merging each
+    benchmark task's value from the most recent submission that actually
+    contains it (some resubmissions only re-ran a subset of tasks, so the
+    single latest file alone was insufficient — 254/256 resolved this
+    way). The remaining 2 rows (`Open-Orca/OpenOrcaxOpenChat-Preview2-13B`,
+    gsm8k + winogrande) had neither stored score match — both were from
+    submissions superseded by a later one — so they were overwritten with
+    the verified current value instead of arbitrarily keeping either
+    stale one.
+- results.csv: 8240 → 7829 rows (411 discarded as the losing half of a
+  resolved conflict, 2 overwritten in place). `scripts/verify_data.py`
+  still reports 0 FK violations, 0 orphans.
+- **126 conflicting groups remain**, all from non-HF live
+  sources/leaderboards (lmsys Arena, vectara/hallucination-leaderboard,
+  IBM mt-rag-benchmark, crux-eval, opencompass, arena-hard-auto, and
+  several individual arXiv papers) — same root-cause pattern, but each
+  needs its own re-verification approach and wasn't in scope for this
+  pass. See `notes/TODO.md`.
 
 ---
 
