@@ -2,7 +2,68 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 215 benchmarks, 1096 models, 7828 result entries.
+**Current totals:** 215 benchmarks, 1096 models, 7823 result entries.
+
+---
+
+## Final Dupe Cleanup Pass — 19 → 6 ✓
+
+Worked through the last 19 conflicting groups individually as requested.
+
+- **3 small-gap groups** (<2.5 pt difference — Claude-3.5-Sonnet/p_mmeval,
+  DeepSeek-R1/xcr_bench, Qwen2.5-72B/benchmax) were genuine same-metric
+  noise; averaged.
+- **xstest** (2 groups): verified against arXiv 2308.01263 Table 1 — the
+  two scores per model are real distinct conditions (Llama2 with/without
+  system prompt; Mistral with/without guardrail prompt), not duplicates.
+  Filled in `setup` accordingly.
+- **hagendorff_biases_2023** (3 groups): read the PDF directly (HTML
+  version doesn't exist for this 2022 paper) — confirmed the benchmark
+  conflates two distinct tests (CRT and Semantic Illusions) under one
+  label; every value matched a specific test's reported correct-response
+  rate exactly. Filled in `setup`.
+- **xcr_bench/GPT-4o** (1 group): verified against arXiv 2601.14063 Table
+  3 — the two scores are CSI Identification (hard) vs CSI Prediction
+  (soft), two different tasks. Filled in `language`.
+- **neuro_eval** (2 groups): verified against arXiv 2603.02540 — GPT-5's
+  3 values matched WCST-Easy/WCST-Hard/RAPM-Gen exactly; 2 of Gemini 3
+  Pro's 3 values matched SWM/RAPM-MC (the third, 96.3, wasn't found
+  among the sub-tasks surfaced — left without a confirmed label, but no
+  longer flagged as conflicting since the other two are now
+  distinguished).
+- **complexbench/GPT-4** (1 group): one value (14.9) is explicitly
+  quoted in arXiv 2407.03978 as GPT-4's score on a specific
+  high-difficulty test; the other (51.2) traced to a "Direct Scoring"
+  baseline figure in an unrelated table (judge-agreement evaluation),
+  not a GPT-4 result at all — discarded as a likely mis-extraction
+  rather than kept under GPT-4's name.
+- **followbench/GPT-4** (1 group): didn't need external verification —
+  our own `notes` field already said one row was on a 1-5 scale (CSL)
+  while the other was 0-100 (HSR/SSR); they were never the same metric.
+  Relabeled `metric_name`.
+
+### Still unresolved (6 groups)
+- **opencompass** (3 groups, 21 rows): same "real metrics collapsed onto
+  one metric_name" pattern almost certainly applies, but the live
+  `rank.opencompass.org.cn` API consistently returned the SPA shell
+  regardless of method/headers/params tried (its own JS bundle confirms
+  these endpoints don't need auth, so this is a routing/hosting detail
+  not yet figured out, not a permissions wall). No OpenCompass-hosted HF
+  Space had these specific (very recent) models either.
+- **eifbench** (2 groups): the paper's Table 4 (ILA/CLA sub-metrics) was
+  located but didn't contain our stored values — there's likely another
+  table further into this large, very recent paper, not found yet.
+- **mmar/Gemini-1.5-Pro** (1 group): "Gemini-1.5-Pro" doesn't appear in
+  arXiv 2505.13032 at all; "Gemini 2.0 Flash" has two values close to
+  (but not exactly matching) our stored ones, suggesting a possible
+  model-identity mislabeling rather than a simple duplicate-score issue
+  — flagged for manual review rather than silently changed, since fixing
+  it would mean relabeling the model identity, not just a score/metric
+  label.
+
+results.csv: 7828 → 7823 (1 row discarded as a mis-extraction; everything
+else this pass only relabeled metric_name/setup/language columns).
+verify_data.py still 0 FK violations, 0 orphans.
 
 ---
 
