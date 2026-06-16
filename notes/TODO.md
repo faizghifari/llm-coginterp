@@ -25,7 +25,10 @@
 - [ ] Follow existing methodology
 
 ### Previous HELM sweep (lost)
-- [x] ~~HELM sweep data (312 benchmarks, 1155 models, 11208 results) extracted locally but not yet committed~~ — Data was lost (never committed to git). Re-extract via tasks above.
+- [x] ~~HELM sweep data (312 benchmarks, 1155 models, 11208 results) extracted locally but not yet committed~~ — Data was lost (never committed to git) when a repo refactor reset the data files to the last commit. Re-extract via tasks above.
+- [x] Partially recovered 2026-06-16 from a local `data/*.csv.bak5` snapshot that survived the reset: the PwC scan (10 benchmarks) and HELM FACTS family (5 benchmarks), 138 result rows total — committed this time. See CHANGELOG.md "Data Recovery" entry.
+- [ ] Still missing and must be re-extracted from scratch (no surviving backup): the rest of the HELM "other groups" sweep (safety, audio, image2struct, reasoning, air-bench-2024, long-context, mmlu-winogrande-afr, mmlu standalone, medhelm, thaiexam, torr, ewok, finance, arabic-enterprise, seahelm — ~973+ rows) and the entire Kaggle sweep below.
+- [ ] **Lesson learned:** commit data/*.csv after each extraction batch instead of relying on local .bak snapshots — uncommitted working-tree state is not safe from external tooling/refactors.
 
 ## Methodology updates
 - [ ] Add to METHODOLOGY.md: If there is more than 1 score for the same model in a benchmark (due to different setup, different provider/evaluator running the benchmark, etc.), keep each as a **separate row** in results.csv rather than averaging. Distinguish rows via the `setup` and `source_url` fields.

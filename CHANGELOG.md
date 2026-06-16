@@ -2,7 +2,23 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 200 benchmarks, 1125 models, 8126 result entries.
+**Current totals:** 215 benchmarks, 1127 models, 8264 result entries.
+
+---
+
+## Data Recovery — Partial restore after git refactor data loss ✓
+
+A repo-wide git refactor (run via an external agent) reset `data/models.csv`, `data/results.csv`, and `data/benchmarks.csv` back to the last *committed* state (commit `3e3f193`, Apr 27), silently discarding weeks of uncommitted working-tree progress — including a full Kaggle+PwC+HELM extraction sweep that had reached 312 benchmarks / 1155 models / 11208 results (see "Previous HELM sweep (lost)" in TODO.md). Investigation found no git-level recovery path (no reflog/dangling commits — the data files were simply never committed), but a local, gitignored snapshot `data/*.csv.bak5` (saved ~5.5h before the wipe) preserved part of that work.
+
+### Recovered from `data/*.csv.bak5`
+- **Papers With Code multimodal scan** (10 benchmarks): agieval, mathvista, evalplus, chartqa, docvqa, ai2d, mmbench, mme, ocrbench, textvqa.
+- **HELM FACTS family** (5 benchmarks): facts, facts_grounding, facts_multimodal, facts_parametric, facts_search.
+- 138 associated result rows, mapped from bak5's normalized lowercase model IDs back onto the canonical model_id strings already used in `models.csv` (e.g. `gpt-4` → `GPT-4`, `claude-3-opus` → `Claude 3 Opus`).
+- 2 new models added: `Qwen-VL-Max`, `text-davinci-003`.
+- Verified with `verify_data.py`: 0 missing `benchmark_id` FKs; the 26 missing `model_name` FKs are a pre-existing, unrelated issue (see TODO.md).
+
+### Not recoverable (no backup contained it)
+- The full Stanford HELM "other groups" sweep (15 sub-projects, ~973+ rows beyond the FACTS family) and the Kaggle Research category sweep (104 benchmarks) — these existed only in the working tree past the bak5 snapshot and were never saved anywhere. Must be re-extracted from scratch; see TODO.md.
 
 ---
 
