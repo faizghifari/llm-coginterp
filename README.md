@@ -12,16 +12,78 @@ A curated, verified dataset of LLM benchmark evaluations across diverse cognitiv
 
 ## Data Schema
 
-### benchmarks.csv
-Core fields: `benchmark_id`, `benchmark_name`, `year`, `venue`, `category`, `subcategory`, `source_url`, `organization`, `task_types`, `metrics`
+> **The one thing to know before writing any query:** `results.csv`'s
+> foreign key to `models.csv` is the **`model_name`** column, not
+> `model_id` (results.csv also has its own `model_id`, which is a
+> denormalized convenience field — usually the model's HuggingFace repo
+> slug or a similar source-specific identifier — and is *not* what joins
+> to `models.csv`). This is enforced by `scripts/verify_data.py`; see
+> [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the full normalization rules.
 
-### models.csv
-Core fields: `model_id`, `model_name`, `model_family`, `developer`, `model_size`, `model_type`, `provider`, `parameters_billion`
+### benchmarks.csv (37 columns)
+Primary key `benchmark_id` (lowercase). Core fields you'll actually use:
+`benchmark_id`, `benchmark_name`, `year`, `venue`, `category`,
+`subcategory`, `source_url`, `organization`, `task_types`, `metrics`.
+The rest (`paper_url`, `github_url`, `hf_url`, `other_url`, `title`,
+`acronym`, `domain`, ...) are legacy/overlapping fields accumulated
+across different extraction batches — mostly redundant with the core
+fields above, kept for provenance rather than as a clean schema.
 
-### results.csv
-Core fields: `benchmark_id`, `model_id`, `score`, `metric`, `setup`, `reasoning_enabled`, `generation_temperature`, `source_url`
+### models.csv (24 columns)
+Primary key `model_id`. Core fields: `model_id`, `model_name`,
+`model_family`, `developer`, `model_size`, `model_type` (`open`/`closed`),
+`provider`, `parameters_billion`. `benchmark_count`, `total_results`, and
+`avg_score` are denormalized aggregates computed from results.csv —
+**recompute them with `scripts/manage_data.py recompute-stats --write`
+after editing results.csv**, they don't update automatically. (`avg_score`
+is a plain mean across every row for that model regardless of metric
+scale — most scores are 0-100, but a few, like Chatbot Arena's Elo
+ratings, are on a ~1000-1500 scale, so for models evaluated on mixed
+scales this average isn't a single meaningful number.)
+
+### results.csv (38 columns)
+One row per (model, benchmark, evaluation-setup) data point. Core
+fields: `benchmark_id`, `model_name` (the real FK, see above), `score`,
+`metric_name`, `setup`, `language` (sub-task/sub-language label when a
+benchmark reports more than one metric per model — see "Multiple Scores
+per Model-Benchmark Pair" in METHODOLOGY.md), `reasoning_enabled`,
+`generation_temperature`, `source_url`. A model can legitimately have
+many rows for the same benchmark — different `setup`/`source_url`/
+`language` values mean different real evaluations, not duplicates.
 
 Full schema documentation in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
+
+## Usage Examples
+
+```python
+import pandas as pd
+
+benchmarks = pd.read_csv("data/benchmarks.csv")
+models = pd.read_csv("data/models.csv")
+results = pd.read_csv("data/results.csv")
+
+# Join results to model + benchmark metadata. Note the FK: results.model_name -> models.model_id.
+joined = results.merge(models, left_on="model_name", right_on="model_id", suffixes=("", "_model")) \
+                 .merge(benchmarks, on="benchmark_id", suffixes=("", "_benchmark"))
+
+# All scores for one model across every benchmark it's been evaluated on.
+gpt4 = results[results["model_name"] == "GPT-4"][["benchmark_id", "score", "metric_name", "setup"]]
+
+# Compare two models head-to-head on benchmarks they both have results for.
+a, b = "GPT-4", "Claude 3 Opus"
+pivot = results[results["model_name"].isin([a, b])].pivot_table(
+    index="benchmark_id", columns="model_name", values="score", aggfunc="mean"
+).dropna()
+
+# Every benchmark in one category, with how many models cover it.
+safety = benchmarks[benchmarks["category"].str.contains("Safety", case=False, na=False)]
+coverage = results[results["benchmark_id"].isin(safety["benchmark_id"])] \
+    .groupby("benchmark_id")["model_name"].nunique().sort_values(ascending=False)
+```
+
+For data maintenance (checking integrity, finding/fixing duplicate
+evaluations, deduping model aliases) use the CLI in the next section
+instead of writing one-off scripts against the CSVs directly.
 
 ## Categories Covered
 

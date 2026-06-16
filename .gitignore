@@ -63,6 +63,3 @@ scripts/archive/models_research_findings.json
 
 # Local tooling configs
 CLAUDE.md
-
-# Not yet committed — needs refactor first
-benchmark_analysis.md

@@ -23,6 +23,9 @@ Commands:
                      form, merging any collisions this creates.
   categorize-models  Classify every model row as KEEP / FLAG / REMOVE,
                      to surface fine-tune/orphan cleanup candidates.
+  recompute-stats    Recompute models.csv's benchmark_count/
+                     total_results/avg_score from results.csv (these
+                     drift out of sync the moment results.csv changes).
 
 Examples:
   python3 scripts/manage_data.py verify
@@ -32,6 +35,7 @@ Examples:
   python3 scripts/manage_data.py apply-aliases --map-file my_renames.json --write
   python3 scripts/manage_data.py standardize-ids --write
   python3 scripts/manage_data.py categorize-models --output data/models_categorized.csv
+  python3 scripts/manage_data.py recompute-stats --write
 """
 import argparse
 import json
@@ -45,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 
-from scripts.lib import aliases, categorize, config, dedup, integrity, io
+from scripts.lib import aliases, categorize, config, dedup, integrity, io, stats
 
 
 def cmd_verify(args):
@@ -167,6 +171,21 @@ def cmd_categorize_models(args):
     return 0
 
 
+def cmd_recompute_stats(args):
+    _, models, results = io.load_data()
+    updated, report = stats.apply_model_stats(models, results)
+    print(f"Models with matching results.csv rows (stats updated): {report['updated']}")
+    print(f"Models with zero results (set to 0/0/blank): {report['zero_results']}")
+
+    if not args.write:
+        print("\nDry run only — pass --write to persist.")
+        return 0
+
+    io.save_models(updated)
+    print("\nWrote changes to models.csv.")
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         description="Dataset maintenance toolkit for benchmarks.csv / models.csv / results.csv.",
@@ -203,6 +222,10 @@ def build_parser():
     p = sub.add_parser("categorize-models", help="Classify models as KEEP / FLAG / REMOVE.")
     p.add_argument("--output", help="Optional CSV path to save the full breakdown.")
     p.set_defaults(func=cmd_categorize_models)
+
+    p = sub.add_parser("recompute-stats", help="Recompute models.csv's benchmark_count/total_results/avg_score from results.csv.")
+    p.add_argument("--write", action="store_true", help="Persist changes (default: dry run).")
+    p.set_defaults(func=cmd_recompute_stats)
 
     return parser
 

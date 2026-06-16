@@ -6,6 +6,43 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## Maintenance Pass — stale stats, leaderboard-filter audit, report refactor, docs ✓
+
+- **Fixed `models.csv`'s stale aggregate columns.** `benchmark_count`,
+  `total_results`, and `avg_score` hadn't been recomputed in a long time
+  (e.g. GPT-4's row said `55 / 75 / 42.91`; the real numbers were
+  `76 / 122 / 88.29`). Added `scripts/lib/stats.py` +
+  `scripts/manage_data.py recompute-stats` and ran it for all 1096
+  models — every row changed, all now match results.csv exactly. Run
+  this after any future batch of changes to results.csv; it's not
+  automatic.
+- **Audited the "HF Open LLM Leaderboard Official-Providers-only filter"
+  item** carried over from old session notes. Checked all 448 unique
+  v2-sourced `model_id`s in results.csv against the live
+  `open-llm-leaderboard/contents` dataset's `Official Providers` column:
+  100% are official-provider models. v1/"old" rows (1865 of them)
+  predate that concept entirely. Conclusion: non-issue, already correct
+  — no data change needed.
+- **Refactored `benchmark_analysis.md`** from an append-only per-session
+  log (duplicate entries like `akata_games_2023` listed twice,
+  contradictory ones like `GaslightingBench` marked both "saturated" and
+  "✅ improved" with a strikethrough hack) into one status table
+  regenerated against current row counts. Moved to
+  `docs/benchmark_analysis.md` (no longer gitignored). Found in the
+  process: `global_mmlu` and `GaslightingBench` were both previously
+  reported as expanded (to 26 and 7 rows) but are currently back down to
+  4 and 3 — likely the same lost-work pattern as the HELM/Kaggle sweep
+  described below, flagged in the new report rather than silently
+  re-trusting the old claim.
+- **Expanded README.md**: added a "Usage Examples" section with runnable
+  pandas snippets (verified against the actual current data) and a
+  fuller Data Schema section covering all three CSVs' column counts,
+  the legacy/redundant columns in benchmarks.csv, and a prominent
+  callout of the `results.model_name` → `models.model_id` foreign key
+  (since results.csv's *own* `model_id` column is a different,
+  denormalized field and is not what joins).
+---
+
 ## Final Dupe Cleanup Pass — 19 → 6 ✓
 
 Worked through the last 19 conflicting groups individually as requested.
