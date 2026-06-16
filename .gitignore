@@ -43,7 +43,6 @@ htmlcov/
 
 # Packaging
 MANIFEST
-LICENSE
 parts/
 build/
 develop-eggs/

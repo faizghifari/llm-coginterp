@@ -21,7 +21,7 @@ Core fields: `model_id`, `model_name`, `model_family`, `developer`, `model_size`
 ### results.csv
 Core fields: `benchmark_id`, `model_id`, `score`, `metric`, `setup`, `reasoning_enabled`, `generation_temperature`, `source_url`
 
-Full schema documentation in [METHODOLOGY.md](METHODOLOGY.md).
+Full schema documentation in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
 
 ## Categories Covered
 
@@ -38,9 +38,9 @@ See `notes/` for per-category research notes.
 
 ## Verification
 
-Run `verify_data.py` to check data integrity:
+Run `scripts/verify_data.py` to check data integrity:
 ```bash
-python3 verify_data.py
+python3 scripts/verify_data.py
 ```
 
 Checks include:
@@ -53,30 +53,32 @@ Checks include:
 
 | Script | Purpose |
 |--------|---------|
-| `verify_data.py` | Data integrity checks (FK, orphans, exhaustion) — run after every change |
-| `manage_data.py` | Dataset maintenance CLI — duplicate detection/resolution, alias fixes, model categorization. Run `python3 manage_data.py --help` for the full command list |
-| `export_eee_jsonl.py` | Export to EEE JSONL schema |
-| `export_xlsx.py` | Export to Excel workbook |
+| `scripts/verify_data.py` | Data integrity checks (FK, orphans, exhaustion) — run after every change |
+| `scripts/manage_data.py` | Dataset maintenance CLI — duplicate detection/resolution, alias fixes, model categorization. Run `python3 scripts/manage_data.py --help` for the full command list |
+| `scripts/export_eee_jsonl.py` | Export to EEE JSONL schema |
+| `scripts/export_xlsx.py` | Export to Excel workbook |
 
 All four scripts are thin entry points over the shared, reusable toolkit in
 `scripts/lib/` (config/trust-tier data, CSV I/O, integrity checks, dedup
 resolution, alias/standardization helpers, model categorization, exports) — new
 cleanup needs should extend that library rather than adding another
 one-off script. Past one-off cleanup scripts are kept for audit-trail
-purposes in `scripts/archive/` (see `scripts/archive/README.md`).
+purposes in `scripts/archive/` (see `scripts/archive/README.md`). Each
+script also works if run from anywhere, not just the repo root.
 
 ## Methodology
 
-See [METHODOLOGY.md](METHODOLOGY.md) for:
+See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for:
 - Strict source verification principles
 - Model inclusion/exclusion criteria
 - Data normalization rules
 - Inference environment collection methodology
 - Generation parameter extraction approach
+- The required checklist for adding new data
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for a history of all data additions and changes.
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a history of all data additions and changes.
 
 ## Notes
 
@@ -84,7 +86,7 @@ Research notes per category are in `notes/`. The backlog is tracked in `notes/TO
 
 ## License
 
-[Add your license here]
+MIT — see [LICENSE](LICENSE).
 
 ## Citation
 

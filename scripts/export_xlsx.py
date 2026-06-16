@@ -3,9 +3,14 @@
 workbook (one sheet each, frozen header row, auto-fit columns).
 
 Thin wrapper around scripts/lib/export.py — kept as its own entry point
-because it's referenced by name in METHODOLOGY.md. Writes
+because it's referenced by name in docs/METHODOLOGY.md. Writes
 data/llm_benchmarks_export.xlsx.
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.lib import export
 
 

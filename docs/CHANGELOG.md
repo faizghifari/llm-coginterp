@@ -6,6 +6,27 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## Repo Layout Cleanup — scripts/, docs/, LICENSE ✓
+
+- **Scripts moved out of the repo root.** `manage_data.py`, `verify_data.py`,
+  `export_eee_jsonl.py`, `export_xlsx.py` now live under `scripts/`
+  (alongside `scripts/lib/` and `scripts/archive/`). Each script
+  bootstraps `sys.path` to the repo root itself, so they still work when
+  run as `python3 scripts/<name>.py` from any working directory, not just
+  the repo root. The repo root now has no loose Python files.
+- **Docs moved to `docs/`.** `METHODOLOGY.md` and `CHANGELOG.md` (this
+  file) moved to `docs/METHODOLOGY.md` and `docs/CHANGELOG.md`. `README.md`
+  is now the only Markdown file in the repo root; it links to both.
+- **Added `LICENSE`** (MIT). The root `.gitignore` had a stray `LICENSE`
+  entry left over from a generic Python `.gitignore` template (meant to
+  ignore packaging-tool-generated copies) that was silently preventing a
+  real `LICENSE` file from ever being committed — removed.
+- Updated every cross-reference to the moved files/paths across
+  README.md, docs/METHODOLOGY.md, notes/TODO.md, and
+  scripts/archive/README.md.
+
+---
+
 ## Data Cleanup — Model identity dedup + scripts refactor ✓
 
 Full pass using the new `manage_data.py` toolkit (see "Scripts Refactor"

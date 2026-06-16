@@ -2,13 +2,17 @@
 """Data integrity checks for benchmarks.csv / models.csv / results.csv.
 
 Thin wrapper around the checks in scripts/lib/integrity.py — kept as its
-own entry point because `python3 verify_data.py` is the command referenced
-throughout README.md and METHODOLOGY.md as "run this after every change".
+own entry point because `python3 scripts/verify_data.py` is the command
+referenced throughout README.md and docs/METHODOLOGY.md as "run this
+after every change".
 
 For everything else (duplicate detection/resolution, alias fixes, model
-categorization), see `python3 manage_data.py --help`.
+categorization), see `python3 scripts/manage_data.py --help`.
 """
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib import integrity, io
 

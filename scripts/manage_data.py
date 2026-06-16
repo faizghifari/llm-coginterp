@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Single CLI entry point for the dataset maintenance toolkit.
 
-Run `python3 manage_data.py <command> --help` for per-command options.
-All commands that can write data default to a dry run; pass --write to
-persist changes, and always re-run `verify` afterwards.
+Run `python3 scripts/manage_data.py <command> --help` for per-command
+options. All commands that can write data default to a dry run; pass
+--write to persist changes, and always re-run `verify` afterwards.
 
 Commands:
   verify             Run all data integrity checks (FK, orphans,
@@ -25,17 +25,23 @@ Commands:
                      to surface fine-tune/orphan cleanup candidates.
 
 Examples:
-  python3 manage_data.py verify
-  python3 manage_data.py dupes --verbose
-  python3 manage_data.py dedup --write
-  python3 manage_data.py find-aliases
-  python3 manage_data.py apply-aliases --map-file my_renames.json --write
-  python3 manage_data.py standardize-ids --write
-  python3 manage_data.py categorize-models --output data/models_categorized.csv
+  python3 scripts/manage_data.py verify
+  python3 scripts/manage_data.py dupes --verbose
+  python3 scripts/manage_data.py dedup --write
+  python3 scripts/manage_data.py find-aliases
+  python3 scripts/manage_data.py apply-aliases --map-file my_renames.json --write
+  python3 scripts/manage_data.py standardize-ids --write
+  python3 scripts/manage_data.py categorize-models --output data/models_categorized.csv
 """
 import argparse
 import json
 import sys
+from pathlib import Path
+
+# Allow running this script directly (`python3 scripts/manage_data.py`)
+# from any working directory by putting the repo root -- this file's
+# grandparent -- on sys.path so `scripts.lib` resolves as a package.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 
@@ -81,7 +87,7 @@ def cmd_dedup(args):
         existing = io.load_csv(config.DUPLICATES_CSV) if config.DUPLICATES_CSV.exists() else pd.DataFrame()
         combined = pd.concat([existing, discarded], ignore_index=True) if len(existing) else discarded
         io.save_csv(combined, config.DUPLICATES_CSV)
-    print("\nWrote changes. Re-run `python3 manage_data.py verify` to confirm FK integrity.")
+    print("\nWrote changes. Re-run `python3 scripts/manage_data.py verify` to confirm FK integrity.")
     return 0
 
 
@@ -119,7 +125,7 @@ def cmd_apply_aliases(args):
 
     io.save_models(models)
     io.save_results(results)
-    print("\nWrote changes. Re-run `python3 manage_data.py verify` to confirm FK integrity.")
+    print("\nWrote changes. Re-run `python3 scripts/manage_data.py verify` to confirm FK integrity.")
     return 0
 
 
@@ -139,7 +145,7 @@ def cmd_standardize_ids(args):
 
     io.save_models(models)
     io.save_results(results)
-    print("\nWrote changes. Re-run `python3 manage_data.py verify` to confirm FK integrity.")
+    print("\nWrote changes. Re-run `python3 scripts/manage_data.py verify` to confirm FK integrity.")
     return 0
 
 
