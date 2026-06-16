@@ -1,10 +1,61 @@
+# OS-generated
 .DS_Store
 **/.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Backup files
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+.venv/
+env/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Packaging
+MANIFEST
+LICENSE
+parts/
+build/
+develop-eggs/
+downloads/
+libs/
+var/
+sdist/
+wheels/
+*.spec.bak
+
+# Data backups & intermediate files
 data/*.bak*
-
-# Intermediate/generated data
 data/backups/
 data/eee_output/
 data/llm_benchmarks_export.xlsx

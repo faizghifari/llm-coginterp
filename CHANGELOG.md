@@ -2,6 +2,8 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
+**Current totals:** 200 benchmarks, 1125 models, 8126 result entries.
+
 ---
 
 ## Batch 6 — Reasoning / Counterfactual Reasoning ✓

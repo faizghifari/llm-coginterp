@@ -1,11 +1,19 @@
+# TODO
 
-# Backlog
+## Data cleanup
+- [ ] Deduplicate models with multiple model_id/model_name entries (same model, different aliases)
+- [ ] Remove experimental/inproper model entries (e.g., names describing training steps rather than model identity)
+- [ ] Run verify_data.py after any data changes to ensure FK integrity
 
-## 1. Cleanup models.csv and results.csv for models with multiple model_id/model_name
-- Still see a lot of same models but with multiple rows
-- Also need to cleanup some improper models, like models that is experimental like mentioning specific steps in model_name/model_id
+## Data expansion
+- [ ] Process pending benchmark list from collaborators — deduplicate against existing benchmarks + skipped list, then add as extraction tasks
+- [ ] HELM sweep data (312 benchmarks, 1155 models, 11208 results) extracted locally but not yet committed — needs review and commit
 
-## 2. Filter benchmark from lists of benchmarks gathered by collaborators
-- I got a list of benchmarks that potential to be added
-- Need to deduplicate them based on benchmarks that we already gathered and benchmarks that we already decide to skip or not add
-- Then, add them as TODO to expand our data based on the filtered benchmark list.
+## Scripts (needs refactor before committing to repo)
+- [ ] Refactor scripts/ directory — consolidate duplicate checkers (check_dupes.py, check_dupes2.py), clean up one-off scripts
+- [ ] Add docstrings and CLI help to all utility scripts
+- [ ] benchmark_analysis.md — refactor analysis output into proper report format
+
+## Documentation
+- [ ] Expand README with usage examples and data schema reference
+- [ ] Add CONTRIBUTING.md if opening to collaborators
