@@ -159,7 +159,7 @@ Before finalizing the dataset, a multi-threaded URL validator was run across bot
 
 ### EEE JSONL (`scripts/export_eee_jsonl.py`)
 - `data/eee_output/by_benchmark/{benchmark_id}.jsonl` — one file per benchmark (EEE schema v0.2.1)
-- `data/eee_output/all_evaluations.jsonl` — single consolidated file with all 7,829 records
+- `data/eee_output/all_evaluations.jsonl` — single consolidated file with all 7,828 records
 - `evaluation_id` is an MD5 hash of `model_name + benchmark_id + source_url`
 
 ### Excel Workbook (`scripts/export_xlsx.py`)

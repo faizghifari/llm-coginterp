@@ -2,7 +2,100 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 215 benchmarks, 1096 models, 7829 result entries.
+**Current totals:** 215 benchmarks, 1096 models, 7828 result entries.
+
+---
+
+## Remaining Dupe Cleanup — non-HF sources, 90 → 19 ✓
+
+Continuation of the dupe resolution below, for the 126 conflicting groups
+that weren't from HF Open LLM Leaderboard. Two different kinds of issue
+turned up, handled differently:
+
+### Fixed the dedup tool itself: `model_id` and `language` added to the identity key
+Auditing the remaining groups found that most weren't real duplicates at
+all, but **false positives from too coarse an identity key**:
+- ~48 groups were genuinely distinct model checkpoints sharing one
+  `model_name` (e.g. `model_name="GPT-4"` for both `gpt-4-0314` and
+  `gpt-4-0613`; `model_name="Qwen3 VL 32B Instruct"` for both the
+  instruct and thinking-mode checkpoints) — `model_id` already
+  disambiguated them correctly, it just wasn't part of the key.
+- ~36 more were genuinely distinct sub-tasks/sub-languages of a
+  multilingual/multi-task benchmark (afrobench, irokobench, culemo, ...)
+  all reported under the same `metric_name="accuracy"`, with the actual
+  sub-task label sitting in `language` (e.g. "AfriMMLU", "pos",
+  "Hindi (India)") — also not part of the key.
+
+Added both columns to `config.RESULT_IDENTITY_KEY` (scripts/lib/config.py)
+— a no-op for older rows where they're blank, but correctly splits these
+apart everywhere they're populated. This is a permanent fix to the
+toolkit, not a one-off data patch: 90 → 21 conflicting groups dropped out
+immediately, with zero rows touched.
+
+### Verified and fixed metric-mislabeling bugs (mt-rag, vectara, crux-eval)
+Some groups *were* a real (pre-existing) extraction bug: multiple
+distinct metrics for the same model+benchmark were all written with the
+same generic `metric_name`/`setup`, making them look like conflicting
+duplicates of one evaluation. Verified against each live source and
+relabeled rather than discarding any data:
+- **mt-rag** (24 groups, 71 rows): IBM's mt-rag-benchmark JSON files
+  report `rb_agg`, `rb_llm`, and `rl_f` per model — all had been written
+  as `metric_name="accuracy"`. Recomputed all three from the live
+  `evaluations` arrays in `RAG.json` / `reference+RAG.json` /
+  `reference.json` and relabeled each row to its real metric.
+- **vectara hallucination-leaderboard** (7 groups, 14 rows): each pair
+  summed to ~100 — "Hallucination Rate" and "Factual Consistency Rate",
+  Vectara's two real complementary columns. Cross-checked every value
+  against the live README table before relabeling (not just inferred
+  from the sum-to-100 pattern).
+- **crux-eval** (5 groups, 10 rows): the `+cot` vs non-`+cot` suffix on
+  `model_id` already correctly distinguished Chain-of-Thought from
+  direct prompting; `setup` just hadn't been set to record it. Verified
+  every value against the live `crux-eval.github.io/data.csv` and filled
+  in `setup` (`CoT` / `Direct`).
+
+### Verified as NOT duplicates (no source data changed)
+**arena-hard-auto** (4 groups) and **llm-stats.com arena-hard-v2** (3
+groups): cross-checked against the live dated CSV / leaderboard page —
+confirmed these are genuinely distinct model checkpoints (e.g.
+`gpt-4-0314` vs `gpt-4-0613`; `-instruct` vs `-thinking` variants) that
+the `model_id` key fix above already handles; no rows needed touching.
+**chat.lmsys.org / Chatbot Arena** (11 groups): same pattern, but the
+specific historical checkpoints (`gpt-4-0314`, `gemini-1.5-pro-001`,
+etc.) have since been retired from the live leaderboard and can't be
+freshly re-verified — the structural explanation (real distinct
+checkpoints, not duplicates) is the same well-established pattern seen
+in 7 other sources this pass, so left as-is rather than guessed at
+further.
+
+### Resolved via live re-verification (same approach as HF)
+**p_mmeval** (2/3 groups): cross-checked against arXiv 2411.09116's
+Table 3 (HTML rendering) — GPT-4o and Qwen2.5-72B's stored higher values
+(75.11, 73.69) matched the paper's stated numbers exactly; discarded the
+lower (stale) value for each. The third (Claude-3.5-Sonnet) was left
+unresolved — the paper's table only has a "Claude-3.7-sonnet" row, no
+3.5, so this may be a deeper model-identity mismatch, not just a score
+pick.
+
+### Still unresolved (19 groups) — see notes/TODO.md
+- **opencompass** (3 groups, 21 rows): same metric-mislabeling pattern
+  as mt-rag/vectara almost certainly applies (ERNIE 5.0, Qwen3 235B A22B,
+  and Qwen3-Next-80B-A3B each have 7 wildly-varying rows under one
+  `metric_name`), but the live leaderboard is a React SPA backed by an
+  API that needs auth/POST to query — couldn't pull the real per-category
+  breakdown to relabel safely.
+- **~16 single-paper conflicts** (xstest, hagendorff_biases_2023,
+  complexbench, followbench, eifbench, benchmax, mmar, neuro_eval,
+  xcr_bench, Claude-3.5-Sonnet/p_mmeval): each needs its specific paper's
+  table checked by hand. Automated WebFetch-based table extraction proved
+  unreliable for some of these (got two different, mutually inconsistent
+  answers from the same table on two separate fetches) — not safe to
+  trust without a human cross-check, so left flagged rather than risk
+  enshrining a misread number as "verified."
+
+results.csv: 7829 → 7828 (2 rows discarded from the p_mmeval fix; the
+mt-rag/vectara/crux-eval fixes only relabeled columns, no rows added or
+removed).
 
 ---
 

@@ -26,9 +26,30 @@ PENDING_BENCHMARKS_MD = NOTES_DIR / "pending_benchmarks.md"
 # Per METHODOLOGY.md "Multiple Scores per Model-Benchmark Pair": rows
 # distinguished by `setup` and/or `source_url` are kept separate on
 # purpose and must NOT be collapsed — hence both are part of the key.
+#
+# `model_id` is included alongside `model_name` because `model_name` is
+# sometimes a coarse display label shared by several genuinely distinct
+# model checkpoints (e.g. model_name="GPT-4" for both `gpt-4-0314` and
+# `gpt-4-0613`, or "-instruct" vs "-thinking" variants under one display
+# name) while `model_id` correctly disambiguates them.
+#
+# `language` is included because several multilingual/multi-task
+# benchmarks (e.g. afrobench, irokobench, culemo) report one row per
+# sub-task/sub-language using the *same* metric_name ("accuracy") for
+# all of them, with `language` holding the actual sub-task label (e.g.
+# "AfriMMLU", "pos", "Hindi (India)") -- without it those rows look like
+# conflicting duplicates of "the same" evaluation when they're actually
+# unrelated scores for different sub-tasks.
+#
+# Found via a 2026-06-16 audit: of ~519 "duplicate" groups flagged before
+# these two columns were added to the key, ~48 were really distinct
+# models sharing one model_name, and a further ~36 were really distinct
+# sub-tasks/languages sharing one metric_name -- neither was a real
+# duplicate. When a column is blank (common for older/simpler
+# extractions) it's a no-op for this key.
 RESULT_IDENTITY_KEY = [
-    "model_name", "benchmark_id", "metric_name",
-    "setup", "reasoning_enabled", "num_shot_sample", "source_url",
+    "model_name", "model_id", "benchmark_id", "metric_name",
+    "setup", "reasoning_enabled", "num_shot_sample", "source_url", "language",
 ]
 
 # Source trust hierarchy used to resolve conflicting duplicate rows (same
