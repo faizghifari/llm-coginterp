@@ -53,13 +53,17 @@ Checks include:
 
 | Script | Purpose |
 |--------|---------|
-| `verify_data.py` | Data integrity checks (FK, duplicates, orphans) |
-| `merge_models.py` | Merge duplicate model entries |
-| `standardize_model_ids.py` | Normalize model naming conventions |
+| `verify_data.py` | Data integrity checks (FK, orphans, exhaustion) — run after every change |
+| `manage_data.py` | Dataset maintenance CLI — duplicate detection/resolution, alias fixes, model categorization. Run `python3 manage_data.py --help` for the full command list |
 | `export_eee_jsonl.py` | Export to EEE JSONL schema |
 | `export_xlsx.py` | Export to Excel workbook |
 
-Additional cleanup scripts (alias detection, dupe analysis, FK repair) are in development and will be added after refactoring.
+`manage_data.py` and `verify_data.py` are both built on the shared, reusable
+toolkit in `scripts/lib/` (config/trust-tier data, integrity checks, dedup
+resolution, alias/standardization helpers, model categorization) — new
+cleanup needs should extend that library rather than adding another
+one-off script. Past one-off cleanup scripts are kept for audit-trail
+purposes in `scripts/archive/` (see `scripts/archive/README.md`).
 
 ## Methodology
 

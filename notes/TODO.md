@@ -31,11 +31,11 @@
 - [ ] **Lesson learned:** commit data/*.csv after each extraction batch instead of relying on local .bak snapshots — uncommitted working-tree state is not safe from external tooling/refactors.
 
 ## Methodology updates
-- [ ] Add to METHODOLOGY.md: If there is more than 1 score for the same model in a benchmark (due to different setup, different provider/evaluator running the benchmark, etc.), keep each as a **separate row** in results.csv rather than averaging. Distinguish rows via the `setup` and `source_url` fields.
+- [x] Add to METHODOLOGY.md: If there is more than 1 score for the same model in a benchmark (due to different setup, different provider/evaluator running the benchmark, etc.), keep each as a **separate row** in results.csv rather than averaging. Distinguish rows via the `setup` and `source_url` fields. — Done (see "Multiple Scores per Model-Benchmark Pair" section); the same rule is now also encoded as `config.RESULT_IDENTITY_KEY` in `scripts/lib/config.py`, so the dedup tooling can't accidentally violate it.
 
-## Scripts (needs refactor before committing to repo)
-- [ ] Refactor scripts/ directory — consolidate duplicate checkers (check_dupes.py, check_dupes2.py), clean up one-off scripts
-- [ ] Add docstrings and CLI help to all utility scripts
+## Scripts
+- [x] Refactor scripts/ directory — consolidated all duplicate-checking logic (check_dupes.py, check_dupes2.py, analyze_dupes.py, deduplicate_results.py, analyze_source_trust.py) and model-categorization logic (analyze_models.py, categorize_models.py) into one reusable library: `scripts/lib/` (config, io, integrity, dedup, aliases, categorize), exposed via `manage_data.py` at the repo root. One-off historical scripts moved to `scripts/archive/` (not part of the active toolkit — see its README). `scripts/` is no longer gitignored.
+- [x] Add docstrings and CLI help to all utility scripts — `manage_data.py --help` / `manage_data.py <command> --help` covers the new toolkit; `verify_data.py` and the lib modules have module docstrings.
 - [ ] benchmark_analysis.md — refactor analysis output into proper report format
 
 ## Documentation
