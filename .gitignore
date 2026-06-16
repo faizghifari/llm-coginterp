@@ -1,0 +1,19 @@
+.DS_Store
+**/.DS_Store
+
+# Backup files
+data/*.bak*
+
+# Intermediate/generated data
+data/backups/
+data/eee_output/
+data/llm_benchmarks_export.xlsx
+data/results_duplicates.csv
+scripts/models_research_findings.json
+
+# Local tooling configs
+CLAUDE.md
+
+# Not yet committed — needs refactor first
+benchmark_analysis.md
+scripts/
