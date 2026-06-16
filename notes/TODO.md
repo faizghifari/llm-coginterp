@@ -1,9 +1,11 @@
 # TODO
 
 ## Data cleanup
-- [ ] Deduplicate models with multiple model_id/model_name entries (same model, different aliases)
-- [ ] Remove experimental/inproper model entries (e.g., names describing training steps rather than model identity)
-- [ ] Run verify_data.py after any data changes to ensure FK integrity
+- [x] Deduplicate models with multiple model_id/model_name entries (same model, different aliases) — 2026-06-16 pass using `manage_data.py`: merged 11 genuine duplicate models.csv entries (e.g. `Gemini-2.0-Flash`/`Gemini 2.0 Flash`, `Qwen3 Max`/`qwen3_max`), fixed all 26 orphan `model_name` FK violations in results.csv (curated alias map, cross-checked against actual model context — not blind fuzzy-matching), and registered 1 genuinely new model (`Llama-4-Large`, EngiBench's own naming, doesn't map cleanly to Scout/Maverick so it wasn't guessed). Result: 0 invalid FKs, 0 orphans either direction (`verify_data.py` clean). See CHANGELOG.md "Data Cleanup" entry for the full list.
+- [x] Remove experimental/inproper model entries (e.g., names describing training steps rather than model identity) — removed 21 zero-result stub entries that had zero matching results.csv rows under *any* casing/format (5 were malformed HF-repo-prefixed duplicates with a parsing bug putting the model size into the `developer` field, e.g. `tiiuae/falcon-7b` dev=`7B`; 16 were leftover model registrations from the lost extraction sweep that never got result rows committed).
+- [ ] Run `manage_data.py dupes --verbose` review: 519 duplicate-evaluation groups remain in results.csv (24 pure redundancy, 495 conflicting scores — mostly HF Open LLM Leaderboard v1/v2 re-run drift, see "Known Data Quality Items" below). `manage_data.py dedup --write` can resolve these via trust-tier + recency, but wasn't run blind this pass — needs a human spot-check of a sample of the 495 conflicts first since trust-tier ties (same source, different score) fall back to year-recency which isn't always reliable.
+- [ ] `manage_data.py categorize-models` flags 46 models as `REMOVE`-candidates (fine-tuned name, no `model_family`/`base_model` set) and 38 as `FLAG` (unclear origin) — **none have zero results**, so none were deleted. These need metadata enrichment (fill in `model_family`/`base_model`), not removal; run `manage_data.py categorize-models --output data/models_categorized.csv` to get the full list.
+- [x] Run verify_data.py after any data changes to ensure FK integrity — now also the documented step in METHODOLOGY.md's "Adding New Data" checklist.
 
 ## Data expansion — large extraction tasks
 
@@ -35,6 +37,7 @@
 
 ## Scripts
 - [x] Refactor scripts/ directory — consolidated all duplicate-checking logic (check_dupes.py, check_dupes2.py, analyze_dupes.py, deduplicate_results.py, analyze_source_trust.py) and model-categorization logic (analyze_models.py, categorize_models.py) into one reusable library: `scripts/lib/` (config, io, integrity, dedup, aliases, categorize), exposed via `manage_data.py` at the repo root. One-off historical scripts moved to `scripts/archive/` (not part of the active toolkit — see its README). `scripts/` is no longer gitignored.
+- [x] Refactor the remaining root-level scripts (`export_eee_jsonl.py`, `export_xlsx.py`) onto the same shared library — added `scripts/lib/export.py`; both scripts are now thin wrappers. Also fixed a latent bug found in the process: the EEE JSONL exporter read a `developer` column that doesn't exist in results.csv (the real column is `model_developer`), so every exported record's `model_info.developer` silently fell back to `"unknown"`.
 - [x] Add docstrings and CLI help to all utility scripts — `manage_data.py --help` / `manage_data.py <command> --help` covers the new toolkit; `verify_data.py` and the lib modules have module docstrings.
 - [ ] benchmark_analysis.md — refactor analysis output into proper report format
 

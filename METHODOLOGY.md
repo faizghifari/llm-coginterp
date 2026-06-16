@@ -12,6 +12,67 @@ The core philosophy of this data collection effort is **"Strict Source Verificat
 
 ---
 
+## Adding New Data: Required Checklist
+
+Every time benchmarks/models/results are added or edited, run through this
+checklist before committing. All of these tools are described in more
+detail in their own sections below; this is the order to run them in.
+
+1. **Verify data integrity.**
+   ```bash
+   python3 verify_data.py
+   ```
+   Confirms 0 FK violations (`benchmark_id` in results must exist in
+   benchmarks.csv; `model_name` in results must exist as a `model_id` in
+   models.csv), 0 orphan benchmarks/models (zero result rows), and flags
+   any benchmark with fewer than 5 result rows as a possible incomplete
+   extraction (see "Multiple Scores per Model-Benchmark Pair" below for
+   what *not* to do about that — don't average to hit a row-count target).
+
+2. **Dedup and standardize model identity.**
+   - New model names almost always collide with an existing entry under
+     different casing/spacing (`GPT-4o` vs `gpt-4o`, `Qwen3 Max` vs
+     `qwen3_max`). Before adding a model row, check whether it already
+     exists: `python3 manage_data.py find-aliases` lists every
+     `model_name` in results.csv that has no matching `model_id` in
+     models.csv, with fuzzy-match suggestions.
+   - If the new data really does introduce a duplicate (same model,
+     different spelling), fix it with a rename map rather than leaving
+     both spellings in the dataset:
+     ```bash
+     echo '{"Old-Spelling": "canonical-model-id"}' > /tmp/renames.json
+     python3 manage_data.py apply-aliases --map-file /tmp/renames.json --write
+     ```
+   - Check for duplicate *evaluations* (same model + benchmark + metric +
+     setup + source reported more than once) with
+     `python3 manage_data.py dupes --verbose`. Pure redundancy (identical
+     score reported twice) and genuine conflicts (different scores for
+     what should be the same evaluation) are reported separately —
+     resolve conflicts by hand or with `manage_data.py dedup --write`
+     (trust-tier + recency), but always read the `--verbose` output
+     first; don't run `dedup --write` blind.
+   - Do **not** run a blanket `standardize-ids` pass to relabel every
+     model_id to one casing convention — this dataset's existing
+     convention is mixed Title-Case (`GPT-4`, `Claude 3 Opus`), and a
+     wholesale relabel would touch hundreds of unrelated, already-correct
+     rows for no integrity benefit. Only rename entries that are
+     genuinely the same model under two different spellings.
+
+3. **Ensure models comply with the inclusion/exclusion criteria below.**
+   Run `python3 manage_data.py categorize-models` to classify every model
+   as `KEEP` / `FLAG` / `REMOVE` per the Model Inclusion Criteria. `FLAG`
+   and `REMOVE` are *prompts for manual review*, not auto-delete signals:
+   cross-check against `model_type`/results before removing anything, and
+   never delete a model that still has result rows (that breaks FK
+   integrity — `verify_data.py` would catch it, but don't get there).
+   Only delete a model row if it both (a) fails the inclusion criteria
+   and (b) has zero result rows after step 1's orphan check.
+
+4. **Re-run `verify_data.py` one more time** after any fixes from steps 2–3,
+   to confirm the change didn't introduce a new FK violation or orphan.
+
+---
+
 ## Model Inclusion Criteria
 
 We enforce strict criteria for which models are tracked in this dataset. The core requirement is that the model must be a **generative language model capable of handling arbitrary prompts**.
@@ -44,10 +105,10 @@ We enforce strict criteria for which models are tracked in this dataset. The cor
 - **Non-LLM removal:** Models that are not generative LLMs (e.g., SeamlessM4T, encoder-only models) were removed from both `models.csv` and `results.csv`.
 
 ### Data Integrity
-- FK violations (results rows referencing unknown benchmarks or models): **0** (benchmarks), **26** (models — aliases pending normalization).
+- FK violations (results rows referencing unknown benchmarks or models): **0** (benchmarks), **0** (models — last alias cleanup pass: 2026-06-16, see CHANGELOG.md "Data Cleanup").
 - Models with zero result rows: **0**.
 - Benchmarks with zero result rows: **0**.
-- Always run `verify_data.py` after making changes to the 3 main data: `results.csv`, `benchmarks.csv`, `results.csv`
+- Always run `verify_data.py` after making changes to the 3 main data files: `benchmarks.csv`, `models.csv`, `results.csv`.
 
 ### Multiple Scores per Model-Benchmark Pair
 - If a model has more than 1 score for the same benchmark (due to different evaluation setup, different provider/evaluator running the benchmark, different prompting strategy, etc.), each score is kept as a **separate row** in `results.csv` — never averaged or collapsed.
@@ -98,7 +159,7 @@ Before finalizing the dataset, a multi-threaded URL validator was run across bot
 
 ### EEE JSONL (`export_eee_jsonl.py`)
 - `data/eee_output/by_benchmark/{benchmark_id}.jsonl` — one file per benchmark (EEE schema v0.2.1)
-- `data/eee_output/all_evaluations.jsonl` — single consolidated file with all 8,126 records
+- `data/eee_output/all_evaluations.jsonl` — single consolidated file with all 8,264 records
 - `evaluation_id` is an MD5 hash of `model_name + benchmark_id + source_url`
 
 ### Excel Workbook (`export_xlsx.py`)

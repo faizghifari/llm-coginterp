@@ -7,7 +7,7 @@ A curated, verified dataset of LLM benchmark evaluations across diverse cognitiv
 | Table | Rows | Description |
 |-------|------|-------------|
 | `benchmarks.csv` | 215 | Benchmark metadata: name, venue, category, source URLs |
-| `models.csv` | 1,127 | Model metadata: family, developer, size, type |
+| `models.csv` | 1,096 | Model metadata: family, developer, size, type |
 | `results.csv` | 8,264 | Evaluation results: scores, metrics, setup parameters |
 
 ## Data Schema
@@ -58,9 +58,9 @@ Checks include:
 | `export_eee_jsonl.py` | Export to EEE JSONL schema |
 | `export_xlsx.py` | Export to Excel workbook |
 
-`manage_data.py` and `verify_data.py` are both built on the shared, reusable
-toolkit in `scripts/lib/` (config/trust-tier data, integrity checks, dedup
-resolution, alias/standardization helpers, model categorization) — new
+All four scripts are thin entry points over the shared, reusable toolkit in
+`scripts/lib/` (config/trust-tier data, CSV I/O, integrity checks, dedup
+resolution, alias/standardization helpers, model categorization, exports) — new
 cleanup needs should extend that library rather than adding another
 one-off script. Past one-off cleanup scripts are kept for audit-trail
 purposes in `scripts/archive/` (see `scripts/archive/README.md`).

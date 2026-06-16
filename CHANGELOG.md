@@ -2,7 +2,79 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 215 benchmarks, 1127 models, 8264 result entries.
+**Current totals:** 215 benchmarks, 1096 models, 8264 result entries.
+
+---
+
+## Data Cleanup — Model identity dedup + scripts refactor ✓
+
+Full pass using the new `manage_data.py` toolkit (see "Scripts Refactor"
+below) to close out the FK/orphan issues this dataset had been carrying.
+
+### Model identity dedup (results in 0 FK violations, 0 orphans)
+- **11 genuine duplicate `models.csv` entries merged** (same model
+  registered twice under different casing/punctuation): `Gemini-2.0-Flash`/`Gemini 2.0 Flash`,
+  `Claude-3.7-Sonnet`/`Claude 3.7 Sonnet`, `codellama-34b`/`CodeLlama-34B`,
+  `Qwen2.5-VL-7B`/`qwen2.5_vl_7b`, `Gemini-2.5-Flash`/`gemini_2.5_flash`,
+  `Qwen3-1.7B`/`qwen3_1.7b`, `Qwen3-0.6B`/`qwen3_0.6b`, `Qwen3 Max`/`qwen3_max`,
+  `GPT-5-mini`/`GPT-5 Mini`, `internlm-20b`/`internlm_20b`, `Qwen3-4B`/`qwen3_4b`.
+  In each case the spelling with more existing result rows (or cleaner
+  metadata) was kept.
+- **All 26 orphan `model_name` FK violations in results.csv fixed**, mapped
+  to their existing canonical `model_id` after manually checking each
+  one's actual source/context (not blind fuzzy-matching) — e.g.
+  `ChatGPT-5`→`chatgpt5`, `ERNIE-Bot`→`ernie_bot`, `XuanYuan-70B`→`xuanYuan_70b`,
+  `DeepSeek-R1-7B`→`DeepSeek-R1-Distill-Qwen-7B`, `GLM-4-9B`→`GLM-4-9B-Chat`,
+  `OpenAI o1`→`o1`. Full map in `notes/TODO.md`.
+- **1 genuinely new model registered**: `Llama-4-Large` (from EngiBench,
+  arXiv 2509.17677) — doesn't map cleanly to the public Llama 4 Scout/Maverick
+  branding, so it was added as its own entry rather than guessed, per
+  strict source verification.
+- **21 zero-result orphan model stubs removed** — verified each had no
+  matching results.csv row under *any* casing before removal. 5 were a
+  parsing-bug artifact (HuggingFace-repo-prefixed model_ids with the model
+  size landing in the `developer` column, e.g. `tiiuae/falcon-7b` dev=`7B`)
+  duplicating already-clean entries; 16 were leftover model registrations
+  from the lost extraction sweep (see "Data Recovery" below) that never
+  got result rows committed.
+- 357 results.csv rows renamed in total (model identity only — no scores
+  changed, no rows added/removed in results.csv).
+- `models.csv`: 1127 → 1096 rows (11 merged + 21 removed + 1 added).
+- Verified with `verify_data.py`: **0** invalid `benchmark_id`s, **0**
+  invalid `model_name`s, **0** orphan benchmarks, **0** orphan models.
+
+### Not done this pass (documented, not silently dropped)
+- `manage_data.py dupes` finds 519 duplicate-*evaluation* groups in
+  results.csv (24 pure redundancy, 495 conflicting scores — mostly HF Open
+  LLM Leaderboard v1/v2 re-run drift). This is a different problem from
+  model-identity dedup above (same model+benchmark, multiple *score*
+  reports) and needs human review of the conflicts before resolving; see
+  `notes/TODO.md`.
+- `manage_data.py categorize-models` flags 46 models as fine-tunes with no
+  `model_family`/`base_model` set and 38 as unclear-origin — none have
+  zero results, so none were removed; they need metadata enrichment, not
+  deletion. See `notes/TODO.md`.
+
+### Scripts Refactor — reusable dataset maintenance toolkit
+- Replaced ~17 one-off, mutually-inconsistent scripts (several reimplementing
+  the same duplicate-detection or model-categorization logic slightly
+  differently, several referencing stale intermediate files, several with
+  hardcoded one-off rename maps) with a single importable library,
+  `scripts/lib/` (`config`, `io`, `integrity`, `dedup`, `aliases`,
+  `categorize`, `export`), exposed through one CLI, `manage_data.py`, plus
+  `verify_data.py` and the two `export_*.py` scripts as thin wrappers over
+  the same library.
+- Old one-off scripts moved to `scripts/archive/` for audit trail (not part
+  of the active toolkit — see `scripts/archive/README.md` for the
+  old-script → new-command mapping). `scripts/` is no longer gitignored.
+- Found and fixed a latent bug while refactoring `export_eee_jsonl.py`: it
+  read a `developer` column that doesn't exist in results.csv (the real
+  column is `model_developer`), so every exported EEE record's
+  `model_info.developer` silently defaulted to `"unknown"`.
+- Added a new METHODOLOGY.md section, "Adding New Data: Required
+  Checklist", codifying the integrity-check → dedup/standardize →
+  inclusion-criteria-compliance steps every future data addition should
+  follow, using the new toolkit.
 
 ---
 
