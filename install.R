@@ -14,6 +14,13 @@ setwd(REPO)
 
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
+# Parallelize compilation — renv forwards Ncpus to the underlying install step.
+# (renv does NOT inherit the bare install.packages(Ncpus=) you may be used to,
+# so set it explicitly here or compiles run ~serially.)
+ncores <- max(1L, parallel::detectCores())
+options(Ncpus = ncores)
+Sys.setenv(MAKEFLAGS = paste0("-j", ncores))  # parallel make within each compile
+
 pkgs <- c(
   "psych",       # factor analysis (PAF) + parallel analysis
   "softImpute",  # softimpute matrix completion
