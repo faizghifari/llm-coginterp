@@ -33,7 +33,7 @@ holdout_rmse_r2_mf <- function(x, ntree, holdout) {
 # uniform contract. complete_at(ntree) re-imputes at that ntree.
 impute_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L), seed = 1L) {
   set.seed(seed)
-  holdout <- sample(which(!is.na(x)), size = floor(0.2 * sum(!is.na(x))))
+  holdout <- make_holdout(x, frac = 0.2)
 
   rmse_v <- numeric(length(ntrees)); r2_v <- numeric(length(ntrees))
   for (i in seq_along(ntrees)) {
@@ -63,9 +63,10 @@ sensitivity_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L),
   on.exit({ stopCluster(cl); registerDoSEQ() })
 
   res_list <- foreach(s = seq_len(n_seeds), .packages = "missForest",
-                      .export = c("fit_missforest", "holdout_rmse_r2_mf")) %dopar% {
+                      .export = c("fit_missforest", "holdout_rmse_r2_mf",
+                                  "make_holdout")) %dopar% {
     set.seed(s)
-    holdout <- sample(which(!is.na(x)), size = floor(holdout_frac * sum(!is.na(x))))
+    holdout <- make_holdout(x, frac = holdout_frac)
     rmse <- numeric(length(ntrees)); r2 <- numeric(length(ntrees))
     for (i in seq_along(ntrees)) {
       rr <- holdout_rmse_r2_mf(x, ntrees[i], holdout)

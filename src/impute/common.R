@@ -33,6 +33,28 @@ prep_matrix <- function(path, min_obs = 2L) {
   list(x = x, keys = df[["collapse_key"]])
 }
 
+# Column-stratified holdout, SHARED by every method so all use the same masking.
+# Samples ~frac of observed cells, but never masks so many in a column that fewer
+# than min_keep remain in TRAINING. min_keep = 2 matches the pipeline-wide floor
+# (densifier MIN_OBS, prep_matrix, OSMC all require >=2 obs/col); leaving a column
+# with <2 training cells breaks softImpute's biScale and starves the imputers.
+# Returns linear indices into the matrix (column-major), like which(is.na(x)).
+make_holdout <- function(x, frac = 0.2, min_keep = 2L) {
+  nr <- nrow(x)
+  holdout <- integer(0)
+  for (j in seq_len(ncol(x))) {
+    rows_obs <- which(!is.na(x[, j]))
+    n_obs <- length(rows_obs)
+    if (n_obs == 0L) next
+    n_hold <- min(floor(frac * n_obs), n_obs - min_keep)
+    if (n_hold > 0L) {
+      picked <- rows_obs[sample.int(n_obs, size = n_hold)]
+      holdout <- c(holdout, (j - 1L) * nr + picked)
+    }
+  }
+  holdout
+}
+
 # data/imputed/<method>/<densifier>/<strategy>/  — created if missing.
 imputed_dir <- function(method, densifier, strategy,
                         root = "data/imputed") {

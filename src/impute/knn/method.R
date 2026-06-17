@@ -37,7 +37,7 @@ holdout_rmse_r2_knn <- function(x, k, holdout) {
 impute_knn <- function(x, ks = 1:10, seed = 1L) {
   ks <- ks[ks < nrow(x)]
   set.seed(seed)
-  holdout <- sample(which(!is.na(x)), size = floor(0.2 * sum(!is.na(x))))
+  holdout <- make_holdout(x, frac = 0.2)
 
   rmse_v <- numeric(length(ks)); r2_v <- numeric(length(ks))
   for (i in seq_along(ks)) {
@@ -67,9 +67,10 @@ sensitivity_knn <- function(x, ks = 1:10, n_seeds = 50L, holdout_frac = 0.2) {
   on.exit({ stopCluster(cl); registerDoSEQ() })
 
   res_list <- foreach(s = seq_len(n_seeds), .packages = "VIM",
-                      .export = c("fit_knn", "holdout_rmse_r2_knn")) %dopar% {
+                      .export = c("fit_knn", "holdout_rmse_r2_knn",
+                                  "make_holdout")) %dopar% {
     set.seed(s)
-    holdout <- sample(which(!is.na(x)), size = floor(holdout_frac * sum(!is.na(x))))
+    holdout <- make_holdout(x, frac = holdout_frac)
     rmse <- numeric(length(ks)); r2 <- numeric(length(ks))
     for (i in seq_along(ks)) {
       rr <- holdout_rmse_r2_knn(x, ks[i], holdout)

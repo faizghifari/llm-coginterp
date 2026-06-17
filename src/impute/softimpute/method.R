@@ -6,24 +6,7 @@
 
 suppressMessages(library(softImpute))
 
-# Column-stratified holdout: sample ~frac of observed cells, but never mask so
-# many cells in a column that fewer than min_keep observed cells remain. Without
-# this, sparse columns can be emptied and softImpute has no in-column signal.
-make_holdout <- function(xs, frac = 0.2, min_keep = 1L) {
-  nr <- nrow(xs)
-  holdout <- integer(0)
-  for (j in seq_len(ncol(xs))) {
-    rows_obs <- which(!is.na(xs[, j]))
-    n_obs <- length(rows_obs)
-    if (n_obs == 0L) next
-    n_hold <- min(floor(frac * n_obs), n_obs - min_keep)
-    if (n_hold > 0L) {
-      picked <- rows_obs[sample.int(n_obs, size = n_hold)]
-      holdout <- c(holdout, (j - 1L) * nr + picked)
-    }
-  }
-  holdout
-}
+# make_holdout (column-stratified) lives in impute/common.R, shared by all methods.
 
 # Baseline SS for held-out R^2: predict each held-out cell with its column's
 # TRAIN mean (observed cells minus the holdout). Using the train mean -- not the
@@ -72,7 +55,7 @@ impute_softimpute <- function(x, max_rank = 15L, seed = 1L) {
   xs <- biScale(x, row.center = FALSE, row.scale = FALSE,
                 col.center = TRUE, col.scale = TRUE, maxit = 100)
   set.seed(seed)
-  holdout <- make_holdout(xs, frac = 0.2, min_keep = 1L)
+  holdout <- make_holdout(xs, frac = 0.2)   # min_keep = 2 (shared default)
   ranks <- 1:min(max_rank, nrow(x) - 1L, ncol(x) - 1L)
 
   rmse_v <- numeric(length(ranks)); r2_v <- numeric(length(ranks))
@@ -114,7 +97,7 @@ sensitivity_softimpute <- function(x, max_rank = 15L, n_seeds = 50L,
                       .export = c("fit_at_rank", "make_holdout",
                                   "holdout_baseline_ss")) %dopar% {
     set.seed(s)
-    holdout <- make_holdout(xs, frac = holdout_frac, min_keep = 1L)
+    holdout <- make_holdout(xs, frac = holdout_frac)   # min_keep = 2 (shared default)
     rmse <- numeric(length(ranks)); r2 <- numeric(length(ranks))
     for (k in seq_along(ranks)) {
       fr <- fit_at_rank(xs, holdout, rank_cap = ranks[k])

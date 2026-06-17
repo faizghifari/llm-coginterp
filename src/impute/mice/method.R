@@ -57,7 +57,7 @@ holdout_rmse_r2_mice <- function(x, m, holdout, seed = 1L) {
 # contract. complete_at(m) re-imputes (mean of m completions) at that m.
 impute_mice <- function(x, ms = c(5L, 10L, 20L), seed = 1L) {
   set.seed(seed)
-  holdout <- sample(which(!is.na(x)), size = floor(0.2 * sum(!is.na(x))))
+  holdout <- make_holdout(x, frac = 0.2)
 
   rmse_v <- numeric(length(ms)); r2_v <- numeric(length(ms))
   for (i in seq_along(ms)) {
@@ -87,9 +87,10 @@ sensitivity_mice <- function(x, ms = c(5L, 10L, 20L), n_seeds = 50L,
   on.exit({ stopCluster(cl); registerDoSEQ() })
 
   res_list <- foreach(s = seq_len(n_seeds), .packages = "mice",
-                      .export = c("fit_mice", "holdout_rmse_r2_mice")) %dopar% {
+                      .export = c("fit_mice", "holdout_rmse_r2_mice",
+                                  "make_holdout")) %dopar% {
     set.seed(s)
-    holdout <- sample(which(!is.na(x)), size = floor(holdout_frac * sum(!is.na(x))))
+    holdout <- make_holdout(x, frac = holdout_frac)
     rmse <- numeric(length(ms)); r2 <- numeric(length(ms))
     for (i in seq_along(ms)) {
       rr <- holdout_rmse_r2_mice(x, ms[i], holdout, seed = s)
