@@ -37,6 +37,28 @@ function read_table(path::AbstractString)
     for i in eachindex(rows), j in 1:p
         X[i, j] = rows[i][j]
     end
+    return drop_degenerate_cols(X, keys, bench)
+end
+
+# Drop columns useless for covariance/factoring (parity with R's prep_matrix):
+# fewer than `min_obs` observed values, or zero variance among observed values
+# (constant column -> no correlational signal, and would standardize to 0).
+function drop_degenerate_cols(X::AbstractMatrix{Union{Missing, Float64}},
+                              keys, bench; min_obs::Int = 2)
+    keep = trues(size(X, 2))
+    for j in 1:size(X, 2)
+        col = collect(skipmissing(@view X[:, j]))
+        if length(col) < min_obs || (length(col) > 1 && std(col) == 0) ||
+           length(col) <= 1
+            keep[j] = false
+        end
+    end
+    if !all(keep)
+        dropped = bench[.!keep]
+        @info "dropping degenerate columns (<$(min_obs) obs or zero-variance)" n = count(!, keep) cols = dropped
+        X = X[:, keep]
+        bench = bench[keep]
+    end
     return X, keys, bench
 end
 
