@@ -104,6 +104,46 @@ verify_data.py still 0 FK violations, 0 orphans.
 
 ---
 
+## Analysis Pipeline — densify → impute → factor (`src/`) ✓
+
+Added a factor-analysis pipeline that recovers the latent factor structure of
+LLM capabilities from the (super-sparse, MNAR) model × benchmark score matrix.
+This is analysis *on top of* the dataset, not a change to the dataset itself —
+no benchmarks/models/results rows were touched. Lives entirely under `src/`; see
+`docs/METHODOLOGY.md` ("Analysis Pipeline") for the full method and rationale.
+
+The raw aggregated matrix is ~3–5 % filled and missing-not-at-random (famous
+models scored on famous benchmarks; obscure benchmarks barely co-occur), so no
+single recipe is trustworthy. The pipeline instead runs a **cross-product of
+palliative approaches** and reports their agreement/disagreement as the result:
+
+- **Densify** (`src/densify.py`) — three greedy-peel strategies, each a different
+  bias profile, to a target density: **C** (column-primary → famous benchmarks ×
+  wide models), **R** (row-primary → saturated models × wide/obscure benchmarks),
+  **S** (symmetric fill-rate). A hardcoded `MIN_OBS = 2` floor on both axes keeps
+  every downstream method well-posed. Plus a `raw` (undensified) level for
+  contrast. Density is the only target — deliberately imputer-agnostic.
+- **Impute** (`src/impute/`) — **softimpute** (R, validated) and **onesidedmc**
+  (Julia, Cao-Liang-Valiant right-singular-vector recovery) complete or side-step
+  the matrix; **iterativepca** (R) is present but deferred (slow, untested).
+- **Factor** (`src/factor/`) — identical principal-axis factoring + Horn parallel
+  analysis (shape-cached) on every completed matrix, so the imputed input is the
+  only thing that varies.
+- **Orchestrator** (`src/run/main.R`) — drives the full cross-product, emits per-
+  cell loadings + a 6-panel dashboard and (opt-in) seed-sweep sensitivity grids;
+  imputed CSVs to `src/data/imputed/`, all plots/loadings flat in `src/results/`.
+
+Held-out **cell-level RMSE + R²** (R² vs the train-mean baseline) is the common,
+cross-method-comparable metric. A numerical-stability fix to OSMC's cell
+predictor (solve in the r-dim factor space via `pinv(Vs)` rather than inverting
+the rank-deficient |S|×|S| covariance) was required to keep it from blowing up on
+richly-observed rows.
+
+Smoke fixture (`src/make_smoke.py`) generates a tiny synthetic dataset so the
+whole pipeline runs in seconds (`--smoke`).
+
+---
+
 ## Remaining Dupe Cleanup — non-HF sources, 90 → 19 ✓
 
 Continuation of the dupe resolution below, for the 126 conflicting groups

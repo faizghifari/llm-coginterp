@@ -164,3 +164,109 @@ Before finalizing the dataset, a multi-threaded URL validator was run across bot
 
 ### Excel Workbook (`scripts/export_xlsx.py`)
 - `data/llm_benchmarks_export.xlsx` — three-sheet workbook (benchmarks / models / results)
+
+---
+
+## Analysis Pipeline (`src/`)
+
+Beyond curating the dataset, `src/` holds an analysis pipeline that recovers the
+**latent factor structure** of LLM capabilities from the model × benchmark score
+matrix. It does not modify the dataset; it consumes the aggregated matrix and
+produces factor loadings + diagnostics.
+
+### The core problem: super-sparse and MNAR
+
+The aggregated matrix (≈970–1096 models × ≈200–215 benchmarks) is only **~3–5 %
+filled**, and the missingness is **not at random**: famous models are scored on
+famous benchmarks, while obscure benchmarks barely co-occur with anything. There
+is no single imputation or densification that "fixes" this honestly. The guiding
+philosophy mirrors the dataset's "strict source verification": rather than pick
+one recipe and present its output as the answer, the pipeline runs a
+**cross-product of palliative approaches** and treats their agreement (or
+disagreement) as the actual finding.
+
+```
+aggregation → DENSIFY → IMPUTE → FACTOR
+```
+
+### Stage 1 — Densify (`src/densify.py`)
+
+Drops rows/columns to reach a workable density, producing several *bias
+profiles* (not one "best" table). Density is the only target — pairwise-overlap
+and positive-definiteness are deliberately **not** optimized, so the densifier
+stays neutral across downstream imputers.
+
+- **C** (column-primary peel): drop the sparsest benchmark, then any emptied
+  model → famous benchmarks × wide model coverage.
+- **R** (row-primary peel): drop the sparsest model, then any emptied benchmark →
+  saturated models × wide benchmarks (retains obscure benchmarks, at the cost of
+  collapsing to few models).
+- **S** (symmetric peel): drop whichever marginal has the lowest fill-rate →
+  balanced, neither axis privileged.
+- **raw**: the undensified matrix, run through the pipeline as a contrast level.
+
+After peeling, a hardcoded `MIN_OBS = 2` floor is enforced on **both** axes
+(every kept model and benchmark must have ≥2 scores) so all downstream methods
+are well-posed. Knobs (`TARGET`, `MIN_OBS`) are constants at the top of the file;
+`--peek` previews shapes/density without writing.
+
+### Stage 2 — Impute (`src/impute/`)
+
+Each method is impute-only: it completes (or side-steps) the matrix and reports
+rank-selection diagnostics, but does **not** factor.
+
+- **softimpute** (R, `softImpute`) — low-rank matrix completion; rank chosen by
+  held-out cell RMSE. The primary validated method.
+- **onesidedmc** (Julia, Cao-Liang-Valiant 2023) — does not impute cells; it
+  recovers the benchmark covariance Θ̂ from pairwise products of observed scores,
+  then synthesizes a covariance-matched surrogate matrix for factoring. Faithful
+  to the paper's "one-sided" recovery (right singular vectors are recoverable
+  when cells are not). Real data has variable observations per row, handled via a
+  ragged observation format.
+- **iterativepca** (R, `missMDA`) — present but **deferred**: `estim_ncpPCA`'s
+  cross-validation is prohibitively slow at this matrix size, and its sensitivity
+  has not been migrated to the held-out RMSE/R² metric. Treat as provisional.
+
+**Scaling:** columns are standardized (z-scores), rows are never scaled — rows
+are models, and row-scaling would erase the general-capability (g) signal the
+factor analysis is meant to find.
+
+**Metric:** held-out **cell-level RMSE and R²**, identical across methods so they
+are comparable. ~20 % of observed cells are held out; the model predicts them;
+R² = 1 − SS_resid / SS_baseline where the baseline predicts the **train-cell**
+column mean (honest out-of-sample). R² = 0 is the no-skill baseline, 1 is
+perfect, negative means worse than the mean. For onesidedmc, cells are predicted
+from the recovered covariance via the conditional-Gaussian (best-linear)
+predictor — an off-label use of the method, chosen so its number sits on the same
+scale as softimpute.
+
+### Stage 3 — Factor (`src/factor/`)
+
+Method-agnostic: identical **principal-axis factoring** (`fm = "pa"`) + promax
+rotation on every completed matrix, so the imputed input is the only thing that
+varies. The number of factors comes from **Horn's parallel analysis**, split for
+efficiency into (a) random-baseline eigenvalue cutoffs that depend only on matrix
+shape `(n, p)` and are cached as JSON, and (b) the observed eigenvalues computed
+per dataset. The cutoffs are **shape-keyed, never global** — parallel analysis is
+not dataset-independent.
+
+### Orchestration (`src/run/main.R`)
+
+Runs the cross-product `{densifier} × {strategy} × {imputer}`. For each cell:
+impute → factor → a single 6-panel dashboard (predictive curve, marginal gain,
+cumulative variance, scree, SS loadings, PA-factor-count). Imputed matrices are
+written under `src/data/imputed/<method>/<densifier>/<strategy>/` (CSV only);
+everything else (loadings, dashboards, sensitivity grids) lands flat in
+`src/results/`. Flags: `--method`, `--raw` (the slow undensified level, run
+separately), `--smoke` (tiny synthetic fixture from `src/make_smoke.py`),
+`--reimpute` (force fresh imputation instead of reusing existing CSVs),
+`--sensitivity` (opt-in seed-sweep, parallelized; each seed is a fresh held-out
+split, so the spread quantifies MNAR fragility).
+
+### Interpreting the results (caveat)
+
+Good held-out RMSE/R² means good per-cell prediction, not necessarily a
+trustworthy factor structure — the loadings and their **stability across
+densifiers and seeds** are the real output. On this MNAR data the factor count is
+typically weakly identified (flat RMSE curves, scattered best-rank across seeds);
+that instability is itself a reportable finding, not a bug to tune away.
