@@ -15,7 +15,26 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 suppressMessages(library(psych))
-source(file.path("factor", "parallel_analysis.R"))
+
+# Resolve this file's own directory so the sibling source + PA cache work from
+# any CWD, whether run via Rscript (--file=) or source()'d (ofile in a frame).
+.factor_dir <- local({
+  f <- NA_character_
+  # 1) source()'d: walk frames for the ofile set by source().
+  for (i in seq_len(sys.nframe())) {
+    of <- tryCatch(get("ofile", envir = sys.frame(i)), error = function(e) NULL)
+    if (!is.null(of) && is.character(of) && nzchar(of)) { f <- of; break }
+  }
+  # 2) Rscript src/factor/factoring.R: --file= arg.
+  if (is.na(f)) {
+    a <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE))
+    if (length(a) && nzchar(a[1])) f <- a[1]
+  }
+  if (is.na(f) || !nzchar(f)) normalizePath("src/factor", mustWork = FALSE)
+  else dirname(normalizePath(f))
+})
+source(file.path(.factor_dir, "parallel_analysis.R"))
+PA_CACHE_DIR <- file.path(.factor_dir, "pa_cache")  # anchor cache to factor/ dir
 
 # Principal-axis EFA at a fixed factor count. Caps nf at ncol-1 and returns NULL
 # (with a note) on failure so callers can degrade gracefully.

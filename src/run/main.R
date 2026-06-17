@@ -20,19 +20,36 @@
 # OSMC is implemented in Julia; we shell out to its run.jl to produce per-r
 # surrogate CSVs, then factor them through the SAME shared R path as the others.
 #
-# Run from repo root:
-#   Rscript main/run.R [--method <name>] [--raw] [--smoke] [--sensitivity]
+# Run from anywhere:
+#   Rscript src/run/main.R [--method <name>] [--raw] [--smoke] [--sensitivity]
 #     --method       softimpute | iterativepca | onesidedmc | all   (default all)
 #     --raw          run ONLY the slow undensified "raw" level (default: C,S,R)
 #     --smoke        use the data/smoke fixture instead of data/
 #     --sensitivity  also run the (slow) seed-sweep sensitivity analysis
 # Strategies (all_standard, all_aggressive) always run.
+#
+# Inputs read from <repo>/data/, outputs written to <repo>/data/imputed and
+# <repo>/results/ — all anchored to the repo root, not the current directory.
 # ─────────────────────────────────────────────────────────────────────────────
 
-source("impute/common.R")
-source("factor/factoring.R")
-source("main/plots.R")
-source("main/dashboard.R")
+# Locate this script -> src/run, so SRC = src and REPO = repo root, regardless
+# of the working directory the orchestrator is invoked from.
+.script_path <- sub("^--file=", "",
+                    grep("^--file=", commandArgs(FALSE), value = TRUE))[1]
+SRC_DIR <- if (length(.script_path) && nzchar(.script_path))
+  dirname(normalizePath(.script_path)) else normalizePath("src/run")
+SRC  <- dirname(SRC_DIR)            # .../src
+REPO <- dirname(SRC)               # repo root
+
+# Activate the project-scoped renv library (if set up) so the right package
+# versions load regardless of the working directory Rscript was started in.
+.renv_activate <- file.path(REPO, "renv", "activate.R")
+if (file.exists(.renv_activate)) source(.renv_activate)
+
+source(file.path(SRC, "impute", "common.R"))
+source(file.path(SRC, "factor", "factoring.R"))
+source(file.path(SRC, "run", "plots.R"))
+source(file.path(SRC, "run", "dashboard.R"))
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc")
@@ -63,8 +80,8 @@ STRATEGIES <- c("all_standard", "all_aggressive")
 DO_SENS    <- opt$sensitivity
 REIMPUTE   <- opt$reimpute   # force fresh imputation even if an imputed CSV exists
 MAX_RANK   <- 10L
-DATA_ROOT  <- if (opt$smoke) "data/smoke" else "data"
-RESULTS_ROOT <- if (opt$smoke) "results/smoke" else "results"
+DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else "data")
+RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else "results")
 dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
 cat(sprintf("methods=[%s]  data_root=%s  results=%s  sensitivity=%s  reimpute=%s\n",
             paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT, DO_SENS, REIMPUTE))
@@ -86,20 +103,20 @@ res_path <- function(method, dz, st, suffix)
 # here we just load the surrogate it produced.
 impute_R <- function(method, x) {
   if (method == "softimpute") {
-    source("impute/softimpute/method.R")
+    source(file.path(SRC, "impute", "softimpute", "method.R"))
     impute_softimpute(x, max_rank = MAX_RANK)
   } else if (method == "iterativepca") {
-    source("impute/iterativepca/method.R")
+    source(file.path(SRC, "impute", "iterativepca", "method.R"))
     impute_iterativepca(x, max_ncp = MAX_RANK)
   } else stop("not an R imputer: ", method)
 }
 
 sensitivity_R <- function(method, x) {
   if (method == "softimpute") {
-    source("impute/softimpute/method.R")
+    source(file.path(SRC, "impute", "softimpute", "method.R"))
     sensitivity_softimpute(x, max_rank = MAX_RANK)
   } else if (method == "iterativepca") {
-    source("impute/iterativepca/method.R")
+    source(file.path(SRC, "impute", "iterativepca", "method.R"))
     sensitivity_iterativepca(x, max_ncp = MAX_RANK)
   } else stop("no R sensitivity for: ", method)
 }
@@ -111,10 +128,12 @@ run_osmc_subprocess <- function() {
              OSMC_DATA_ROOT    = normalizePath(DATA_ROOT, mustWork = FALSE),
              OSMC_RESULTS_ROOT = normalizePath(RESULTS_ROOT, mustWork = FALSE),
              OSMC_SENSITIVITY  = if (DO_SENS) "1" else "")
-  # --threads=auto so the OSMC seed-sweep sensitivity uses all cores.
+  # --threads=auto so the OSMC seed-sweep sensitivity uses all cores. Paths are
+  # absolute (anchored to SRC) so this works regardless of the current directory.
+  osmc <- file.path(SRC, "impute", "OneSidedMC")
   status <- system2("julia",
-    args = c("--threads=auto", "--project=impute/OneSidedMC",
-             "impute/OneSidedMC/run.jl"))
+    args = c("--threads=auto", paste0("--project=", osmc),
+             file.path(osmc, "run.jl")))
   if (status != 0) cat("  WARNING: OSMC subprocess exited with status", status, "\n")
 }
 

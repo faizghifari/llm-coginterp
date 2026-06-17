@@ -1,4 +1,3 @@
-#!/usr/bin/env julia
 # ─────────────────────────────────────────────────────────────────────────────
 # OneSidedMC real-data driver.
 #
@@ -18,7 +17,8 @@ Pkg.activate(joinpath(@__DIR__))
 using OneSidedMC
 include(joinpath(@__DIR__, "src", "pipeline.jl"))
 
-const REPO = abspath(joinpath(@__DIR__, "..", ".."))
+# @__DIR__ = src/impute/OneSidedMC -> repo root is three levels up.
+const REPO = abspath(joinpath(@__DIR__, "..", "..", ".."))
 
 getlist(env, default) = haskey(ENV, env) ? split(ENV[env], ',') : default
 

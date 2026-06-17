@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Generate a tiny smoke-test fixture under data/smoke/ that exercises the whole
 pipeline (densifier -> all 3 imputers -> factoring) fast.
 
@@ -6,18 +5,22 @@ Builds two small synthetic model x benchmark tables with real low-rank factor
 structure + MNAR-ish sparsity, then runs them through the SAME densifier (C/R/S)
 used in production, writing data/smoke/combinations_<C|R|S>/<strategy>/.
 
-Run:  python3 make_smoke.py
-Then: DATA_ROOT=data/smoke METHODS=... Rscript main/run.R
+Run:  python3 src/make_smoke.py
+Then: Rscript src/run/main.R --smoke
 """
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import polars as pl
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # find densify from any CWD
 import densify  # reuse run_densifier + enforce_min_obs + KEY
 
-OUT = Path("data/smoke")
+# Anchor to the repo root (parent of src/) so paths resolve from any CWD.
+REPO = Path(__file__).resolve().parent.parent
+OUT = REPO / "data" / "smoke"
 KEY = densify.KEY
 
 # Small, but big enough that factoring + rank sweep are meaningful and fast.
@@ -85,7 +88,7 @@ def main():
             print(f"[{dz}] {strategy:14} -> {out.shape[0]}x{out.shape[1] - 1} "
                   f"({dens:.0f}% dense)")
     print(f"\nSmoke fixture written under {OUT}/")
-    print("Run: DATA_ROOT=data/smoke Rscript main/run.R")
+    print("Run: Rscript src/run/main.R --smoke")
 
 
 if __name__ == "__main__":

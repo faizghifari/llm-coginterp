@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Densify the super-sparse model x benchmark tables.
 
 The aggregated tables are MNAR-supersparse (~3-5% filled). A single densifier
@@ -31,8 +30,10 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-SRC = Path("data/combinations")
-DST_ROOT = Path("data")
+# Anchor to the repo root (parent of src/) so paths resolve from any CWD.
+REPO = Path(__file__).resolve().parent.parent
+SRC = REPO / "data" / "combinations"
+DST_ROOT = REPO / "data"
 TARGET = 0.10  # target density (fraction)
 MIN_OBS = 2  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
 # Needed so all downstream methods are well-posed: prep_matrix drops <2-obs cols,
