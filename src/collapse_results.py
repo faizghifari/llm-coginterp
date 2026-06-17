@@ -12,7 +12,9 @@ OUT_DIR = ROOT / "data" / "combinations"
 STRIP_TOKENS = {
     "instruct", "inst", "instruction", "chat", "chatbot", "base", "base-model",
     "ft", "sft", "dpo", "rlhf", "ppo", "trained", "tuned", "finetuned",
-    "eval", "evals", "orca", "openorca", "neural", "aligned", "deduped", "prompt", "fc", "cot"
+    "eval", "evals", "orca", "openorca", "neural", "aligned", "deduped", "prompt", "fc",
+    "thinking", "reasoning", "effort", "cot", "greedy", "prm", "orm", "api", "exp", "high",
+    "abliterated",
 }
 LANG_REGION_TOKENS = {"en","ch","zh","korean","kr","ja","ar","es","de","fr","ru","multi","multilingual","turbo","davinci","curie","babbage","ada","dbrx","gpt4all","ggml","gguf"}
 MONTH_TOKENS = {
@@ -20,12 +22,15 @@ MONTH_TOKENS = {
     "january", "february", "march", "april", "june", "july", "august", "september", "october", "november", "december"
 }
 ALL_STRIP = STRIP_TOKENS | LANG_REGION_TOKENS | MONTH_TOKENS
-VARIANT_TOKENS = {"opus", "sonnet", "haiku", "mythos", "fable", "pro", "mini", "flash", "maverick", "scout", "vl"}
+VARIANT_TOKENS = {"opus", "sonnet", "haiku", "mythos", "fable", "pro", "mini", "flash", "maverick", "scout", "vl", "yi", "o1", "o3", "o4", "t5"}
 
 
 def strip_dates_and_metadata(s):
     # Match trailing junk starting with hyphens and ampersand (e.g. ---&---)
     s = re.split(r'-+&', s)[0].strip('-_. ')
+    # Strip reasoning/effort phrases
+    s = re.sub(r'\bmedium[-_ ]+effort\b', '', s)
+    s = re.sub(r'\bhigh[-_ ]+reasoning\b', '', s)
     # Match YYYY-MM-DD, YYYY_MM_DD, YYYY/MM/DD
     s = re.sub(r'\b\d{4}[-_/]\d{2}[-_/]\d{2}\b', '', s)
     # Match YYYYMMDD (like 20240620)
@@ -98,6 +103,9 @@ def normalize_standard(row):
                     continue
                 if tok.lower() in VARIANT_TOKENS:
                     preserved.append(tok.lower())
+                    continue
+                # Skip context lengths like 32k, 128k, 1m, 2m
+                if re.match(r"^\d+[kK]$", tok) or re.match(r"^[12][mM]$", tok):
                     continue
                     
                 # Check if it is a size part (e.g. 70b, 1.5b, 8B)
@@ -187,6 +195,9 @@ def normalize_standard(row):
             continue
         if tok.lower() in VARIANT_TOKENS:
             preserved.append(tok.lower())
+            continue
+        # Skip context lengths like 32k, 128k, 1m, 2m
+        if re.match(r"^\d+[kK]$", tok) or re.match(r"^[12][mM]$", tok):
             continue
             
         # Check if size part
