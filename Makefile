@@ -14,3 +14,6 @@ install-r:
 
 install-julia:
 	julia --project=$(JULIA_PROJECT) -e 'using Pkg; Pkg.instantiate()'
+
+clean:
+	cd results && rm -rf *

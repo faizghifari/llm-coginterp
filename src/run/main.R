@@ -52,7 +52,8 @@ source(file.path(SRC, "run", "plots.R"))
 source(file.path(SRC, "run", "dashboard.R"))
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
-ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc")
+ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
+                 "knn", "missforest", "mice")
 parse_args <- function(args) {
   method <- "all"; smoke <- FALSE; sens <- FALSE; raw <- FALSE; reimpute <- FALSE
   i <- 1L
@@ -93,9 +94,13 @@ combos_path <- function(dz, st) {
   file.path(DATA_ROOT, sub, st, "model_benchmark_table.csv")
 }
 
-# Flat results path: results/<method>_<densifier>_<strategy>_<suffix>
-res_path <- function(method, dz, st, suffix)
-  file.path(RESULTS_ROOT, sprintf("%s_%s_%s_%s", method, dz, st, suffix))
+# Results path: results/<method>/<method>_<densifier>_<strategy>_<suffix>
+# (flat filenames, nested one level under a per-method subdir).
+res_path <- function(method, dz, st, suffix) {
+  d <- file.path(RESULTS_ROOT, method)
+  dir.create(d, recursive = TRUE, showWarnings = FALSE)
+  file.path(d, sprintf("%s_%s_%s_%s", method, dz, st, suffix))
+}
 
 # ── Imputation dispatch ──────────────────────────────────────────────────────
 # softimpute / iterativepca run in-process and return (M, sweep meta).
@@ -108,6 +113,15 @@ impute_R <- function(method, x) {
   } else if (method == "iterativepca") {
     source(file.path(SRC, "impute", "iterativepca", "method.R"))
     impute_iterativepca(x, max_ncp = MAX_RANK)
+  } else if (method == "knn") {
+    source(file.path(SRC, "impute", "knn", "method.R"))
+    impute_knn(x)
+  } else if (method == "missforest") {
+    source(file.path(SRC, "impute", "missforest", "method.R"))
+    impute_missforest(x)
+  } else if (method == "mice") {
+    source(file.path(SRC, "impute", "mice", "method.R"))
+    impute_mice(x)
   } else stop("not an R imputer: ", method)
 }
 
@@ -118,6 +132,15 @@ sensitivity_R <- function(method, x) {
   } else if (method == "iterativepca") {
     source(file.path(SRC, "impute", "iterativepca", "method.R"))
     sensitivity_iterativepca(x, max_ncp = MAX_RANK)
+  } else if (method == "knn") {
+    source(file.path(SRC, "impute", "knn", "method.R"))
+    sensitivity_knn(x)
+  } else if (method == "missforest") {
+    source(file.path(SRC, "impute", "missforest", "method.R"))
+    sensitivity_missforest(x)
+  } else if (method == "mice") {
+    source(file.path(SRC, "impute", "mice", "method.R"))
+    sensitivity_mice(x)
   } else stop("no R sensitivity for: ", method)
 }
 
@@ -292,9 +315,10 @@ main <- function() {
     if (DO_SENS && length(sens_by_dz) > 0) {
       # name by densifier set so a separate --raw run doesn't clobber the C/S/R one.
       set_tag <- if (identical(DENSIFIERS, "raw")) "raw" else "csr"
+      mdir <- file.path(RESULTS_ROOT, method)
+      dir.create(mdir, recursive = TRUE, showWarnings = FALSE)
       plot_sensitivity_grid(sens_by_dz,
-        file.path(RESULTS_ROOT,
-                  sprintf("%s_%s_%s_sensitivity.png", method, st, set_tag)),
+        file.path(mdir, sprintf("%s_%s_%s_sensitivity.png", method, st, set_tag)),
         title = sprintf("%s / %s", method, st))
     }
   }

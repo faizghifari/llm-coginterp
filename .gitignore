@@ -63,3 +63,6 @@ scripts/archive/models_research_findings.json
 
 # Local tooling configs
 CLAUDE.md
+
+# output
+results/*

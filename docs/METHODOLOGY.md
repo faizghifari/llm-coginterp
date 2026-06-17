@@ -215,17 +215,36 @@ are well-posed. Knobs (`TARGET`, `MIN_OBS`) are constants at the top of the file
 Each method is impute-only: it completes (or side-steps) the matrix and reports
 rank-selection diagnostics, but does **not** factor.
 
-- **softimpute** (R, `softImpute`) — low-rank matrix completion; rank chosen by
-  held-out cell RMSE. The primary validated method.
+- **softimpute** (R, `softImpute`) — low-rank matrix completion via
+  iterative soft-thresholded SVD (nuclear-norm penalized — *not* EM); rank chosen
+  by held-out cell RMSE. The primary validated method.
+- **knn** (R, `VIM`) — fill each missing cell from the *k* most similar models;
+  sweeps *k*. Assumption-light similarity baseline (no low-rank or normality
+  assumption).
+- **missforest** (R, `missForest`) — iterative random-forest imputation; sweeps
+  `ntree`. Nonparametric, captures nonlinear structure the low-rank methods
+  cannot.
+- **mice** (R, `mice`) — multiple imputation by chained equations; sweeps *m*
+  (number of imputations). Hands factoring the **mean** of the *m* completions;
+  the per-imputation spread is MICE's distinctive uncertainty signal (surfaced
+  via the seed-sweep). The only method that natively quantifies imputation
+  uncertainty.
 - **onesidedmc** (Julia, Cao-Liang-Valiant 2023) — does not impute cells; it
   recovers the benchmark covariance Θ̂ from pairwise products of observed scores,
   then synthesizes a covariance-matched surrogate matrix for factoring. Faithful
   to the paper's "one-sided" recovery (right singular vectors are recoverable
   when cells are not). Real data has variable observations per row, handled via a
-  ragged observation format.
-- **iterativepca** (R, `missMDA`) — present but **deferred**: `estim_ncpPCA`'s
-  cross-validation is prohibitively slow at this matrix size, and its sensitivity
-  has not been migrated to the held-out RMSE/R² metric. Treat as provisional.
+  ragged observation format. Its cell RMSE/R² (for cross-method comparability) is
+  derived off-label via a conditional-Gaussian predictor from Θ̂.
+- **iterativepca** (R, `missMDA`) — EM-style regularized PCA imputation; present
+  but **deferred**: `estim_ncpPCA`'s cross-validation is prohibitively slow at
+  this matrix size, and its sensitivity has not been migrated to the held-out
+  RMSE/R² metric. Treat as provisional.
+
+All R imputers share one contract (completed matrix `M`, a param sweep with
+held-out RMSE + R², and a `complete_at(param)` closure), so the orchestrator
+factors and plots them uniformly. knn/missforest/mice fill cells directly, so
+they slot into the held-out RMSE/R² with no extra machinery.
 
 **Scaling:** columns are standardized (z-scores), rows are never scaled — rows
 are models, and row-scaling would erase the general-capability (g) signal the

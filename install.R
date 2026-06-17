@@ -25,6 +25,9 @@ pkgs <- c(
   "psych",       # factor analysis (PAF) + parallel analysis
   "softImpute",  # softimpute matrix completion
   "missMDA",     # iterative PCA imputation (deferred method)
+  "VIM",         # KNN imputation
+  "missForest",  # random-forest iterative imputation
+  "mice",        # multiple imputation by chained equations
   "jsonlite",    # parallel-analysis cache (JSON)
   "magick",      # stacking result PNGs into combined figures
   "doParallel",  # parallel sensitivity seed-sweeps
@@ -40,9 +43,16 @@ if (!requireNamespace("renv", quietly = TRUE)) {
 }
 
 if (file.exists(file.path(REPO, "renv.lock"))) {
-  # Reproduce the locked environment.
+  # Reproduce the locked environment, then install + snapshot any pkgs added to
+  # the list since the lock was written (e.g. new imputation methods).
   cat("renv.lock found -> renv::restore()\n")
   renv::restore(prompt = FALSE)
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing)) {
+    cat("Installing newly-added packages:", paste(missing, collapse = ", "), "\n")
+    renv::install(missing)
+    renv::snapshot(prompt = FALSE)
+  }
 } else {
   # First-time setup: init a bare project env, install deps, snapshot the lock.
   cat("No renv.lock -> initializing project library + installing deps\n")

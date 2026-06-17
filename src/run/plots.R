@@ -72,22 +72,25 @@ stack_pngs <- function(paths, out_path) {
   invisible(TRUE)
 }
 
+# Results are nested one level under a per-method subdir: results/<method>/...
+.method_dir <- function(results_root, method) file.path(results_root, method)
+
 # Stack the raw + csr sensitivity grids for one method x strategy.
 combine_sensitivity <- function(method, st, results_root) {
-  paths <- file.path(results_root,
+  d <- .method_dir(results_root, method)
+  paths <- file.path(d,
     sprintf("%s_%s_%s_sensitivity.png", method, st, c("raw", "csr")))
-  out <- file.path(results_root,
-    sprintf("%s_%s_sensitivity_combined.png", method, st))
+  out <- file.path(d, sprintf("%s_%s_sensitivity_combined.png", method, st))
   stack_pngs(paths, out)
 }
 
 # Stack all per-densifier dashboards (raw, C, S, R) for one method x strategy.
 combine_dashboards <- function(method, st, results_root,
                                densifiers = c("raw", "C", "S", "R")) {
-  paths <- file.path(results_root,
+  d <- .method_dir(results_root, method)
+  paths <- file.path(d,
     sprintf("%s_%s_%s_dashboard.png", method, densifiers, st))
-  out <- file.path(results_root,
-    sprintf("%s_%s_dashboard_combined.png", method, st))
+  out <- file.path(d, sprintf("%s_%s_dashboard_combined.png", method, st))
   stack_pngs(paths, out)
 }
 
