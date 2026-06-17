@@ -105,6 +105,63 @@ factor_matrix <- function(M, pa_iter = 100L, pa_quantile = 0.95,
        nf = ncol(unclass(efa$loadings)))
 }
 
+# Higher-order factor analysis on a completed matrix M with `nf` first-order
+# factors. Two complementary views of the SAME hierarchy:
+#   - second-order: FA of the first-order promax factor-correlation matrix (Phi);
+#     loadings are of the first-order factors on a single general factor.
+#   - bifactor (Schmid-Leiman via psych::omega): re-expresses the hierarchy so
+#     every benchmark loads directly on a general factor g + its group factor;
+#     also yields omega_h (proportion of variance from g) and omega_total.
+#
+# Requires >= 3 first-order factors (2nd-order is unidentified below that) and a
+# meaningfully non-identity Phi (no correlated first-order factors -> no general
+# factor to find). Returns NULL components that can't be computed.
+higher_order <- function(M, nf) {
+  out <- list(second = NULL, second_loadings = NULL,
+              bifactor_loadings = NULL, omega_h = NA_real_,
+              omega_h_asymptotic = NA_real_, omega_total = NA_real_,
+              omega_group = NULL, nf = nf)
+
+  # ── second-order: factor the first-order factor-correlation matrix ──────────
+  efa1 <- fa_try(M, nf)
+  if (!is.null(efa1) && !is.null(efa1$Phi)) {
+    so <- tryCatch(
+      suppressWarnings(fa(efa1$Phi, nfactors = 1, fm = "pa",
+                          n.obs = nrow(M), rotate = "none")),
+      error = function(e) NULL)
+    if (!is.null(so)) {
+      out$second <- so
+      out$second_loadings <- unclass(so$loadings)  # first-order factors x g
+    }
+  }
+
+  # ── bifactor / Schmid-Leiman via psych::omega ───────────────────────────────
+  om <- tryCatch(
+    suppressWarnings(psych::omega(M, nfactors = nf, fm = "pa", flip = FALSE,
+                                  plot = FALSE)),
+    error = function(e) NULL)
+  if (!is.null(om)) {
+    out$bifactor_loadings <- unclass(om$schmid$sl)   # benchmarks x (g + groups + h2/u2/p2)
+    out$omega_h <- tryCatch(as.numeric(om$omega_h), error = function(e) NA_real_)
+    out$omega_h_asymptotic <- tryCatch(as.numeric(om$omega.lim), error = function(e) NA_real_)
+    out$omega_total <- tryCatch(as.numeric(om$omega.tot), error = function(e) NA_real_)
+    # per-group breakdown: rows g/F1*/F2*..., cols total/general/group; the
+    # `group` column is omega_hs per factor (needed to interpret omega_h).
+    out$omega_group <- tryCatch(as.matrix(om$omega.group), error = function(e) NULL)
+  }
+  out
+}
+
+# omega_h only (cheap): for the sensitivity seed-sweep. Returns NA only on failure.
+omega_h_only <- function(M, nf) {
+  om <- tryCatch(
+    suppressWarnings(psych::omega(M, nfactors = nf, fm = "pa", flip = FALSE,
+                                  plot = FALSE)),
+    error = function(e) NULL)
+  if (is.null(om)) NA_real_ else tryCatch(as.numeric(om$omega_h),
+                                          error = function(e) NA_real_)
+}
+
 # Loadings -> tidy CSV (benchmark x factor), kept verbatim from the old report.R.
 write_loadings_csv <- function(efa, path) {
   L <- unclass(efa$loadings)
@@ -128,6 +185,61 @@ write_loadings_markdown <- function(efa, path, cutoff = 0.30) {
   writeLines(c(paste0("Loadings blanked below |", cutoff, "|; PAF + promax.\n"),
                header, sep, rows), path)
   cat("  wrote", path, "\n")
+}
+
+# Generic loading-matrix -> markdown table (rowname column + numeric cols),
+# blanking |value| below cutoff. Reused for first- and higher-order tables.
+matrix_to_markdown <- function(L, path, rowname = "row", cutoff = 0.30,
+                               note = "") {
+  disp <- formatC(L, format = "f", digits = 2)
+  disp[abs(L) < cutoff] <- ""
+  header <- paste0("| ", rowname, " | ", paste(colnames(L), collapse = " | "), " |")
+  sep    <- paste0("|", paste(rep("---", ncol(L) + 1), collapse = "|"), "|")
+  rows   <- vapply(seq_len(nrow(L)), function(i)
+    paste0("| ", rownames(L)[i], " | ", paste(disp[i, ], collapse = " | "), " |"),
+    character(1))
+  writeLines(c(if (nzchar(note)) paste0(note, "\n") else character(0),
+               header, sep, rows), path)
+  cat("  wrote", path, "\n")
+}
+
+# Write higher-order outputs from higher_order(): second-order loadings, bifactor
+# (Schmid-Leiman) loadings, the scalar omega coefficients, and the per-group
+# omega breakdown (omega_hs). Each loadings table is written as both CSV and MD
+# (IDE-friendly). Skips any component that is NULL.
+write_higher_order <- function(ho, second_csv, bifactor_csv, scalar_csv,
+                               group_csv, second_md = NULL, bifactor_md = NULL) {
+  if (!is.null(ho$second_loadings)) {
+    L <- ho$second_loadings
+    write.csv(data.frame(first_order_factor = rownames(L), L, check.names = FALSE),
+              second_csv, row.names = FALSE)
+    cat("  wrote", second_csv, "\n")
+    if (!is.null(second_md))
+      matrix_to_markdown(L, second_md, rowname = "first_order_factor",
+                         note = "Second-order loadings (first-order factors -> g); |.|<0.3 blanked.")
+  }
+  if (!is.null(ho$bifactor_loadings)) {
+    L <- ho$bifactor_loadings
+    write.csv(data.frame(benchmark = rownames(L), L, check.names = FALSE),
+              bifactor_csv, row.names = FALSE)
+    cat("  wrote", bifactor_csv, "\n")
+    if (!is.null(bifactor_md))
+      matrix_to_markdown(L, bifactor_md, rowname = "benchmark",
+                         note = "Bifactor (Schmid-Leiman) loadings: g + group factors; |.|<0.3 blanked.")
+  }
+  # scalar coefficients
+  write.csv(data.frame(omega_h = ho$omega_h,
+                       omega_h_asymptotic = ho$omega_h_asymptotic,
+                       omega_total = ho$omega_total, n_first_order = ho$nf),
+            scalar_csv, row.names = FALSE)
+  cat("  wrote", scalar_csv, "\n")
+  # per-group breakdown (omega_hs is the `group` column)
+  if (!is.null(ho$omega_group)) {
+    g <- ho$omega_group
+    write.csv(data.frame(factor = rownames(g), g, check.names = FALSE),
+              group_csv, row.names = FALSE)
+    cat("  wrote", group_csv, "\n")
+  }
 }
 
 # Shared scree + parallel-analysis plot (identical across all methods). Takes

@@ -25,8 +25,7 @@ holdout_rmse_r2_mf <- function(x, ntree, holdout) {
   Xc <- tryCatch(fit_missforest(x_train, ntree), error = function(e) NULL)
   if (is.null(Xc)) return(c(rmse = NA, r2 = NA))
   zt <- z(x)[holdout]; zh <- z(Xc)[holdout]
-  c(rmse = sqrt(mean((zh - zt)^2)),
-    r2 = 1 - sum((zh - zt)^2) / sum(zt^2))
+  score_holdout(zt, zh, holdout, nrow(x))
 }
 
 # Main entry point. Sweeps ntree, picks CV-best by held-out RMSE, returns the
@@ -55,16 +54,18 @@ impute_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L), seed = 1L) {
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per ntree.
 sensitivity_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L),
-                                   n_seeds = 50L, holdout_frac = 0.2) {
+                                   n_seeds = 50L, holdout_frac = 0.2,
+                                   nf = NA_integer_) {
   suppressMessages({ library(parallel); library(doParallel); library(foreach) })
   n_cores <- max(1L, detectCores() - 2L)
   cat(sprintf("  sensitivity using %d cores, %d seeds\n", n_cores, n_seeds))
   cl <- makeCluster(n_cores); registerDoParallel(cl)
   on.exit({ stopCluster(cl); registerDoSEQ() })
 
-  res_list <- foreach(s = seq_len(n_seeds), .packages = "missForest",
+  res_list <- foreach(s = seq_len(n_seeds), .packages = c("missForest", "psych"),
                       .export = c("fit_missforest", "holdout_rmse_r2_mf",
-                                  "make_holdout")) %dopar% {
+                                  "make_holdout", "score_holdout", "BALANCE_HOLDOUT",
+                                  "omega_h_only")) %dopar% {
     set.seed(s)
     holdout <- make_holdout(x, frac = holdout_frac)
     rmse <- numeric(length(ntrees)); r2 <- numeric(length(ntrees))
@@ -72,12 +73,19 @@ sensitivity_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L),
       rr <- holdout_rmse_r2_mf(x, ntrees[i], holdout)
       rmse[i] <- rr["rmse"]; r2[i] <- rr["r2"]
     }
-    list(rmse = rmse, r2 = r2)
+    oh <- NA_real_
+    if (!is.na(nf)) {
+      best_nt <- ntrees[which.min(replace(rmse, is.na(rmse), Inf))]
+      Mc <- tryCatch(fit_missforest(x, best_nt), error = function(e) NULL)
+      if (!is.null(Mc)) oh <- omega_h_only(Mc, nf)
+    }
+    list(rmse = rmse, r2 = r2, omega_h = oh)
   }
   rmse_mat <- do.call(rbind, lapply(res_list, `[[`, "rmse"))
   r2_mat   <- do.call(rbind, lapply(res_list, `[[`, "r2"))
   colnames(rmse_mat) <- colnames(r2_mat) <- paste0("ntree_", ntrees)
   best_ranks <- ntrees[apply(rmse_mat, 1, which.min)]
   list(rmse_mat = rmse_mat, r2_mat = r2_mat, best_ranks = best_ranks,
+       omega_h = vapply(res_list, `[[`, numeric(1), "omega_h"),
        ranks = ntrees, param = "ntree")
 }

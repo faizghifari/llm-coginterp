@@ -15,12 +15,13 @@
 
 .blank_panel <- function(main = "") { plot.new(); title(main = main) }
 
-# One grid row (3 panels) for a single densifier's sensitivity result.
+# One grid row (4 panels) for a single densifier's sensitivity result.
 # `sens` fields: rmse_mat|cv_mat (seeds x params), optional r2_mat, best_ranks,
-# ranks, param.
+# ranks, param, optional omega_h (per-seed vector).
 .sens_row <- function(sens, dz_label) {
   if (is.null(sens)) {
-    .blank_panel(paste0(dz_label, ": (failed)")); .blank_panel(); .blank_panel()
+    .blank_panel(paste0(dz_label, ": (failed)")); .blank_panel()
+    .blank_panel(); .blank_panel()
     return(invisible())
   }
   mat <- if (!is.null(sens$rmse_mat)) sens$rmse_mat else sens$cv_mat
@@ -53,6 +54,16 @@
   tab <- table(factor(best, levels = ranks))
   barplot(tab, xlab = paste("CV-best", param), ylab = "count",
           main = paste0(dz_label, ": best-", param, " stability"))
+
+  # col 4: omega_h (general-factor strength) distribution across seeds
+  oh <- if (!is.null(sens$omega_h)) sens$omega_h[is.finite(sens$omega_h)] else numeric(0)
+  if (length(oh)) {
+    boxplot(oh, ylab = "omega_h", ylim = c(0, 1),
+            main = sprintf("%s: omega_h (med %.2f)", dz_label, median(oh)))
+    points(rep(1, length(oh)), oh, col = "blue", pch = 19, cex = 0.5)
+  } else {
+    .blank_panel(paste0(dz_label, ": omega_h (n/a)"))
+  }
 }
 
 # ── Combine / stack existing PNGs ────────────────────────────────────────────
@@ -98,8 +109,8 @@ combine_dashboards <- function(method, st, results_root,
 plot_sensitivity_grid <- function(sens_by_dz, path, title = "") {
   dzs <- names(sens_by_dz)
   nr <- length(dzs)
-  png(path, width = 1500, height = 320 * nr, res = 110)
-  op <- par(mfrow = c(nr, 3), mar = c(4, 4.2, 3, 1), oma = c(0, 0, 2.5, 0))
+  png(path, width = 1900, height = 320 * nr, res = 110)
+  op <- par(mfrow = c(nr, 4), mar = c(4, 4.2, 3, 1), oma = c(0, 0, 2.5, 0))
   for (dz in dzs) .sens_row(sens_by_dz[[dz]], dz)
   mtext(paste0("Seed-sweep sensitivity: ", title), outer = TRUE, cex = 1.1)
   par(op); dev.off()

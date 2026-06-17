@@ -49,8 +49,7 @@ holdout_rmse_r2_mice <- function(x, m, holdout, seed = 1L) {
   Xc <- tryCatch(fit_mice(x_train, m, seed), error = function(e) NULL)
   if (is.null(Xc)) return(c(rmse = NA, r2 = NA))
   zt <- z(x)[holdout]; zh <- z(Xc)[holdout]
-  c(rmse = sqrt(mean((zh - zt)^2)),
-    r2 = 1 - sum((zh - zt)^2) / sum(zt^2))
+  score_holdout(zt, zh, holdout, nrow(x))
 }
 
 # Main entry point. Sweeps m, picks CV-best by held-out RMSE, returns the uniform
@@ -79,16 +78,17 @@ impute_mice <- function(x, ms = c(5L, 10L, 20L), seed = 1L) {
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per m.
 sensitivity_mice <- function(x, ms = c(5L, 10L, 20L), n_seeds = 50L,
-                             holdout_frac = 0.2) {
+                             holdout_frac = 0.2, nf = NA_integer_) {
   suppressMessages({ library(parallel); library(doParallel); library(foreach) })
   n_cores <- max(1L, detectCores() - 2L)
   cat(sprintf("  sensitivity using %d cores, %d seeds\n", n_cores, n_seeds))
   cl <- makeCluster(n_cores); registerDoParallel(cl)
   on.exit({ stopCluster(cl); registerDoSEQ() })
 
-  res_list <- foreach(s = seq_len(n_seeds), .packages = "mice",
+  res_list <- foreach(s = seq_len(n_seeds), .packages = c("mice", "psych"),
                       .export = c("fit_mice", "holdout_rmse_r2_mice",
-                                  "make_holdout")) %dopar% {
+                                  "make_holdout", "score_holdout", "BALANCE_HOLDOUT",
+                                  "omega_h_only")) %dopar% {
     set.seed(s)
     holdout <- make_holdout(x, frac = holdout_frac)
     rmse <- numeric(length(ms)); r2 <- numeric(length(ms))
@@ -96,12 +96,19 @@ sensitivity_mice <- function(x, ms = c(5L, 10L, 20L), n_seeds = 50L,
       rr <- holdout_rmse_r2_mice(x, ms[i], holdout, seed = s)
       rmse[i] <- rr["rmse"]; r2[i] <- rr["r2"]
     }
-    list(rmse = rmse, r2 = r2)
+    oh <- NA_real_
+    if (!is.na(nf)) {
+      best_m <- ms[which.min(replace(rmse, is.na(rmse), Inf))]
+      Mc <- tryCatch(fit_mice(x, best_m, seed = s), error = function(e) NULL)
+      if (!is.null(Mc)) oh <- omega_h_only(Mc, nf)
+    }
+    list(rmse = rmse, r2 = r2, omega_h = oh)
   }
   rmse_mat <- do.call(rbind, lapply(res_list, `[[`, "rmse"))
   r2_mat   <- do.call(rbind, lapply(res_list, `[[`, "r2"))
   colnames(rmse_mat) <- colnames(r2_mat) <- paste0("m_", ms)
   best_ranks <- ms[apply(rmse_mat, 1, which.min)]
   list(rmse_mat = rmse_mat, r2_mat = r2_mat, best_ranks = best_ranks,
+       omega_h = vapply(res_list, `[[`, numeric(1), "omega_h"),
        ranks = ms, param = "m")
 }

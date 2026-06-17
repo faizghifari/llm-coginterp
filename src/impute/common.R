@@ -55,6 +55,42 @@ make_holdout <- function(x, frac = 0.2, min_keep = 2L) {
   holdout
 }
 
+# Whether held-out RMSE/R^2 is column-balanced (default) or cell-weighted. With
+# cell-weighting (the naive global mean), high-frequency columns donate far more
+# held-out cells and dominate the metric — so RMSE reflects the dense "famous"
+# core and is largely insensitive to densification. Column-balancing averages
+# the per-column RMSE/R^2 (equal weight per benchmark) to remove that bias.
+# Set BALANCE_HOLDOUT <- FALSE (via --no-balance) for the old cell-weighted score.
+BALANCE_HOLDOUT <- TRUE
+
+# Score held-out cells given true (zt) and predicted (zh) standardized values and
+# the held-out linear indices (column-major). Returns c(rmse, r2). R^2 baseline
+# is the train column mean, which is 0 in z-space, so per-cell baseline = zt^2.
+#
+# Both modes derive R^2 from the SAME aggregated MSE/baseline as the RMSE (a
+# single final ratio), never by averaging per-column R^2 — averaging R^2 over
+# columns is unstable: a thin column with a tiny baseline yields R^2 of -10..-50
+# and a few of those wreck the mean.
+#   cell-weighted: aggregate over all held-out cells equally.
+#   balanced:      aggregate each column's MEAN squared error / MEAN baseline,
+#                  then average those across columns (equal weight per column).
+score_holdout <- function(zt, zh, holdout, nrow_x, balance = BALANCE_HOLDOUT) {
+  resid2 <- (zh - zt)^2
+  base2  <- zt^2
+  if (!balance) {
+    return(c(rmse = sqrt(mean(resid2)),
+             r2 = 1 - sum(resid2) / sum(base2)))
+  }
+  col <- ((holdout - 1L) %/% nrow_x) + 1L           # column of each held-out cell
+  # RMSE: mean of per-column RMSE (unchanged).
+  rmse <- mean(sqrt(tapply(resid2, col, mean)), na.rm = TRUE)
+  # R^2: single pooled ratio of column-balanced MSE / baseline-MSE — NOT a mean
+  # of per-column R^2 (which blows up to -10..-50 on thin columns).
+  mse  <- mean(tapply(resid2, col, mean))
+  base <- mean(tapply(base2,  col, mean))
+  c(rmse = rmse, r2 = if (base > 0) 1 - mse / base else NA_real_)
+}
+
 # data/imputed/<method>/<densifier>/<strategy>/  — created if missing.
 imputed_dir <- function(method, densifier, strategy,
                         root = "data/imputed") {

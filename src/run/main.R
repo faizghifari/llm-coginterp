@@ -55,21 +55,24 @@ source(file.path(SRC, "run", "dashboard.R"))
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
                  "knn", "missforest", "mice")
 parse_args <- function(args) {
-  method <- "all"; smoke <- FALSE; sens <- FALSE; raw <- FALSE; reimpute <- FALSE
+  method <- "all"; smoke <- FALSE; sens <- FALSE; raw <- FALSE
+  reimpute <- FALSE; no_balance <- FALSE
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]
     if (a == "--method") { method <- args[[i + 1L]]; i <- i + 2L }
-    else if (a == "--smoke")       { smoke    <- TRUE; i <- i + 1L }
-    else if (a == "--sensitivity") { sens     <- TRUE; i <- i + 1L }
-    else if (a == "--raw")         { raw      <- TRUE; i <- i + 1L }
-    else if (a == "--reimpute")    { reimpute <- TRUE; i <- i + 1L }
+    else if (a == "--smoke")       { smoke      <- TRUE; i <- i + 1L }
+    else if (a == "--sensitivity") { sens       <- TRUE; i <- i + 1L }
+    else if (a == "--raw")         { raw        <- TRUE; i <- i + 1L }
+    else if (a == "--reimpute")    { reimpute   <- TRUE; i <- i + 1L }
+    else if (a == "--no-balance")  { no_balance <- TRUE; i <- i + 1L }
     else stop("unknown arg: ", a)
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
   list(methods = if (method == "all") ALL_METHODS else method,
-       smoke = smoke, sensitivity = sens, raw = raw, reimpute = reimpute)
+       smoke = smoke, sensitivity = sens, raw = raw, reimpute = reimpute,
+       no_balance = no_balance)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
 
@@ -80,6 +83,10 @@ DENSIFIERS <- if (opt$raw) "raw" else c("C", "S", "R")
 STRATEGIES <- c("all_standard", "all_aggressive")
 DO_SENS    <- opt$sensitivity
 REIMPUTE   <- opt$reimpute   # force fresh imputation even if an imputed CSV exists
+# --no-balance: revert held-out RMSE/R^2 to the old cell-weighted score (high-
+# frequency columns dominate). Default is column-balanced (mean of per-column
+# scores). Set in common.R's BALANCE_HOLDOUT, which the scorers read.
+BALANCE_HOLDOUT <- !opt$no_balance
 MAX_RANK   <- 10L
 DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else "data")
 RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else "results")
@@ -125,22 +132,24 @@ impute_R <- function(method, x) {
   } else stop("not an R imputer: ", method)
 }
 
-sensitivity_R <- function(method, x) {
+# `nf` is the first-order factor count from the cell's main-run factoring; passed
+# so each seed's omega_h is computed at a fixed nf (no per-seed parallel analysis).
+sensitivity_R <- function(method, x, nf = NA_integer_) {
   if (method == "softimpute") {
     source(file.path(SRC, "impute", "softimpute", "method.R"))
-    sensitivity_softimpute(x, max_rank = MAX_RANK)
+    sensitivity_softimpute(x, max_rank = MAX_RANK, nf = nf)
   } else if (method == "iterativepca") {
     source(file.path(SRC, "impute", "iterativepca", "method.R"))
-    sensitivity_iterativepca(x, max_ncp = MAX_RANK)
+    sensitivity_iterativepca(x, max_ncp = MAX_RANK)  # HO not wired (deferred)
   } else if (method == "knn") {
     source(file.path(SRC, "impute", "knn", "method.R"))
-    sensitivity_knn(x)
+    sensitivity_knn(x, nf = nf)
   } else if (method == "missforest") {
     source(file.path(SRC, "impute", "missforest", "method.R"))
-    sensitivity_missforest(x)
+    sensitivity_missforest(x, nf = nf)
   } else if (method == "mice") {
     source(file.path(SRC, "impute", "mice", "method.R"))
-    sensitivity_mice(x)
+    sensitivity_mice(x, nf = nf)
   } else stop("no R sensitivity for: ", method)
 }
 
@@ -150,7 +159,8 @@ run_osmc_subprocess <- function() {
              OSMC_STRATEGIES   = paste(STRATEGIES, collapse = ","),
              OSMC_DATA_ROOT    = normalizePath(DATA_ROOT, mustWork = FALSE),
              OSMC_RESULTS_ROOT = normalizePath(RESULTS_ROOT, mustWork = FALSE),
-             OSMC_SENSITIVITY  = if (DO_SENS) "1" else "")
+             OSMC_SENSITIVITY  = if (DO_SENS) "1" else "",
+             OSMC_BALANCE      = if (BALANCE_HOLDOUT) "1" else "0")
   # --threads=auto so the OSMC seed-sweep sensitivity uses all cores. Paths are
   # absolute (anchored to SRC) so this works regardless of the current directory.
   osmc <- file.path(SRC, "impute", "OneSidedMC")
@@ -204,7 +214,7 @@ osmc_sensitivity <- function(dz, st) {
        best_ranks = d$chosen_r, ranks = ranks, param = "r")
 }
 
-# Factor at best param, write loadings + the single dashboard to results/.
+# Factor at best param, write loadings + higher-order + the single dashboard.
 factor_and_report <- function(method, dz, st, res, keys) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   fr <- factor_matrix(res$M, pa_iter = 100L)
@@ -213,6 +223,24 @@ factor_and_report <- function(method, dz, st, res, keys) {
   write_loadings_csv(fr$efa, res_path(method, dz, st, "loadings.csv"))
   write_loadings_markdown(fr$efa, res_path(method, dz, st, "loadings.md"))
 
+  # higher-order: second-order FA + bifactor (Schmid-Leiman) + omega_h
+  ho <- tryCatch(higher_order(res$M, fr$nf), error = function(e) {
+    cat("  higher-order failed:", conditionMessage(e), "\n"); NULL })
+  if (!is.null(ho)) {
+    write_higher_order(ho,
+      second_csv   = res_path(method, dz, st, "secondorder_loadings.csv"),
+      bifactor_csv = res_path(method, dz, st, "bifactor_loadings.csv"),
+      scalar_csv   = res_path(method, dz, st, "bifactor_scalars.csv"),
+      group_csv    = res_path(method, dz, st, "bifactor_omega_group.csv"),
+      second_md    = res_path(method, dz, st, "secondorder_loadings.md"),
+      bifactor_md  = res_path(method, dz, st, "bifactor_loadings.md"))
+    omega_hs <- if (!is.null(ho$omega_group) && "group" %in% colnames(ho$omega_group))
+      ho$omega_group[rownames(ho$omega_group) != "g", "group"] else numeric(0)
+    cat(sprintf("  higher-order: omega_h = %.3f, omega_total = %.3f, omega_hs = %s\n",
+                ho$omega_h, ho$omega_total,
+                if (length(omega_hs)) paste(sprintf("%.3f", omega_hs), collapse = ",") else "NA"))
+  }
+
   dims <- c(nrow(res$M), ncol(res$M), 100)  # completed matrix is fully observed
   sw <- tryCatch(sweep_factor_curve(res, pa_iter = 100L),
                  error = function(e) {
@@ -220,7 +248,8 @@ factor_and_report <- function(method, dz, st, res, keys) {
                    list(cumvar = rep(NA, length(res$params)),
                         pa_nf = rep(NA, length(res$params))) })
   plot_dashboard(res_path(method, dz, st, "dashboard.png"), res, fr, sw,
-                 max_k = MAX_RANK, title = tag, dims = dims)
+                 max_k = MAX_RANK, title = tag, dims = dims, ho = ho)
+  invisible(fr$nf)  # so the caller can fix nf for the sensitivity omega_h
 }
 
 # Impute + factor + dashboard for one cell. Returns the prepped matrix `x` so
@@ -270,9 +299,9 @@ run_cell <- function(method, dz, st) {
       res$params <- 1L; res$curve <- NA; res$best_param <- 1L
       res$param_name <- "rank"; res$metric_name <- "Held-out RMSE"
     }
-    tryCatch(factor_and_report(method, dz, st, res, mb$keys),
-             error = function(e) cat("  FACTOR FAILED:", conditionMessage(e), "\n"))
-    return(x)
+    nf <- tryCatch(factor_and_report(method, dz, st, res, mb$keys),
+             error = function(e) { cat("  FACTOR FAILED:", conditionMessage(e), "\n"); NA_integer_ })
+    return(list(x = x, nf = nf))
   }
 
   res <- tryCatch(impute_R(method, x), error = function(e) {
@@ -285,9 +314,9 @@ run_cell <- function(method, dz, st) {
                        rmse = res$curve,
                        r2 = if (!is.null(res$curve_r2)) res$curve_r2 else NA),
             sweep_csv, row.names = FALSE)
-  tryCatch(factor_and_report(method, dz, st, res, pm$keys),
-           error = function(e) cat("  FACTOR FAILED:", conditionMessage(e), "\n"))
-  x  # for sensitivity
+  nf <- tryCatch(factor_and_report(method, dz, st, res, pm$keys),
+           error = function(e) { cat("  FACTOR FAILED:", conditionMessage(e), "\n"); NA_integer_ })
+  list(x = x, nf = nf)  # x for sensitivity, nf to fix omega_h
 }
 
 # ── Main loop ────────────────────────────────────────────────────────────────
@@ -300,14 +329,15 @@ main <- function() {
   for (method in METHODS) for (st in STRATEGIES) {
     sens_by_dz <- list()
     for (dz in DENSIFIERS) {
-      x <- run_cell(method, dz, st)
+      cell <- run_cell(method, dz, st)   # list(x, nf) for R methods, NULL otherwise
       if (DO_SENS) {
         if (method == "onesidedmc") {
           # OSMC's seed-sweep ran in Julia; read its CSV for the grid.
           sens_by_dz[[dz]] <- osmc_sensitivity(dz, st)
-        } else if (!is.null(x)) {
+        } else if (!is.null(cell)) {
           cat("  --- sensitivity (", dz, ") ---\n", sep = "")
-          sens_by_dz[[dz]] <- tryCatch(sensitivity_R(method, x),
+          sens_by_dz[[dz]] <- tryCatch(
+            sensitivity_R(method, cell$x, nf = cell$nf),
             error = function(e) { cat("  SENSITIVITY FAILED:", conditionMessage(e), "\n"); NULL })
         }
       }

@@ -52,15 +52,16 @@ sweep_factor_curve <- function(res, pa_iter = 100L) {
 }
 
 # Assemble the single dashboard PNG. `fr` is factor_matrix() output at best
-# param; `sw` is sweep_factor_curve() output; `res` is the imputer contract.
+# param; `sw` is sweep_factor_curve() output; `res` is the imputer contract;
+# `ho` is higher_order() output (NULL -> higher-order panels show "no data").
 plot_dashboard <- function(path, res, fr, sw, max_k = 10L, title = "",
-                           dims = NULL) {
+                           dims = NULL, ho = NULL) {
   params <- res$params; curve <- res$curve; curve_r2 <- res$curve_r2
   pname <- res$param_name; mname <- res$metric_name
   best <- res$best_param
 
-  png(path, width = 1400, height = 950, res = 110)
-  op <- par(mfrow = c(2, 3), mar = c(4, 4, 3, 4), oma = c(0, 0, 2, 0))
+  png(path, width = 1400, height = 1350, res = 110)
+  op <- par(mfrow = c(3, 3), mar = c(4, 4, 3, 4), oma = c(0, 0, 2, 0))
 
   # 1. predictive metric vs param: RMSE (left axis) + R^2 overlay (right axis).
   if (.safe_plot(params, curve, paste0("1. ", mname, " + R2 vs ", pname),
@@ -110,6 +111,53 @@ plot_dashboard <- function(path, res, fr, sw, max_k = 10L, title = "",
   if (.safe_plot(params, sw$pa_nf, paste0("6. PA factor count vs ", pname),
                  pname, "PA factors"))
     abline(0, 1, lty = 2, col = "grey60")
+
+  # ── higher-order panels (7-9): the two bifactor panels (8 g-loadings, 9 omega)
+  #    are kept side by side; second-order (single hardcoded g — first-order
+  #    factors are too noisy to justify a data-driven 2nd-order count) is panel 7.
+  # 7. second-order loadings (first-order factors on the general factor)
+  so <- if (!is.null(ho)) ho$second_loadings else NULL
+  if (!is.null(so)) {
+    v <- so[, 1]
+    barplot(v, names.arg = rownames(so), las = 2, cex.names = .7,
+            ylab = "2nd-order loading",
+            main = "7. Second-order loadings (factors -> g)")
+    abline(h = 0, col = "grey60")
+  } else {
+    plot.new(); title("7. Second-order loadings"); text(.5,.5,"no data",col="grey50")
+  }
+
+  # 8. bifactor general-factor (g) loadings across benchmarks
+  g <- if (!is.null(ho) && !is.null(ho$bifactor_loadings) &&
+           "g" %in% colnames(ho$bifactor_loadings))
+    ho$bifactor_loadings[, "g"] else NULL
+  if (!is.null(g) && any(is.finite(g))) {
+    hist(g, breaks = 20, col = "grey80", xlab = "g loading",
+         main = sprintf("8. Bifactor g loadings (omega_h=%.2f)",
+                        if (is.finite(ho$omega_h)) ho$omega_h else NA))
+    abline(v = mean(g, na.rm = TRUE), col = "red", lwd = 2)
+  } else {
+    plot.new(); title("8. Bifactor g loadings"); text(.5,.5,"no data",col="grey50")
+  }
+
+  # 9. omega coefficients: omega_total, omega_h (general), then per-group omega_hs
+  #    (the `group` column of omega.group) — the g-vs-group reliability split.
+  og <- if (!is.null(ho)) ho$omega_group else NULL
+  if (!is.null(ho) && is.finite(ho$omega_total)) {
+    hs <- if (!is.null(og) && "group" %in% colnames(og)) {
+      gr <- og[rownames(og) != "g", "group", drop = TRUE]  # per-factor omega_hs
+      gr
+    } else numeric(0)
+    vals <- c(omega_t = ho$omega_total, omega_h = ho$omega_h, hs)
+    nm <- c("ωt", "ωh", if (length(hs)) paste0("ωhs.", seq_along(hs)) else character(0))
+    cols <- c("grey40", "firebrick", rep("steelblue", length(hs)))
+    barplot(vals, names.arg = nm, col = cols, ylim = c(0, 1), las = 2,
+            cex.names = .8, ylab = "omega", main = "9. Omega coefficients")
+    abline(h = c(0.5, 0.8), lty = 3, col = "grey70")
+  } else {
+    plot.new(); title("9. Omega coefficients")
+    text(.5, .5, "no higher-order output", col = "grey50")
+  }
 
   sub <- if (!is.null(dims))
     sprintf("%s  (%dx%d, %.1f%% obs)", title, dims[1], dims[2], dims[3]) else title

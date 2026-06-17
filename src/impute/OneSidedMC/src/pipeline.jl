@@ -166,26 +166,48 @@ function predict_cell(V::AbstractMatrix, kept_cols::Vector{Int},
     dot(Vj, pinv(Vs) * kept_vals)         # = Vj' · pinv(Vs) · z_S
 end
 
-# Cell-level held-out RMSE.
-function cell_rmse(V::AbstractMatrix, test_cells)
-    isempty(test_cells) && return NaN
-    s = 0.0
+# Column-balance flag, mirroring R's BALANCE_HOLDOUT (set via OSMC_BALANCE env).
+# Balanced (default): average per-column RMSE/R^2 so high-frequency columns don't
+# dominate. Cell-weighted: one global mean over all held-out cells.
+const OSMC_BALANCE = get(ENV, "OSMC_BALANCE", "1") != "0"
+
+# Per-column accumulation of (residual^2, baseline^2 = z^2) keyed by column j.
+function _percol_ss(V::AbstractMatrix, test_cells)
+    ssr = Dict{Int, Float64}(); ssb = Dict{Int, Float64}(); n = Dict{Int, Int}()
     for (kc, kv, j, zj) in test_cells
-        s += (predict_cell(V, kc, kv, j) - zj)^2
+        r2 = (predict_cell(V, kc, kv, j) - zj)^2
+        ssr[j] = get(ssr, j, 0.0) + r2
+        ssb[j] = get(ssb, j, 0.0) + zj^2
+        n[j]   = get(n, j, 0) + 1
     end
-    sqrt(s / length(test_cells))
+    ssr, ssb, n
 end
 
-# Cell-level held-out R^2. Baseline = predict the column (train) mean, which is 0
-# in standardized space, so SS_base = sum of z_j^2 over held-out cells.
-function cell_r2(V::AbstractMatrix, test_cells)
+# Cell-level held-out RMSE (column-balanced unless balance=false).
+function cell_rmse(V::AbstractMatrix, test_cells; balance::Bool = OSMC_BALANCE)
     isempty(test_cells) && return NaN
-    ss_resid = 0.0; ss_base = 0.0
-    for (kc, kv, j, zj) in test_cells
-        ss_resid += (predict_cell(V, kc, kv, j) - zj)^2
-        ss_base  += zj^2
+    if !balance
+        s = sum((predict_cell(V, kc, kv, j) - zj)^2 for (kc, kv, j, zj) in test_cells)
+        return sqrt(s / length(test_cells))
     end
-    ss_base == 0 ? NaN : 1 - ss_resid / ss_base
+    ssr, _, n = _percol_ss(V, test_cells)
+    mean(sqrt(ssr[j] / n[j]) for j in keys(ssr))   # mean of per-column RMSE
+end
+
+# Cell-level held-out R^2 (column-balanced unless balance=false). Baseline =
+# train column mean (= 0 in z-space), so per-cell baseline = z_j^2.
+# R^2 = single pooled ratio of column-balanced MSE / baseline-MSE — NOT a mean of
+# per-column R^2 (which blows up to -10..-50 on thin columns).
+function cell_r2(V::AbstractMatrix, test_cells; balance::Bool = OSMC_BALANCE)
+    isempty(test_cells) && return NaN
+    ssr, ssb, n = _percol_ss(V, test_cells)
+    if !balance
+        tot_r = sum(values(ssr)); tot_b = sum(values(ssb))
+        return tot_b == 0 ? NaN : 1 - tot_r / tot_b
+    end
+    mse  = mean(ssr[j] / n[j] for j in keys(ssr))   # mean of per-column MSE
+    base = mean(ssb[j] / n[j] for j in keys(ssb))   # mean of per-column baseline MSE
+    base == 0 ? NaN : 1 - mse / base
 end
 
 # ── DEAD BRANCH: product-level scoring (OSMC's native estimand) ──────────────

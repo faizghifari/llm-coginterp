@@ -8,42 +8,37 @@ suppressMessages(library(softImpute))
 
 # make_holdout (column-stratified) lives in impute/common.R, shared by all methods.
 
-# Baseline SS for held-out R^2: predict each held-out cell with its column's
-# TRAIN mean (observed cells minus the holdout). Using the train mean -- not the
-# holdout mean -- keeps the baseline honest (it sees only what the model sees).
-holdout_baseline_ss <- function(xs, holdout) {
-  x_train <- xs; x_train[holdout] <- NA
-  col_mean <- colMeans(x_train, na.rm = TRUE)          # train-only column means
-  cidx <- ((holdout - 1L) %/% nrow(xs)) + 1L           # column of each held-out cell
-  base_pred <- col_mean[cidx]
-  base_pred[is.na(base_pred)] <- 0                     # column with no train cells
-  sum((base_pred - xs[holdout])^2)
-}
-
 # Fit softImpute at a rank cap, sweeping lambda and scoring on the holdout.
-# Returns held-out RMSE and held-out R^2 (1 - SS_resid / SS_train-mean-baseline).
+# lambda is selected by cell-weighted RMSE (just an internal minimisation), but
+# the REPORTED rmse/r2 go through score_holdout so they honour the column-balance
+# flag and the train-mean baseline, consistent with every other method.
+# Note: xs is already column z-scored (biScale), so xs[holdout] / xhat[holdout]
+# are standardized true / predicted values, and the train mean ~ 0 in z-space.
 fit_at_rank <- function(xs, holdout, rank_cap) {
   x_train <- xs
   x_train[holdout] <- NA
   lam_max <- lambda0(x_train)
   lambdas <- exp(seq(log(lam_max), log(lam_max / 100), length.out = 30))
 
-  ss_base <- holdout_baseline_ss(xs, holdout)
-  n_hold  <- length(holdout)
-
-  best_rmse <- Inf; best_lambda <- NA; warm <- NULL
+  best_rmse <- Inf; best_lambda <- NA; best_pred <- NULL; warm <- NULL
   for (lam in lambdas) {
     fit <- softImpute(x_train, rank.max = rank_cap, lambda = lam,
                       type = "als", warm.start = warm, maxit = 300)
     warm <- fit
-    xhat <- fit$u %*% (fit$d * t(fit$v))
-    rmse <- sqrt(mean((xhat[holdout] - xs[holdout])^2))
-    if (rmse < best_rmse) { best_rmse <- rmse; best_lambda <- lam }
+    xhat <- fit$u %*% (fit$d * t(fit$v))   # predictions from the MASKED-train fit
+    rmse <- sqrt(mean((xhat[holdout] - xs[holdout])^2))   # lambda selection only
+    if (rmse < best_rmse) {
+      best_rmse <- rmse; best_lambda <- lam
+      best_pred <- xhat[holdout]           # hold the masked-fit's held-out preds
+    }
   }
+  # Score the held-out cells with the MASKED-train predictions (best_pred) — NOT a
+  # fit on the full xs, which would leak the holdout and give RMSE 0 / R^2 1.
+  sc <- score_holdout(xs[holdout], best_pred, holdout, nrow(xs))
+  # The returned completed matrix uses the full data at the chosen lambda.
   fit <- softImpute(xs, rank.max = rank_cap, lambda = best_lambda,
                     type = "als", maxit = 500)
-  ss_resid <- best_rmse^2 * n_hold
-  list(fit = fit, rmse = best_rmse, r2 = 1 - ss_resid / ss_base,
+  list(fit = fit, rmse = unname(sc["rmse"]), r2 = unname(sc["r2"]),
        lambda = best_lambda, eff_rank = sum(fit$d > 1e-8))
 }
 
@@ -79,9 +74,10 @@ impute_softimpute <- function(x, max_rank = 15L, seed = 1L) {
        complete_at = complete_at)
 }
 
-# Repeated-holdout sensitivity of the held-out RMSE curve (parallelised).
+# Repeated-holdout sensitivity of the held-out RMSE curve (parallelised), plus an
+# omega_h distribution (bifactor at the fixed `nf` from the main run).
 sensitivity_softimpute <- function(x, max_rank = 15L, n_seeds = 50L,
-                                   holdout_frac = 0.2) {
+                                   holdout_frac = 0.2, nf = NA_integer_) {
   suppressMessages({ library(parallel); library(doParallel); library(foreach) })
   xs <- biScale(x, row.center = FALSE, row.scale = FALSE,
                 col.center = TRUE, col.scale = TRUE, maxit = 100)
@@ -92,23 +88,32 @@ sensitivity_softimpute <- function(x, max_rank = 15L, n_seeds = 50L,
   cl <- makeCluster(n_cores); registerDoParallel(cl)
   on.exit({ stopCluster(cl); registerDoSEQ() })
 
-  # each seed returns a (rmse, r2) pair per rank
-  res_list <- foreach(s = seq_len(n_seeds), .packages = "softImpute",
+  # each seed returns (rmse, r2) per rank + omega_h of the best-rank completion
+  res_list <- foreach(s = seq_len(n_seeds), .packages = c("softImpute", "psych"),
                       .export = c("fit_at_rank", "make_holdout",
-                                  "holdout_baseline_ss")) %dopar% {
+                                  "score_holdout", "BALANCE_HOLDOUT",
+                                  "omega_h_only")) %dopar% {
     set.seed(s)
     holdout <- make_holdout(xs, frac = holdout_frac)   # min_keep = 2 (shared default)
     rmse <- numeric(length(ranks)); r2 <- numeric(length(ranks))
+    fits <- vector("list", length(ranks))
     for (k in seq_along(ranks)) {
       fr <- fit_at_rank(xs, holdout, rank_cap = ranks[k])
-      rmse[k] <- fr$rmse; r2[k] <- fr$r2
+      rmse[k] <- fr$rmse; r2[k] <- fr$r2; fits[[k]] <- fr$fit
     }
-    list(rmse = rmse, r2 = r2)
+    oh <- NA_real_
+    if (!is.na(nf)) {
+      bk <- which.min(replace(rmse, is.na(rmse), Inf))
+      Mc <- tryCatch(complete(x, fits[[bk]]), error = function(e) NULL)
+      if (!is.null(Mc)) oh <- omega_h_only(Mc, nf)
+    }
+    list(rmse = rmse, r2 = r2, omega_h = oh)
   }
   rmse_mat <- do.call(rbind, lapply(res_list, `[[`, "rmse"))
   r2_mat   <- do.call(rbind, lapply(res_list, `[[`, "r2"))
   colnames(rmse_mat) <- colnames(r2_mat) <- paste0("rank_", ranks)
   best_ranks <- ranks[apply(rmse_mat, 1, which.min)]
   list(rmse_mat = rmse_mat, r2_mat = r2_mat, best_ranks = best_ranks,
+       omega_h = vapply(res_list, `[[`, numeric(1), "omega_h"),
        ranks = ranks, param = "rank")
 }
