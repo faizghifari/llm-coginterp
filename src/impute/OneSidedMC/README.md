@@ -10,16 +10,20 @@ the repo root `README.md` for how it plugs into the pipeline.
 ### Rank-selection metric (cell-level)
 
 Rank `r` is chosen by held-out **cell** reconstruction, so the RMSE/R² are on the
-same scale as softimpute/iterativepca and directly comparable. We hold out
-observed cells, fit `Θ̂` on the rest, then predict each held-out cell from that
-row's surviving cells via the conditional-Gaussian (best linear) predictor
+same scale as the other methods and directly comparable. We hold out observed
+cells, fit `Θ̂ = V V'` on the rest, then predict each held-out cell from that
+row's surviving cells `S` via the conditional-Gaussian (best linear) predictor.
+Since `Θ̂ = V V'`, the textbook form `Θ̂[j,S]·pinv(Θ̂[S,S])·z_S` collapses to a
+**stable r-dimensional solve**:
 
 ```
-ẑ_j = Θ̂[j, S] · pinv(Θ̂[S, S]) · z_S
+ẑ_j = Vj' · pinv(Vs) · z_S          (Vs = V[S, :], the |S|×r factor rows)
 ```
 
-(`S` = the row's training cells; `pinv` handles `Θ̂[S,S]` being rank-≤r singular
-when `|S| > r`, no ridge). R² baseline is the train-cell column mean.
+This avoids forming the rank-deficient |S|×|S| `Θ̂[S,S]` whose near-zero singular
+values blow predictions up to ~1e4 on richly-observed rows. R² baseline is the
+train-cell column mean. The held-out metric is **column-balanced** by default
+(set `OSMC_BALANCE=0` to cell-weight), matching R's `--no-balance`.
 
 > Note: this is an *off-label* use of OSMC — the paper recovers the covariance,
 > not cells; we predict cells *via* the recovered covariance to get a number
@@ -81,13 +85,13 @@ The always-on lightweight unit tests (`test_metrics.jl`, `test_data.jl`,
 ## Running on real data
 
 ```bash
-# from the repo root, via the orchestrator (recommended):
-Rscript main/run.R --method onesidedmc
+# via the orchestrator (recommended):
+Rscript src/run/main.R --method onesidedmc
 
 # or the Julia driver directly (uses all cores for the sensitivity sweep):
-julia --threads=auto --project=impute/OneSidedMC impute/OneSidedMC/run.jl
+julia --threads=auto --project=src/impute/OneSidedMC src/impute/OneSidedMC/run.jl
 ```
 
 Env knobs honored by `run.jl`: `OSMC_DATA_ROOT`, `OSMC_RESULTS_ROOT`,
-`OSMC_DENSIFIERS`, `OSMC_STRATEGIES`, `OSMC_SENSITIVITY` (set by the orchestrator;
-see repo root `README.md`).
+`OSMC_DENSIFIERS`, `OSMC_STRATEGIES`, `OSMC_SENSITIVITY`, `OSMC_BALANCE` (set by
+the orchestrator; see repo root `README.md`).

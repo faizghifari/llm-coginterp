@@ -63,6 +63,44 @@ All notable changes to the LLM Benchmarks dataset.
 - **Next step**: Review staging files, then follow the merge checklist in
   `notes/TODO.md` → "Stanford HELM" section.
 
+## Analysis Pipeline — methods, higher-order FA, balanced metric, layout ✓
+
+Extends the densify → impute → factor pipeline (no dataset rows touched). See
+`docs/METHODOLOGY.md` and `src/README.md` for the full method.
+
+- **Layout moved:** pipeline code under `src/` (`impute/`, `factor/`, `run/`);
+  Python scripts under `scripts/` (`densify.py`, `make_smoke.py`,
+  `compare_loadings.py`); **data + results at the repo root** (`data/`,
+  `results/<method>/`). Every script anchors to the repo root via its own file
+  location, so it runs from any working directory. `make install` sets up all
+  three environments (uv / renv / Julia project).
+- **Three new imputers** (all cell-filling, share the held-out RMSE/R²
+  contract): **knn** (`VIM`, sweeps k), **missforest** (`missForest`, sweeps
+  ntree), **mice** (`mice`, sweeps m, ridge-regularized for the collinear wide
+  matrix). softimpute + onesidedmc remain primary; iterativepca deferred.
+- **Higher-order factoring** per cell: second-order FA of the promax factor
+  correlations + bifactor (Schmid-Leiman via `psych::omega`) → ω_h, ω_total, and
+  per-group ω_hs. Dashboard grew to 9 panels (added second-order, bifactor-g,
+  omega). On this data: low ω_h + high per-group ω_hs ⇒ strong but
+  domain-specific structure, near-absent general factor.
+- **Column-balanced held-out metric** (default; `--no-balance` to revert):
+  cell-weighted RMSE/R² let high-frequency "famous" benchmarks dominate and
+  masked densification. Now RMSE = mean of per-column RMSEs and R² = pooled
+  column-balanced ratio (not a mean of per-column R², which is unstable on thin
+  columns). Applied to all R methods + OSMC (Julia, `OSMC_BALANCE`).
+- **`scripts/compare_loadings.py`** — cross-method factor congruence (|cosine|,
+  SSQ-sorted) grouped by dataset × loadings-kind × shape; the structural check
+  behind the ~0.4–0.6 shared-R²-ceiling finding.
+- **Flags:** `--method`, `--raw` (slow undensified level, run separately),
+  `--smoke`, `--reimpute` (default now *reuses* existing imputed CSVs),
+  `--sensitivity` (seed-sweep, parallelized, adds ω_h distribution column),
+  `--no-balance`.
+- **Fixes:** OSMC cell-predictor stabilized (`pinv(Vs)` in r-space, no |S|×|S|
+  blowup); zero-variance/<2-obs columns dropped before factoring; softimpute
+  holdout-leak fixed; removed invented `nf<3` higher-order gates.
+
+---
+
 ## Maintenance Pass — stale stats, leaderboard-filter audit, report refactor, docs ✓
 
 - **Fixed `models.csv`'s stale aggregate columns.** `benchmark_count`,

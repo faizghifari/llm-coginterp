@@ -14,11 +14,17 @@ data collection → aggregation → DENSIFY → IMPUTE → FACTOR
 The cross-product is:
 
 ```
-{densifier: C, R, S} × {strategy: all_standard, all_aggressive} × {imputer: softimpute, iterativepca, onesidedmc}
+{densifier: raw, C, S, R} × {strategy: all_standard, all_aggressive}
+  × {imputer: softimpute, knn, missforest, mice, onesidedmc, (iterativepca: deferred)}
 ```
 
-Every leaf produces imputed/surrogate data + factor loadings, written under
-`data/imputed/<method>/<densifier>/<strategy>/`.
+Layout: the pipeline **code** lives under `src/` (`impute/`, `factor/`, `run/`),
+the Python **scripts** under `scripts/` (`densify.py`, `make_smoke.py`,
+`compare_loadings.py`), and all **data + results at the repo root**
+(`data/`, `results/`). Paths are anchored to the repo root via each script's own
+file location, so everything runs from any working directory. Imputed matrices
+go to `data/imputed/<method>/<densifier>/<strategy>/`; all other outputs to
+`results/<method>/`.
 
 ---
 
@@ -39,16 +45,16 @@ No single fix works, so:
 
 ---
 
-## Stage 1 — Densify (`densify.py`)
+## Stage 1 — Densify (`scripts/densify.py`)
 
 Reads `data/combinations/<strategy>/model_benchmark_table.csv`, writes
 `data/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv` (+ `summary.csv`
 per densifier and `data/densify_summary.csv` rollup).
 
-Three densifiers, all greedy-peel to `TARGET = 0.30` density, then enforce a
-hardcoded `MIN_OBS = 2` floor on **both** axes (every kept model ≥2 scores AND
-every kept benchmark ≥2 scores — needed so all imputers, esp. OSMC's pairwise
-loss, are well-posed):
+Three densifiers, all greedy-peel to `TARGET` density (currently `0.10`), then
+enforce a hardcoded `MIN_OBS = 2` floor on **both** axes (every kept model ≥2
+scores AND every kept benchmark ≥2 scores — needed so all imputers, esp. OSMC's
+pairwise loss, are well-posed):
 
 | densifier | drop rule | bias profile |
 |-----------|-----------|--------------|
@@ -62,10 +68,11 @@ benchmarks but collapses to a handful of models (low data retention). See
 `data/densify_summary.csv` for exact shapes.
 
 ```bash
-python3 densify.py     # regenerate all 6 densified tables
+python3 scripts/densify.py            # regenerate all 6 densified tables
+python3 scripts/densify.py --peek     # preview shapes/density, write nothing
 ```
 
-Knobs are constants at the top of `densify.py`: `TARGET`, `MIN_OBS`,
+Knobs are constants at the top of `scripts/densify.py`: `TARGET`, `MIN_OBS`,
 `STRATEGIES`, `DENSIFIERS`.
 
 ---
@@ -77,30 +84,45 @@ rank-selection diagnostics. **No factoring lives here** (that's Stage 3).
 
 ```
 impute/
-  common.R                 # prep_matrix(), imputed_dir(), write_completed() — shared by the R methods
-  softimpute/method.R      # impute_softimpute(), sensitivity_softimpute()  [R, softImpute]
-  iterativepca/method.R    # impute_iterativepca(), sensitivity_iterativepca() [R, missMDA]
+  common.R                 # prep_matrix(), make_holdout(), score_holdout(), imputed_dir() — shared
+  softimpute/method.R      # impute_softimpute()  [R, softImpute] — low-rank, sweeps rank
+  knn/method.R             # impute_knn()         [R, VIM]        — k-NN, sweeps k
+  missforest/method.R      # impute_missforest()  [R, missForest] — random forest, sweeps ntree
+  mice/method.R            # impute_mice()         [R, mice]       — chained equations, sweeps m
+  iterativepca/method.R    # impute_iterativepca() [R, missMDA]   — EM-PCA, sweeps ncp (DEFERRED)
   OneSidedMC/              # [Julia] right-singular-vector recovery (Cao-Liang-Valiant 2023)
     src/                   #   data.jl loss.jl algorithm.jl baselines.jl metrics.jl (paper core, TESTED)
     src/realdata.jl        #   ragged loss/fit for variable-obs-per-row real data (in module, exported)
-    src/pipeline.jl        #   CSV → Θ̂ → covariance-surrogate (script-level, not in module)
+    src/pipeline.jl        #   CSV → Θ̂ → covariance-surrogate; cell metric (script-level, not in module)
     run.jl                 #   driver: loops densifier×strategy, writes surrogates
     test/                  #   DO NOT BREAK — hand-rolled tests for the paper core + ragged code
 ```
 
-### softimpute / iterativepca (R)
-Standard matrix completion. Each sweeps its rank parameter (`rank` / `ncp`,
-capped at `MAX_RANK = 10`), picks the CV-best by held-out error, returns the
-completed matrix at that setting. Columns are scaled, **rows are not** (rows are
-models — row-scaling would erase the general-factor signal). RMSE is reported in
-standardized (column-SD) units, with held-out R² alongside.
+### The cell-filling R methods (softimpute, knn, missforest, mice, iterativepca)
+Each sweeps one hyperparameter (`rank` / `k` / `ntree` / `m` / `ncp`), picks the
+CV-best by held-out error, returns the completed matrix at that setting. Columns
+are scaled, **rows are not** (rows are models — row-scaling would erase the
+general-factor signal). Held-out RMSE + R² reported (see "Metric" below):
+- **softimpute** — low-rank iterative soft-thresholded SVD (nuclear-norm; *not*
+  EM). Primary validated method.
+- **knn** — fill from the *k* most similar models. Assumption-light baseline.
+- **missforest** — iterative random forest; captures nonlinearity the low-rank
+  methods can't.
+- **mice** — multiple imputation by chained equations; hands factoring the
+  **mean** of *m* completions (ridge-regularized + `remove.collinear=FALSE`
+  because this wide sparse matrix is highly collinear).
+- **iterativepca** — EM regularized PCA. **Deferred/untested**: `estim_ncpPCA`
+  CV is prohibitively slow here and its sensitivity isn't migrated to the
+  held-out RMSE/R² mechanism. Treat as provisional.
 
-> ⚠️ **iterativepca is slow and currently not exercised.** `estim_ncpPCA`'s
-> cross-validation is very expensive at this matrix size, so it's effectively
-> deferred — its sensitivity has **not** been migrated to the held-out RMSE+R²
-> mechanism the other methods use (it still reports `estim_ncpPCA`'s CV criterion
-> and has no R² distribution). Treat its results as provisional / untested. The
-> primary, validated methods are **softimpute** and **onesidedmc**.
+#### Metric (shared, `score_holdout` in `common.R`)
+A **column-stratified** holdout masks ~20 % of each column's observed cells
+(`make_holdout`, keeping ≥2 in training). Held-out cells are scored in z-units
+against the **train-cell column mean** baseline. **Column-balanced by default**
+(`--no-balance` to disable): RMSE = mean of per-column RMSEs; R² = single pooled
+ratio of column-balanced MSE / baseline-MSE (NOT a mean of per-column R², which
+blows up on thin columns). Cell-weighting would let famous high-frequency columns
+dominate and mask densification. Model selection uses R².
 
 ### onesidedmc (Julia) — the odd one out
 OSMC does **not** impute cells. Its premise (the paper): when observations are
@@ -111,10 +133,14 @@ vectors** (benchmark-space factors) from Θ̂ = (1/m)XᵀX. So it estimates
 to the same R factoring — psych never learns it is synthetic. This is a
 covariance-surrogate, **not** an imputation of real cells.
 
-OSMC has no built-in rank selector, so `r` is chosen by a held-out
-**pairwise-product RMSE** sweep (r = 1..10) — the analog of softimpute's RMSE
-sweep. On this MNAR data the rank is weakly identified (nearly flat RMSE curve);
-that's expected, and the seed-sweep sensitivity quantifies it.
+OSMC has no built-in rank selector, so `r` is chosen by a held-out sweep
+(r = 1..10). Its RMSE/R² is **cell-level** (for cross-method comparability):
+each held-out cell is predicted from the recovered covariance via the
+conditional-Gaussian best-linear predictor `ẑ_j = Vj' · pinv(Vs) · z_S` (solved
+in the r-dim factor space, not by inverting the rank-deficient |S|×|S| covariance
+— that blows up on richly-observed rows). The native pairwise-product metric is
+kept as a dead branch (`OSMC_CELL_METRIC = false`). On this MNAR data the rank is
+weakly identified (nearly flat curve); the seed-sweep sensitivity quantifies it.
 
 > Real data has a **variable** number of observed benchmarks per model, so OSMC
 > uses a *ragged* observation format (`RaggedObs = Vector{Tuple{cols, vals}}`),
@@ -149,20 +175,35 @@ factor **count** comes from Horn's parallel analysis, split into:
 > The cache is keyed by shape for exactly this reason; do not assume one global
 > cutoff vector.
 
+**Higher-order** (`higher_order()` in `factoring.R`): since promax is oblique the
+factors correlate, so each cell also gets (a) a **second-order FA** of the
+factor-correlation matrix Φ → single g, and (b) a **bifactor / Schmid-Leiman**
+solution via `psych::omega` → per-benchmark g + group loadings, plus **ω_h**,
+**ω_total**, and the per-group **ω_hs** vector. This is EFA Schmid-Leiman, not a
+constrained CFA bifactor (cross-loadings stay). No nf gate — runs at any nf.
+Outputs per cell: `*_secondorder_loadings.{csv,md}`,
+`*_bifactor_loadings.{csv,md}`, `*_bifactor_scalars.csv`,
+`*_bifactor_omega_group.csv`.
+
 ---
 
 ## Stage 0 (orchestrator) — `run/`
 
 ```
 run/
-  main.R        # entry point: impute → factor → dashboard, per cell
-  dashboard.R  # the single 6-panel dashboard (orchestrator drives sweep + factoring)
-  plots.R      # the 4x2 seed-sweep sensitivity grid
+  main.R       # entry point: impute → factor → higher-order → dashboard, per cell
+  dashboard.R  # the single 9-panel dashboard (orchestrator drives sweep + factoring)
+  plots.R      # the seed-sweep sensitivity grid (rows=densifier, cols=RMSE/R²/best-param/ω_h)
 ```
 
 `run/main.R` is how you run the whole thing. OSMC is Julia, so the orchestrator
 shells out to `impute/OneSidedMC/run.jl` once up front to generate all
 surrogates, then factors them in R like the other methods.
+
+The 9 dashboard panels: 1 predictive curve + R² vs param, 2 marginal gain,
+3 cumulative variance, 4 scree, 5 SS loadings, 6 PA-factor-count, 7 second-order
+loadings, 8 bifactor g loadings, 9 omega coefficients (ω_t / ω_h / per-group
+ω_hs).
 
 **Modularity contract:** imputers never factor. Each `impute_<method>()` returns
 a uniform contract — `M`, `best_param`, `params`, `curve`, `param_name`,
@@ -175,24 +216,29 @@ stays in `factor/`, owned by `run/`.
 
 ```bash
 # Everything (all methods × densifiers × strategies) on real data:
-Rscript run/main.R
+Rscript src/run/main.R
 
 # One method:
-Rscript run/main.R --method softimpute        # or iterativepca | onesidedmc
+Rscript src/run/main.R --method softimpute    # softimpute|knn|missforest|mice|onesidedmc
 
-# Fast smoke run on the tiny synthetic fixture (data/smoke):
-Rscript run/main.R --method softimpute --smoke
+# Fast smoke run on the tiny synthetic fixture:
+Rscript src/run/main.R --method softimpute --smoke
 
-# Include the slow seed-sweep sensitivity analysis:
-Rscript run/main.R --method iterativepca --sensitivity
+# Slow seed-sweep sensitivity:
+Rscript src/run/main.R --method softimpute --sensitivity
 ```
 
 Flags:
-- `--method <name>` — `softimpute` | `iterativepca` | `onesidedmc`; omit to run all.
-- `--raw` — run **only** the undensified `raw` level (slow); without it, only the
-  densified levels `C`, `S`, `R` run. So raw is run as a separate invocation.
+- `--method <name>` — `softimpute` | `knn` | `missforest` | `mice` |
+  `onesidedmc` | `iterativepca`; omit to run all.
+- `--raw` — run **only** the undensified `raw` level (slow); default runs C/S/R.
 - `--smoke` — use `data/smoke/` instead of `data/`.
+- `--reimpute` — force fresh imputation; **default reuses** an existing imputed
+  CSV (re-factor + re-plot only), so higher-order/metric changes can be applied
+  without re-running the slow imputation.
 - `--sensitivity` — also run the seed-sweep sensitivity (off by default; slow).
+- `--no-balance` — revert to the cell-weighted held-out metric (default is
+  column-balanced).
 
 Densifier levels are `raw`, `C`, `S`, `R`; strategies are `all_standard` and
 `all_aggressive` (always both). `raw` is the undensified aggregated table, run
@@ -212,36 +258,51 @@ Rscript run/main.R --method softimpute --raw         # raw only (slow)
 holds **only** the imputed data:
 - `imputed_model_benchmark_table.csv` — completed (or, for OSMC, surrogate) matrix
 
-**`results/`** (or `results/smoke/`) holds everything else, **flat**, named
-`<method>_<densifier>_<strategy>_<suffix>`:
-- `..._dashboard.png` — single 6-panel dashboard per cell (predictive curve,
-  marginal gain, cumulative variance, scree@best, SSQ loadings@best, PA-nf vs param)
-- `..._loadings.csv`, `..._loadings.md` — factor loadings (PAF + promax)
+**`results/<method>/`** (or `results/smoke/<method>/`) holds everything else,
+named `<method>_<densifier>_<strategy>_<suffix>`:
+- `..._dashboard.png` — single 9-panel dashboard per cell.
+- `..._loadings.{csv,md}` — first-order factor loadings (PAF + promax).
+- `..._secondorder_loadings.{csv,md}`, `..._bifactor_loadings.{csv,md}`,
+  `..._bifactor_scalars.csv`, `..._bifactor_omega_group.csv` — higher-order.
+- `..._rank_sweep.csv` — the param sweep (for `--reimpute`-off rebuilds).
 - `<method>_<strategy>_<csr|raw>_sensitivity.png` — **one** grid per
-  method×strategy with `--sensitivity`: rows = densifier, cols = [RMSE/CV box |
-  best-param stability]. (No aggregation — just co-located rows.) For OSMC the
-  seed-sweep runs in Julia (50 seeds, each a fresh held-out split → MNAR
-  robustness), writes `results/_osmc_sweep/<dz>_<st>/sensitivity.csv`, and R
-  reads it into the same grid.
-- `results/_osmc_sweep/<dz>_<st>/` — OSMC's per-r surrogate CSVs + rank curve
+  method×strategy with `--sensitivity`: rows = densifier, cols = [RMSE box | R²
+  box | best-param stability | ω_h distribution]. Each seed = a fresh held-out
+  split; the spread measures **holdout-split variance**, not MNAR robustness per
+  se (every seed shares the same missingness). For OSMC the seed-sweep runs in
+  Julia and writes `results/_osmc_sweep/<dz>_<st>/sensitivity.csv`, which R reads
+  into the same grid.
+- `..._dashboard_combined.png` / `..._sensitivity_combined.png` — raw+C/S/R
+  stacked aggregates (auto-built at end of run via `magick`).
+- `results/_osmc_sweep/<dz>_<st>/` — OSMC's per-r surrogate CSVs + curves
   (intermediate plotting inputs; kept out of `data/imputed`).
 
 ---
 
-## Smoke fixture (`make_smoke.py`)
+## Smoke fixture (`scripts/make_smoke.py`)
 
 Generates a tiny synthetic dataset under `data/smoke/` (real low-rank structure +
 MNAR-ish sparsity) so the full pipeline can be exercised in seconds. It runs the
-synthetic tables through the **same densifier** as production.
+synthetic tables through the **same densifier** as production (incl. the `raw`
+level under `data/smoke/combinations/`).
 
 ```bash
-python3 make_smoke.py                       # writes data/smoke/combinations_<C|S|R>/... (+ raw under data/smoke/combinations/)
-Rscript run/main.R --method softimpute --smoke
+python3 scripts/make_smoke.py
+Rscript src/run/main.R --method softimpute --smoke
 ```
 
 Note: the `C` densifier collapses small on the smoke set (famous-core collapse) —
 faithful to its real behavior; the pipeline is robust to the resulting tiny/dense
 matrices.
+
+## Cross-method agreement (`scripts/compare_loadings.py`)
+
+Brute-searches `results/` for loadings CSVs and computes pairwise factor
+congruence (|cosine|, SSQ-sorted, sign-invariant) between methods, grouped by
+dataset × loadings-kind (first-order / second-order / bifactor) × shape — only
+same-kind, same-shape solutions are compared. Writes
+`results/loadings_congruence.md`. Safe to run before all methods finish (only
+compares what exists).
 
 ---
 
@@ -318,19 +379,21 @@ absent.
 
 ## Conventions & gotchas for future agents
 
-- **Run everything from the repo root.** Paths in the R/Julia code are
-  repo-root-relative (`source("factor/factoring.R")`, etc.).
-- **`tag = basename(dirname(path))`** is the strategy name; densifier outputs are
-  laid out so this keying stays intact.
+- **Runs from any CWD.** Scripts anchor to the repo root via their own file
+  location (Python `__file__`, R `commandArgs(--file=)`, Julia `@__DIR__`) — they
+  do **not** assume the working directory. Data/results are at the repo root;
+  code is under `src/`; Python scripts under `scripts/`.
+- **Install** all three environments with `make install` (uv / renv / Julia).
 - **Don't break OSMC tests** (`impute/OneSidedMC/test/`). The paper core
   (`data.jl`/`loss.jl`/`algorithm.jl`/`baselines.jl`/`metrics.jl`) is tested;
   `realdata.jl` is additive and exported through `OneSidedMC.jl`.
-- **Scaling:** columns scaled, rows never. RMSE is standardized-unit only.
+- **Scaling:** columns scaled, rows never. Held-out metric is column-balanced by
+  default; model selection uses R².
 - **PA cache** is correctness-sensitive — keyed by shape, never global.
-- **Dead files pending deletion** (superseded by the refactor; nothing sources
-  them): `impute/softimpute/{run,impute,factoring,report,sensitivity}.R`,
-  `impute/iterativepca/{run,impute,factoring,report,sensitivity,reference}.R`,
-  and the old per-method `combinations/` input copies + loose `*.png`/`*.csv`
-  artifacts. Keep `method.R`, `common.R`, the `factor/` and `run/` modules, and
-  all of `impute/OneSidedMC/` except its empty `combinations/`.
+- **No invented gates.** Higher-order has no nf floor; the only data drops are
+  the `MIN_OBS = 2` floor (densifier) + zero-variance/<2-obs column drops
+  (`prep_matrix` / OSMC `drop_degenerate_cols`). `safe_nf` only caps nf at the
+  matrix's numeric rank to stop `fa()` erroring.
+- **iterativepca** is deferred/untested (slow). Validated methods: softimpute,
+  knn, missforest, mice, onesidedmc.
 ```

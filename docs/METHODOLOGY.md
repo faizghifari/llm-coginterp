@@ -189,12 +189,13 @@ disagreement) as the actual finding.
 aggregation → DENSIFY → IMPUTE → FACTOR
 ```
 
-### Stage 1 — Densify (`src/densify.py`)
+### Stage 1 — Densify (`scripts/densify.py`)
 
 Drops rows/columns to reach a workable density, producing several *bias
 profiles* (not one "best" table). Density is the only target — pairwise-overlap
 and positive-definiteness are deliberately **not** optimized, so the densifier
-stays neutral across downstream imputers.
+stays neutral across downstream imputers. Reads `data/combinations/<strategy>/`,
+writes `data/combinations_<C|R|S>/<strategy>/`.
 
 - **C** (column-primary peel): drop the sparsest benchmark, then any emptied
   model → famous benchmarks × wide model coverage.
@@ -203,12 +204,14 @@ stays neutral across downstream imputers.
   collapsing to few models).
 - **S** (symmetric peel): drop whichever marginal has the lowest fill-rate →
   balanced, neither axis privileged.
-- **raw**: the undensified matrix, run through the pipeline as a contrast level.
+- **raw**: the undensified matrix, run through the pipeline as a contrast level
+  (gated behind `--raw` in the orchestrator because it's slow).
 
 After peeling, a hardcoded `MIN_OBS = 2` floor is enforced on **both** axes
 (every kept model and benchmark must have ≥2 scores) so all downstream methods
 are well-posed. Knobs (`TARGET`, `MIN_OBS`) are constants at the top of the file;
-`--peek` previews shapes/density without writing.
+`--peek` previews shapes/density without writing. Only `all_standard` and
+`all_aggressive` are processed.
 
 ### Stage 2 — Impute (`src/impute/`)
 
@@ -251,13 +254,25 @@ are models, and row-scaling would erase the general-capability (g) signal the
 factor analysis is meant to find.
 
 **Metric:** held-out **cell-level RMSE and R²**, identical across methods so they
-are comparable. ~20 % of observed cells are held out; the model predicts them;
-R² = 1 − SS_resid / SS_baseline where the baseline predicts the **train-cell**
+are comparable. A column-stratified holdout masks ~20 % of each column's observed
+cells (keeping ≥2 in training, matching the `MIN_OBS` floor); the model predicts
+them; R² = 1 − MSE / baseline-MSE where the baseline predicts the **train-cell**
 column mean (honest out-of-sample). R² = 0 is the no-skill baseline, 1 is
 perfect, negative means worse than the mean. For onesidedmc, cells are predicted
 from the recovered covariance via the conditional-Gaussian (best-linear)
 predictor — an off-label use of the method, chosen so its number sits on the same
 scale as softimpute.
+
+**Column-balancing (default; `--no-balance` to disable):** a naive cell-weighted
+mean over held-out cells lets high-frequency (famous) benchmarks dominate, so the
+metric reflects the dense core and is largely insensitive to densification. By
+default the RMSE is the mean of per-column RMSEs (equal weight per benchmark), and
+R² is a single pooled ratio of column-balanced MSE / baseline-MSE — *not* a mean
+of per-column R² (averaging per-column R² is unstable: a thin column with a tiny
+baseline yields R² of −10…−50 and a few wreck the average). The RMSE is therefore
+an average of per-column root-mean-square errors, not a single global RMSE; model
+selection uses R², which is invariant to this. `--no-balance` reverts to the old
+cell-weighted score.
 
 ### Stage 3 — Factor (`src/factor/`)
 
@@ -265,27 +280,71 @@ Method-agnostic: identical **principal-axis factoring** (`fm = "pa"`) + promax
 rotation on every completed matrix, so the imputed input is the only thing that
 varies. The number of factors comes from **Horn's parallel analysis**, split for
 efficiency into (a) random-baseline eigenvalue cutoffs that depend only on matrix
-shape `(n, p)` and are cached as JSON, and (b) the observed eigenvalues computed
-per dataset. The cutoffs are **shape-keyed, never global** — parallel analysis is
-not dataset-independent.
+shape `(n, p)` and are cached as JSON (`src/factor/pa_cache/`), and (b) the
+observed eigenvalues computed per dataset. The cutoffs are **shape-keyed, never
+global** — parallel analysis is not dataset-independent.
+
+**Higher-order factoring.** Because the first-order rotation is oblique (promax),
+the factors correlate, and that hierarchy is decomposed two ways per cell:
+- **Second-order FA** — factor the first-order factor-correlation matrix Φ into a
+  single general factor (loadings of first-order factors on g).
+- **Bifactor (Schmid-Leiman via `psych::omega`)** — re-express the hierarchy so
+  every benchmark loads on a general factor g + its group factors directly. This
+  is EFA Schmid-Leiman, *not* a constrained CFA bifactor (cross-loadings are not
+  zeroed). Yields **ω_h** (variance from g), **ω_total** (from all common
+  factors), and the per-group **ω_hs** vector (the `group` column of
+  `omega.group`). ω_h ÷ ω_total reads as "of the common variance, how much is
+  general"; low ω_h + high per-group ω_hs (+ high ω_total) = strong but
+  domain-specific structure, near-absent g.
+
+Higher-order outputs are written per cell as `*_secondorder_loadings.{csv,md}`,
+`*_bifactor_loadings.{csv,md}`, `*_bifactor_scalars.csv` (ω_h, ω_total), and
+`*_bifactor_omega_group.csv` (per-group ω_hs).
 
 ### Orchestration (`src/run/main.R`)
 
 Runs the cross-product `{densifier} × {strategy} × {imputer}`. For each cell:
-impute → factor → a single 6-panel dashboard (predictive curve, marginal gain,
-cumulative variance, scree, SS loadings, PA-factor-count). Imputed matrices are
-written under `src/data/imputed/<method>/<densifier>/<strategy>/` (CSV only);
-everything else (loadings, dashboards, sensitivity grids) lands flat in
-`src/results/`. Flags: `--method`, `--raw` (the slow undensified level, run
-separately), `--smoke` (tiny synthetic fixture from `src/make_smoke.py`),
-`--reimpute` (force fresh imputation instead of reusing existing CSVs),
-`--sensitivity` (opt-in seed-sweep, parallelized; each seed is a fresh held-out
-split, so the spread quantifies MNAR fragility).
+impute → factor → higher-order → a single **9-panel dashboard** (predictive
+curve+R², marginal gain, cumulative variance, scree, SS loadings, PA-count;
+panels 7–9 = second-order loadings, bifactor g loadings, omega coefficients).
+Imputed matrices go to `data/imputed/<method>/<densifier>/<strategy>/` (CSV
+only); everything else (loadings, dashboards, sensitivity grids) lands under
+`results/<method>/` with flat `<method>_<densifier>_<strategy>_<suffix>` names.
 
-### Interpreting the results (caveat)
+Flags:
+- `--method <name>` — one of softimpute / iterativepca / onesidedmc / knn /
+  missforest / mice; omit to run all.
+- `--raw` — run ONLY the undensified `raw` level (slow); default runs C/S/R.
+- `--smoke` — use the tiny synthetic fixture (`scripts/make_smoke.py` →
+  `data/smoke/`).
+- `--reimpute` — force fresh imputation; **default reuses** an existing imputed
+  CSV (factor + re-plot only), so higher-order can be retrofitted cheaply.
+- `--sensitivity` — opt-in seed-sweep (parallelized: R `doParallel`, Julia
+  threads). Per densifier: RMSE box, R² box, best-param stability, ω_h
+  distribution.
+- `--no-balance` — cell-weighted instead of column-balanced held-out metric.
 
-Good held-out RMSE/R² means good per-cell prediction, not necessarily a
-trustworthy factor structure — the loadings and their **stability across
-densifiers and seeds** are the real output. On this MNAR data the factor count is
-typically weakly identified (flat RMSE curves, scattered best-rank across seeds);
-that instability is itself a reportable finding, not a bug to tune away.
+Paths are anchored to the repo root via each script's own location, so the
+orchestrator runs from any working directory. Run all three environments via
+`make install` (uv for Python, renv for R, the Julia project for OSMC).
+
+### Cross-method agreement (`scripts/compare_loadings.py`)
+
+Held-out R² being similar across methods (~0.4–0.6) reflects a shared
+predictability ceiling, not that the methods agree on *structure*. To check the
+structure, `compare_loadings.py` brute-searches `results/` and computes pairwise
+factor congruence (|cosine|, SSQ-sorted, sign-invariant) between methods, grouped
+by dataset × loadings-kind (first-order / second-order / bifactor) × shape —
+only same-kind, same-shape solutions are compared.
+
+### Interpreting the results (caveats)
+
+- Good held-out RMSE/R² means good per-cell prediction, not a trustworthy factor
+  structure — the loadings and their **agreement across methods** (congruence)
+  and **stability across seeds** are the real output.
+- The seed-sweep measures **holdout-split variance** (precision under a fixed
+  missingness pattern), *not* robustness to MNAR itself — every seed shares the
+  same MNAR selection. The cross-densifier comparison (raw/C/S/R) is the closer
+  proxy for MNAR sensitivity.
+- On this data the factor count is weakly identified (flat RMSE curves, scattered
+  best-rank across seeds); that instability is itself a reportable finding.
