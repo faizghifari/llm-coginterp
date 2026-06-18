@@ -6,6 +6,43 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## HELM Staging Extraction — 13 sub-projects (2026-06-18)
+
+- **Built `scripts/extract_helm_staging.py`**, a reusable extraction script
+  that fetches per-benchmark leaderboard data from all Stanford HELM
+  sub-projects via their public GCS APIs. Outputs properly schema-aligned
+  staging CSV files (same 37/24/38-column schemas as the main data files).
+  Idempotent: re-running appends and de-duplicates.
+- **Extracted 13 HELM sub-projects**: Classic (v0.4.0), Lite (v1.13.0),
+  Safety (v1.17.0), MedHELM (v4.0.0), ThaiExam (v1.2.0), TORR (v1.0.0),
+  EWoK (v1.0.0), Finance (v1.0.0), SEA-HELM (v1.2.0), Arabic (v2.1.0),
+  Audio (v1.0.0), Image2Struct (v1.0.2), Reasoning (v0.0.1).
+- **Staging totals** (pending merge into main files):
+  `data/staging_helm_benchmarks.csv` → 188 benchmarks
+  `data/staging_helm_models.csv` → 302 models
+  `data/staging_helm_results.csv` → 6,158 result rows
+- **Fixes applied during extraction:**
+  - HELM model names have deprecation markers (☠, ⚠) appended to some
+    model names in some benchmarks — stripped before storing so e.g.
+    `text-davinci-003⚠` and `text-davinci-003` resolve to the same
+    model_id.
+  - Scores in 0–1 range are multiplied ×100 for consistency with the
+    0-100 convention in the rest of results.csv. Exception: BPB
+    (Bits Per Byte, a language-modeling entropy metric) is kept on its
+    natural absolute scale (~0.5–4). WER (Word Error Rate) is also scaled
+    ×100 (yielding percentage form, e.g. 11.33%).
+  - `Self-BLEU` for the disinformation benchmarks is already on a 0-100
+    scale in HELM; floating-point noise (100.0000000004) clamped/rounded.
+  - `synthetic_efficiency` (counts inference instances, not model quality)
+    excluded from extraction.
+- **Known gaps** (404 from GCS): `harm_bench_gcg_transfer` (Safety),
+  `ami` (Audio) — both omitted, all others extracted successfully.
+- **Benchmark ID notes**: 6 benchmark_ids collide with existing entries
+  (hellaswag, mmlu, legalbench, xstest, nusax, fleurs) — when merging,
+  skip creating new benchmark rows for those and just add the result rows.
+- **Next step**: Review staging files, then follow the merge checklist in
+  `notes/TODO.md` → "Stanford HELM" section.
+
 ## Maintenance Pass — stale stats, leaderboard-filter audit, report refactor, docs ✓
 
 - **Fixed `models.csv`'s stale aggregate columns.** `benchmark_count`,

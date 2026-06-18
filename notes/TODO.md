@@ -18,8 +18,14 @@
 ## Data expansion — large extraction tasks
 
 ### Stanford HELM
-- [ ] Extract Stanford HELM data per individual benchmark across all HELM sub-projects (Safety, Audio, Image2Struct, Reasoning, Long-Context, MMLU-Winogrande-Afr, MedHELM, ThaiExam, TORR, EWoK, Finance, Arabic Enterprise, SEA-HELM, etc.)
-- [ ] Extract per-benchmark scores, NOT mean/aggregate scores averaged across benchmark groups
+- [x] **Staging extraction complete (2026-06-18).** `scripts/extract_helm_staging.py` fetches all 13 HELM sub-projects from their public GCS APIs and writes properly schema-aligned staging CSVs. Results: **188 benchmarks, 302 models, 6,158 result rows** across Classic, Lite, Safety, MedHELM, ThaiExam, TORR, EWoK, Finance, SEA-HELM, Arabic, Audio, Image2Struct, Reasoning. Validated: correct schema, 0-100 score scale (BPB kept absolute), no special-char model names, 0 null scores.
+- [ ] **Merge staging data into main files.** Review `data/staging_helm_*.csv`, then:
+  1. Append new benchmark entries (182 new, 6 already exist: hellaswag, mmlu, legalbench, xstest, nusax, fleurs — skip those)
+  2. Append new model entries (294 new, 8 already exist — skip those)  
+  3. Append all 6,158 result rows to results.csv
+  4. Run `python3 scripts/verify_data.py` to confirm FK integrity
+  5. Run `python3 scripts/manage_data.py recompute-stats --write` to update aggregate model stats
+- [ ] Extract HELM Long-Context, MMLU-Winogrande-Afr sub-projects (not yet publicly accessible via the standard API)
 - [ ] Follow existing methodology (strict source verification, model inclusion criteria, normalization rules)
 
 ### Kaggle Benchmarks
