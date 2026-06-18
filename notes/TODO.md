@@ -19,12 +19,7 @@
 
 ### Stanford HELM
 - [x] **Staging extraction complete (2026-06-18).** `scripts/extract_helm_staging.py` fetches all 13 HELM sub-projects from their public GCS APIs and writes properly schema-aligned staging CSVs. Results: **188 benchmarks, 302 models, 6,158 result rows** across Classic, Lite, Safety, MedHELM, ThaiExam, TORR, EWoK, Finance, SEA-HELM, Arabic, Audio, Image2Struct, Reasoning. Validated: correct schema, 0-100 score scale (BPB kept absolute), no special-char model names, 0 null scores.
-- [ ] **Merge staging data into main files.** Review `data/staging_helm_*.csv`, then:
-  1. Append new benchmark entries (182 new, 6 already exist: hellaswag, mmlu, legalbench, xstest, nusax, fleurs — skip those)
-  2. Append new model entries (294 new, 8 already exist — skip those)  
-  3. Append all 6,158 result rows to results.csv
-  4. Run `python3 scripts/verify_data.py` to confirm FK integrity
-  5. Run `python3 scripts/manage_data.py recompute-stats --write` to update aggregate model stats
+- [x] **Merge staging data into main files (2026-06-18).** `scripts/merge_helm_staging.py --write` applied cleanly: +182 benchmarks (6 skipped as already in main), +237 models (58-entry alias map collapsed HELM-style names to existing model_ids; 8 exact collisions skipped), +6158 results (1266 rows remapped via alias). `verify_data.py` clean (0 FK violations), aggregate stats recomputed for all 1333 models. Totals: **397 benchmarks / 1333 models / 13981 results**.
 - [ ] Extract HELM Long-Context, MMLU-Winogrande-Afr sub-projects (not yet publicly accessible via the standard API)
 - [ ] Follow existing methodology (strict source verification, model inclusion criteria, normalization rules)
 

@@ -2,7 +2,27 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 215 benchmarks, 1096 models, 7823 result entries.
+**Current totals:** 397 benchmarks, 1333 models, 13981 result entries.
+
+---
+
+## HELM Merge into Main Files (2026-06-18)
+
+- **Applied `scripts/merge_helm_staging.py --write`** to merge all three
+  staging CSVs into the main data files in one atomic pass.
+- **Benchmarks**: +182 new entries; 6 existing IDs skipped (hellaswag, mmlu,
+  legalbench, xstest, nusax, fleurs) — HELM result rows pointing to those
+  benchmarks still added (they use distinct HELM source_urls).
+- **Models**: 58-entry verified alias map collapsed HELM naming conventions
+  (e.g. `"BLOOM (176B)"` → `"BLOOM-176B"`, `"GPT-4o (2024-05-13)"` → `"GPT-4o"`)
+  remapping 1266 result rows; 8 exact model_id collisions skipped; +237 new
+  model entries added.
+- **Results**: +6158 rows; 0 already-in-main duplicates (all staging rows were
+  genuinely new). Dedup key: `[benchmark_id, model_name, metric_name, source_url]`.
+- **Post-merge checks**: `verify_data.py` clean — 0 FK violations, 0 orphan
+  benchmarks or models. `recompute-stats --write` updated aggregate columns
+  for all 1333 models.
+- **Totals after merge:** 397 benchmarks, 1333 models, 13981 result entries.
 
 ---
 
