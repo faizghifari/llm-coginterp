@@ -23,16 +23,13 @@
 - [ ] Extract HELM Long-Context, MMLU-Winogrande-Afr, air-bench-2024 sub-projects — not yet accessible via the standard GCS API; revisit when they appear at the standard `crfm-helm-public/{project}/benchmark_output/` path
 
 ### Kaggle Benchmarks
-- [ ] Extract all benchmarks from Kaggle Research category (104 benchmarks as of 2026-06-16)
-- Source: https://www.kaggle.com/benchmarks/?browse=true&type=research
-- [ ] Extract per-benchmark model scores individually
-- [ ] Follow existing methodology
+- [x] **Extraction complete (2026-06-19).** Research filter = `type IN (INDIVIDUAL, SUITE)` → exactly 104 benchmarks. `scripts/extract_kaggle_staging.py` used the gRPC-gateway 3-step flow (ListBenchmarks → GetBenchmark → GetBenchmarkLeaderboard). Staging: 104 benchmarks, 79 models, 4,082 results. Key fix: task version ID ≠ benchmark version ID; versionIdSelector must use the inner benchmark version ID from GetBenchmark.
+- [x] **Merge complete (2026-06-19).** `scripts/merge_kaggle_staging.py --write`: +94 benchmarks (10 aliased to existing IDs), +30 models (49 aliased to existing IDs), +4,082 results. 0 FK violations.
 
 ### Papers With Code
-- [ ] Extract benchmarks from Papers With Code tasks page
-- Source: https://paperswithcode.co/tasks — iterate through every topic/subtask that has associated benchmarks
-- [ ] Extract per-benchmark model scores individually
-- [ ] Follow existing methodology
+- [x] **Extraction complete (2026-06-19).** `scripts/extract_pwc_staging.py` read pwc-archive/evaluation-tables HF parquet (4 shards). Staging: 386 benchmarks, 4,036 models, 10,654 results. Removed 4 junk models (Model name, Anonymous, Baseline Model, tes).
+- [x] **Merge complete (2026-06-19).** `scripts/merge_pwc_staging.py --write`: +367 benchmarks (19 aliased to existing IDs), +3,931 models (105 aliased to existing IDs), +10,654 results. 0 FK violations.
+- [ ] **478 PwC models with setup info in name** (zero-shot/few-shot/fine-tune qualifiers encoded in model_id, e.g. `BERT-large (fine-tuned)` as a distinct entry alongside `BERT-large`). Separate pass needed — methodology boundary unclear for these.
 
 ### Previous HELM sweep (lost)
 - [x] ~~HELM sweep data (312 benchmarks, 1155 models, 11208 results) extracted locally but not yet committed~~ — Data was lost (never committed to git) when a repo refactor reset the data files to the last commit. Re-extract via tasks above.

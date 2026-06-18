@@ -2,7 +2,49 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 397 benchmarks, 1333 models, 13981 result entries.
+**Current totals:** 858 benchmarks, 5,165 models, 28,294 result entries.
+
+---
+
+## Model Deduplication & Standardisation (2026-06-19)
+
+- **Applied `scripts/deduplicate_models.py --write`** to clean up model entries
+  introduced across multiple source merges (HELM, PwC, Kaggle).
+- **8 REMOVE** (cascade-deleted model row + all result rows): non-model entries —
+  `Random` (baseline), `Zero-shot`/`Zero Shot` (setup labels),
+  `tensorflow/tensor2tensor` (ML framework), `epoch 9 pgd_25_0.1_eps`
+  (adversarial checkpoint), 3 `TinyLlama-1.1B-intermediate-step-*` training
+  checkpoints. Combined: 56 result rows deleted.
+- **121 REMAP** (merged duplicates into canonical IDs): HF repo-path variants
+  (`OpenAI/GPT-4o` → `GPT-4o`, `Anthropic/claude-3-7-sonnet` → `Claude 3.7 Sonnet`,
+  etc.), lowercase/hyphen aliases (`gpt-j-6b` → `GPT-J (6B)`, `falcon-40b` →
+  `Falcon (40B)`, `LLaMA-2-70B` → `Llama 2 (70B)`, etc.), casing/spacing
+  inconsistencies, newline→space where clean copy existed.
+- **7 RENAME** (cleaned model_id in-place, no existing canonical): HF repo-path
+  IDs (`OpenAI/o3-2025-01-31-high` → `o3-2025-01-31-high`, etc.),
+  literal `\n` in name fixed where no clean copy existed.
+- **367 post-merge duplicate result rows** dropped on identity key (remap collapsed
+  multiple entries that pointed to the same canonical benchmark+model+metric+source).
+- **Post-merge checks**: `verify_data.py` clean — 0 FK violations, 0 orphans.
+  `recompute-stats --write` updated aggregate columns for all 5,165 models.
+- **Totals after dedup:** 858 benchmarks, 5,165 models, 28,294 result entries.
+
+---
+
+## PwC and Kaggle Merge into Main Files (2026-06-19)
+
+- **Applied `scripts/merge_pwc_staging.py --write`** and
+  **`scripts/merge_kaggle_staging.py --write`** in sequence.
+- **PwC** (Papers With Code `pwc-archive/evaluation-tables` HF parquet, 4 shards):
+  +367 benchmarks (19 benchmark aliases to existing IDs), +3,931 models
+  (105 model aliases to existing IDs), +10,654 results. 4 junk staging model
+  entries removed before merge (`Model name`, `Anonymous`, `Baseline Model`, `tes`).
+- **Kaggle Research** (104 benchmarks, `type IN (INDIVIDUAL, SUITE)` filter):
+  +94 benchmarks (10 benchmark aliases), +30 models (49 model aliases), +4,082
+  results. Chess Suite and Game Arena carry Elo-style scores >100 — correct per
+  methodology exception for absolute-scale metrics.
+- **Post-merge checks**: `verify_data.py` clean after both merges.
+- **Totals after merge (pre-dedup):** 858 benchmarks, 5,294 models, 28,717 results.
 
 ---
 
