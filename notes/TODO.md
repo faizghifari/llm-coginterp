@@ -20,8 +20,7 @@
 ### Stanford HELM
 - [x] **Staging extraction complete (2026-06-18).** `scripts/extract_helm_staging.py` fetches all 13 HELM sub-projects from their public GCS APIs and writes properly schema-aligned staging CSVs. Results: **188 benchmarks, 302 models, 6,158 result rows** across Classic, Lite, Safety, MedHELM, ThaiExam, TORR, EWoK, Finance, SEA-HELM, Arabic, Audio, Image2Struct, Reasoning. Validated: correct schema, 0-100 score scale (BPB kept absolute), no special-char model names, 0 null scores.
 - [x] **Merge staging data into main files (2026-06-18).** `scripts/merge_helm_staging.py --write` applied cleanly: +182 benchmarks (6 skipped as already in main), +237 models (58-entry alias map collapsed HELM-style names to existing model_ids; 8 exact collisions skipped), +6158 results (1266 rows remapped via alias). `verify_data.py` clean (0 FK violations), aggregate stats recomputed for all 1333 models. Totals: **397 benchmarks / 1333 models / 13981 results**.
-- [ ] Extract HELM Long-Context, MMLU-Winogrande-Afr sub-projects (not yet publicly accessible via the standard API)
-- [ ] Follow existing methodology (strict source verification, model inclusion criteria, normalization rules)
+- [ ] Extract HELM Long-Context, MMLU-Winogrande-Afr, air-bench-2024 sub-projects — not yet accessible via the standard GCS API; revisit when they appear at the standard `crfm-helm-public/{project}/benchmark_output/` path
 
 ### Kaggle Benchmarks
 - [ ] Extract all benchmarks from Kaggle Research category (104 benchmarks as of 2026-06-16)
@@ -38,8 +37,8 @@
 ### Previous HELM sweep (lost)
 - [x] ~~HELM sweep data (312 benchmarks, 1155 models, 11208 results) extracted locally but not yet committed~~ — Data was lost (never committed to git) when a repo refactor reset the data files to the last commit. Re-extract via tasks above.
 - [x] Partially recovered 2026-06-16 from a local `data/*.csv.bak5` snapshot that survived the reset: the PwC scan (10 benchmarks) and HELM FACTS family (5 benchmarks), 138 result rows total — committed this time. See docs/CHANGELOG.md "Data Recovery" entry.
-- [ ] Still missing and must be re-extracted from scratch (no surviving backup): the rest of the HELM "other groups" sweep (safety, audio, image2struct, reasoning, air-bench-2024, long-context, mmlu-winogrande-afr, mmlu standalone, medhelm, thaiexam, torr, ewok, finance, arabic-enterprise, seahelm — ~973+ rows) and the entire Kaggle sweep below.
-- [ ] **Lesson learned:** commit data/*.csv after each extraction batch instead of relying on local .bak snapshots — uncommitted working-tree state is not safe from external tooling/refactors.
+- [x] All previously-lost HELM sub-projects re-extracted (2026-06-18): safety, audio, image2struct, reasoning, medhelm, thaiexam, torr, ewok, finance, arabic, seahelm, mmlu standalone — all covered by the new `extract_helm_staging.py` sweep. Only air-bench-2024, long-context, mmlu-winogrande-afr remain inaccessible (tracked above).
+- [x] **Lesson learned applied:** all extraction output committed immediately via staging CSVs + merge script.
 
 ## Methodology updates
 - [x] Add to docs/METHODOLOGY.md: If there is more than 1 score for the same model in a benchmark (due to different setup, different provider/evaluator running the benchmark, etc.), keep each as a **separate row** in results.csv rather than averaging. Distinguish rows via the `setup` and `source_url` fields. — Done (see "Multiple Scores per Model-Benchmark Pair" section); the same rule is now also encoded as `config.RESULT_IDENTITY_KEY` in `scripts/lib/config.py`, so the dedup tooling can't accidentally violate it.
