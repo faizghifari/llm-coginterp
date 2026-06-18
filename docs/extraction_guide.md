@@ -474,7 +474,16 @@ def write_staging(benchmarks, models, results, source_prefix):
 
 ### 7.1 Data access
 
-The Kaggle AI Benchmarks platform (`https://www.kaggle.com/benchmarks`) uses an internal gRPC-gateway API. **Authentication is required for leaderboard score data.**
+The Kaggle AI Benchmarks platform (`https://www.kaggle.com/benchmarks`) uses an
+internal gRPC-gateway API. **No account or API key is required** — all three steps
+below work with an anonymous session cookie.
+
+**Critical implementation note:** The leaderboard endpoint requires a *benchmark
+version ID* (from `GetBenchmark`), NOT the task version ID from `ListBenchmarks`.
+Using the wrong ID returns HTTP 500 or 403. The correct 3-step flow is:
+1. `ListBenchmarks` → get `benchmarkId`
+2. `GetBenchmark` → get `version.id` (the benchmark version ID)
+3. `GetBenchmarkLeaderboard` → use that `version.id` in `versionIdSelector`
 
 #### Step 1 — Get session tokens (anonymous, no account needed)
 
@@ -578,83 +587,151 @@ relevant = [b for b in all_benchmarks if is_llm_relevant(b)]
 print(f"LLM-relevant: {len(relevant)}")
 ```
 
-#### Step 4 — Get leaderboard scores (requires Kaggle API key)
+#### Step 4 — Get the benchmark version ID (CRITICAL — different from task version ID)
 
-The `GetBenchmarkLeaderboard` endpoint returns HTTP 500 for unauthenticated requests. You need a Kaggle API key.
+The `GetBenchmarkLeaderboard` endpoint requires a *benchmark version ID* that comes from
+`GetBenchmark`. This is **NOT** the `task.version.id` you see in `ListBenchmarks`. They are
+different integers. Using the task version ID returns HTTP 500 or 403.
 
-**Check for credentials:**
+**No API key or account is required for any of these calls.**
+
 ```python
-import os
-from pathlib import Path
-
-kaggle_json = Path.home() / ".kaggle" / "kaggle.json"
-if kaggle_json.exists():
-    creds = json.loads(kaggle_json.read_text())
-    KAGGLE_USER = creds.get("username")
-    KAGGLE_KEY  = creds.get("key")
-    # Add HTTP Basic Auth header to requests
-    import base64
-    auth_b64 = base64.b64encode(f"{KAGGLE_USER}:{KAGGLE_KEY}".encode()).decode()
-    AUTH_HEADER = {"Authorization": f"Basic {auth_b64}"}
-else:
-    KAGGLE_USER = None
-    AUTH_HEADER = {}
-    print("WARNING: No ~/.kaggle/kaggle.json found. Leaderboard data will be unavailable.")
-    print("Create API credentials at https://www.kaggle.com/settings → API → Create New Token")
+def get_benchmark_version_id(bench_id):
+    """Get the benchmark version ID needed for GetBenchmarkLeaderboard.
+    bench_id: the integer id from ListBenchmarks (b["id"])
+    """
+    bm = kaggle_post("benchmarks.BenchmarkService/GetBenchmark", {
+        "benchmarkIdentifier": {"id": bench_id},
+        "versionIdentifier": {
+            "publishedLatestSelector": {
+                "parentBenchmarkIdentifier": {"id": bench_id}
+            }
+        }
+    })
+    return bm["version"]["id"]  # e.g. 5514 for GSM8K (NOT the task version 32363)
 ```
 
-**Fetch leaderboard with auth:**
+#### Step 5 — Get leaderboard (fully public, no auth required)
+
 ```python
-def get_leaderboard(task_version_id, page_size=100):
-    """Returns list of {model_name, score, rank, ...} or [] on failure."""
-    payload = {"taskVersionId": task_version_id, "pageSize": page_size}
-    headers = {
-        "User-Agent":   "Mozilla/5.0",
-        "Accept":       "application/json",
-        "Content-Type": "application/json",
-        "X-Xsrf-Token": xsrf,
-        **AUTH_HEADER,   # add auth if available
-    }
-    req = urllib.request.Request(
-        "https://www.kaggle.com/api/i/benchmarks.BenchmarkService/GetBenchmarkLeaderboard",
-        data=json.dumps(payload).encode(),
-        headers=headers,
-        method="POST"
-    )
-    try:
-        with opener.open(req, timeout=30) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        if e.code == 500:
-            return {}  # no leaderboard data available — skip this benchmark
-        raise
+def get_leaderboard(benchmark_version_id, page_size=100):
+    """Returns leaderboard rows. Completely public — no API key needed."""
+    lb = kaggle_post("benchmarks.BenchmarkService/GetBenchmarkLeaderboard", {
+        "versionIdentifier": {"versionIdSelector": {"id": benchmark_version_id}},
+        "pageSize": page_size
+    })
+    return lb.get("rows", [])
 ```
 
-If no `~/.kaggle/kaggle.json` exists, extract benchmark metadata only (names, descriptions, links). Add a `notes` field to the benchmark rows indicating "scores unavailable — requires Kaggle API key". Do not create result rows with empty scores.
-
-#### Step 5 — Leaderboard response structure (when auth works)
-
+Each row looks like:
 ```python
-# Expected shape (varies by benchmark):
 {
-  "leaderboard": [
+  "modelVersion": {
+    "name": "Claude Fable 5",
+    "organization": {"name": "Anthropic"}
+  },
+  "aggregateScore": "0.9234",    # string float, or None for NOOP-type benchmarks
+  "results": [                    # per-child-task scores (if benchmark has subtasks)
     {
-      "rank": 1,
-      "submissionDate": "2024-03-15T10:00:00Z",
-      "score": "92.5",            # primary score as string
-      "scores": [                 # all metric scores
-        {"metricName": "Accuracy", "score": "92.5"}
-      ],
-      "agentDisplayName": "GPT-4o",
-      "agentModelName":   "gpt-4o-2024-05-13",   # may differ from display name
-      "submitter": {"userName": "openai", "displayName": "OpenAI"}
+      "childTaskVersion": {"name": "Standard"},
+      "numericResult": {"value": "0.9234"}
     }
   ],
-  "totalResults": 15
+  "rank": 1
 }
 ```
 
-Use `agentDisplayName` as `model_name`. Use `agentModelName` (if present) as `model_id`. Fall back to `agentDisplayName` for both if `agentModelName` is absent.
+Use `row["modelVersion"]["name"]` as both `model_name` and `model_id`.
+Use `row["modelVersion"]["organization"]["name"]` as `developer` (when present).
+
+#### Step 5b — Score extraction
+
+```python
+def extract_score(row, agg_type, num_child_tasks):
+    """
+    Extract and normalize score from a leaderboard row.
+    Returns (score_float_or_None, metric_name_str).
+
+    agg_type: from task.version.aggregationType in ListBenchmarks
+              ("PERCENTAGE_PASSED", "MEAN", "NOOP", etc.)
+    num_child_tasks: number of child tasks this benchmark has (default 1 if unknown)
+    """
+    agg = row.get("aggregateScore")
+    if agg_type != "NOOP" and agg is not None:
+        val = float(agg)
+        if 0.0 <= val <= 1.0:
+            return round(val * 100, 2), "score"       # fraction → percentage
+        elif 1.0 < val <= 100.0 and num_child_tasks <= 1:
+            return round(val, 2), "score"             # already on 0-100 scale
+        else:
+            return None, None   # raw problem count across multiple child tasks — skip
+    # NOOP type or missing aggregateScore: fall back to per-result scores
+    for result in row.get("results", []):
+        v = (result.get("numericResult") or {}).get("value")
+        if v is not None:
+            val = float(v)
+            if 0.0 <= val <= 1.0:
+                return round(val * 100, 2), "score"
+            return round(val, 2), "score"
+    return None, None
+```
+
+**Complete per-benchmark loop:**
+
+```python
+seen_models  = set()
+models_rows  = []
+bench_rows   = []
+results_rows = []
+
+for b in relevant:
+    bench_id   = b["id"]
+    slug       = b["slug"]
+    owner      = b["ownerUser"]["userName"]
+    source_url = f"https://www.kaggle.com/benchmarks/{owner}/{slug}"
+    agg_type   = b.get("task", {}).get("version", {}).get("aggregationType", "")
+
+    try:
+        bv_id = get_benchmark_version_id(bench_id)
+    except Exception as e:
+        print(f"  SKIP {slug}: GetBenchmark failed: {e}")
+        continue
+
+    try:
+        rows = get_leaderboard(bv_id)
+    except Exception as e:
+        print(f"  SKIP {slug}: GetBenchmarkLeaderboard failed: {e}")
+        continue
+
+    if not rows:
+        print(f"  SKIP {slug}: empty leaderboard")
+        continue
+
+    bench_rows.append(make_kaggle_benchmark_row(b))
+
+    for row in rows:
+        model_name = (row.get("modelVersion") or {}).get("name", "")
+        if not model_name:
+            continue
+        model_name = clean_model_name(model_name)
+        developer  = ((row.get("modelVersion") or {}).get("organization") or {}).get("name", "")
+
+        score, metric = extract_score(row, agg_type, len(rows))
+        if score is None:
+            continue
+
+        if model_name not in seen_models:
+            seen_models.add(model_name)
+            models_rows.append(make_model_row(model_name, developer))
+
+        results_rows.append(make_kaggle_result_row(
+            make_kaggle_benchmark_id(slug),
+            b["name"], source_url,
+            model_name, model_name, score, metric
+        ))
+
+    import time; time.sleep(0.3)  # be polite
+```
 
 #### Step 6 — Benchmark page URL
 
