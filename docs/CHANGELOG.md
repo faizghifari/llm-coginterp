@@ -2,7 +2,51 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 858 benchmarks, 4,932 models, 28,242 result entries.
+**Current totals:** 858 benchmarks, 4,873 models, 28,242 result entries.
+
+---
+
+## Family Audit Standardisation Pass 4 (2026-06-20)
+
+- **Applied `scripts/standardise_pass4.py --write`** — fourth targeted pass from
+  the family audit (GPT-2 HF IDs, Mistral/Mixtral consolidation, maj@k / mCoT
+  setup extraction, OpenMath `(w/ code)` qualifiers).
+- **8 RENAME**: `gpt2-large` → `GPT-2 Large (774M)`, `gpt2-medium` → `GPT-2 Medium (355M)`;
+  OpenMath-CodeLlama-{7/13/34/70}B, OpenMath-Llama2-70B, OpenMath-Mistral-7B —
+  `(w/ code)` suffix removed from model name, moved to `results.setup = "w/ code"`.
+- **8 REMAP**: `gpt2-xl` → `GPT-2-XL 1.5B`; `Mistral 7B` + `mistral-7b-v0.1` →
+  `Mistral v0.1 (7B)` (PwC scores match v0.1 paper exactly; explicit version);
+  `Mixtral (8x7B 32K seqlen)` / `Mixtral 8x7B` / `Mixtral-8x7B` → `Mixtral-8x7B-v0.1`
+  (HELM calls this "32K seqlen" to label context length, not a distinct model);
+  `Mixtral-8x7B-Instruct` + `mixtral-8x7b-instruct-v0.1` → `Mixtral Instruct (8x7B)`.
+- **21 SETUP_REMAP**: LLaMA {7/13/33/65}B `maj@k`; Minerva {8/62/540}B `maj@64`;
+  OpenMath SC `k=50` variants; `PaLM 540B (Self Consistency)`;
+  GAL {30/120}B and PaLM/Minerva 540B `5-shot mCoT`; `Codex 5-shot CoT`;
+  `ToRA-70B (SC, k=50)` → `ToRA 70B`; `ToRA-Code-34B (SC, k=50)` → `ToRA-Code 34B`.
+- **32 entries left as-is** (intentional): compound pipeline models (`CR (GPT-4...)`,
+  `GPT-4-code model`, `DePlot+...`), prompting method papers (`Auto-CoT`, `CoT`,
+  `MC-CoT`), fine-tuned model identity names (`Bhāskara-{A,P}`, `Neo-{A,P}`),
+  OVM `verify@` variants with distinct verification budgets, ToRA `(w/ code)` entries
+  where code execution is the model's core mechanism with no non-code alternative.
+- **Net**: 4,902 → 4,873 models (−29); 28,242 results unchanged.
+- **Totals:** 858 benchmarks, 4,873 models, 28,242 result entries.
+
+---
+
+## Family Audit Standardisation Pass 3 (2026-06-20)
+
+- **Applied `scripts/standardise_pass3.py --write`** — targeted fixes from the
+  GPT, Llama, Qwen, Mistral, PaLM, Gemma, Phi family audit.
+- **3 RENAME**: `GPT-5-mini` → `GPT-5 mini`, `GPT-5 Nano` → `GPT-5 nano`,
+  `Llama-4-S` → `Llama 4 Scout`.
+- **30 REMAP**: all dated GPT variants (4.1/4.5/5/5.1/5.4), `chatgpt5`/`chatgpt5_mini`
+  → canonical, `gpt2` → `GPT-2`, `PALM`/`PaLM-540B`/`PaLM-62B` → PaLM canonical,
+  `Llama-4-M` → `Llama 4 Maverick`, Llama 2 / Llama-2 casing fixes,
+  `Llama-3.3-70B-Instruct` → `Llama 3.3 Instruct (70B)`, Qwen chat aliases,
+  `Mixtral-8x7b inst` → `Mixtral Instruct (8x7B)`,
+  `Gemma 4 31B Instruct` → `Gemma 4 31B`, `Gemma-3-27B` → `Gemma 3 27B`,
+  `phi-1_5` → `phi-1.5`.
+- **Net**: 4,932 → 4,902 models (−30); 28,242 results unchanged.
 
 ---
 

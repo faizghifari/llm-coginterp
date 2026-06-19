@@ -29,7 +29,7 @@
 ### Papers With Code
 - [x] **Extraction complete (2026-06-19).** `scripts/extract_pwc_staging.py` read pwc-archive/evaluation-tables HF parquet (4 shards). Staging: 386 benchmarks, 4,036 models, 10,654 results. Removed 4 junk models (Model name, Anonymous, Baseline Model, tes).
 - [x] **Merge complete (2026-06-19).** `scripts/merge_pwc_staging.py --write`: +367 benchmarks (19 aliased to existing IDs), +3,931 models (105 aliased to existing IDs), +10,654 results. 0 FK violations.
-- [ ] **PwC models with setup info in name** (zero-shot/few-shot/fine-tune qualifiers encoded in model_id, e.g. `BERT-large (fine-tuned)` as a distinct entry alongside `BERT-large`). The two standardisation passes (`fix_setup_in_names.py`, `standardise_models.py`) already caught many of these. Run `scripts/manage_data.py dupes` after further review to see what's left.
+- [x] **Setup-in-name models** — across four standardisation passes (`fix_setup_in_names.py`, `standardise_models.py`, `standardise_pass3.py`, `standardise_pass4.py`), all extractable setup-in-name patterns have been processed. 32 entries intentionally remain: compound pipeline models (where the qualifier identifies the system, not just the evaluation setup), prompting method papers (Auto-CoT, CoT, MC-CoT), fine-tuned model identities (Bhāskara, Neo Fine-tuned variants), and OVM/verify@ variants with meaningfully distinct configurations. These are correctly represented as distinct models.
 
 ### Previous HELM sweep (lost)
 - [x] ~~HELM sweep data (312 benchmarks, 1155 models, 11208 results) extracted locally but not yet committed~~ — Data was lost (never committed to git) when a repo refactor reset the data files to the last commit. Re-extract via tasks above.
