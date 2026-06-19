@@ -2,7 +2,58 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 858 benchmarks, 5,165 models, 28,294 result entries.
+**Current totals:** 858 benchmarks, 4,932 models, 28,242 result entries.
+
+---
+
+## Model Name Standardisation Pass 2 (2026-06-20)
+
+- **Applied `scripts/standardise_models.py --write`** — second standardisation pass
+  focused on naming conventions, alias collapse, and extracting setup/thinking flags
+  missed by the earlier `fix_setup_in_names.py` pass.
+- **1 REMOVE**: `Claude-3 Family` — aggregate placeholder, not a specific model (1r).
+- **1 RENAME-CREATE**: `Claude 3.5 Sonnet (20240620)` → `Claude 3.5 Sonnet` — date
+  suffix is a version tag, not part of the canonical name (50r).
+- **7 RENAME** (in-place rename, no existing canonical):
+  `claude_instant_1.2` → `Claude Instant 1.2`,
+  `deepseek-r1-zero` → `DeepSeek-R1-Zero` (distinct model from DeepSeek-R1 — no SFT),
+  `MiniStral 3Mistral AI` → `Ministral 3B` (malformed name from PwC),
+  `Gemini-1.5-Pro` → `Gemini 1.5 Pro`, `Gemini-2.5-Flash` → `Gemini 2.5 Flash`,
+  `Gemini-2.5-Flash-Lite` → `Gemini 2.5 Flash-Lite`,
+  `Gemini-V` → `Gemini Pro Vision`.
+- **24 REMAP** (merged into existing canonical IDs): Claude date-versioned variants
+  (`Claude 3 Haiku (20240307)` → `Claude 3 Haiku`, `Claude 3 Opus (20240229)` →
+  `Claude 3 Opus`, etc.), Claude naming-convention aliases (`Claude-Opus` →
+  `Claude 3 Opus`, `Claude Sonnet 3.5` / `Claude-3.5-Sonnet` / `Claude3.5-Sonnet` →
+  `Claude 3.5 Sonnet`, Claude 4.x date-versioned → canonical), `BLOOM-176B` →
+  `BLOOM 176B`, `DeepSeek-reasoner` → `DeepSeek-R1`, `Google/Gemini 2.5 Pro` →
+  `Gemini 2.5 Pro`, `GPT4-Vision`/`GPT4V` → `GPT-4V`, 3 SparseGPT format fixes.
+- **5 THINKING-REMAP**: thinking-mode variants folded into base model with
+  `results.reasoning_enabled = "True"` (Claude Opus 4 / Sonnet 4 extended thinking,
+  Claude Haiku/Opus/Sonnet 4.5 thinking).
+- **78 SETUP-extract**: additional setup-in-name patterns caught by extended regex
+  (`few-shot, k=N`, `N-shot, X`, `zero-shot, X`, etc.) — setup moved to `results.setup`.
+- **32 post-merge duplicate result rows** dropped on identity key.
+- **Post-merge checks**: `verify_data.py` clean — 0 FK violations, 0 orphans.
+  `recompute-stats --write` updated aggregate columns for all 4,932 models.
+- **Totals after standardisation:** 858 benchmarks, 4,932 models, 28,242 result entries.
+
+---
+
+## Setup Extraction & Encoder-Only Removal (2026-06-19)
+
+- **Applied `scripts/fix_setup_in_names.py --write`** — extracted setup qualifiers
+  from model names into `results.setup`, removed non-generative model entries.
+- **13 ENCODER/non-LLM REMOVE** (cascade): BERT large (LAMB optimizer),
+  PromptNER [BERT-large], PromptNER [RoBERTa-large], FLERT XLM-R, XLM-R (encoder-only),
+  CLIP variants ×5 (vision-language embedding, not generative), BiDAF ×2 (discriminative
+  reading comprehension model).
+- **1 EXTRA-RENAME**: `MiniGPT-4-7B (BERTScore)` → `MiniGPT-4-7B` (BERTScore is
+  an evaluation metric accidentally appended to the model name).
+- **Setup qualifiers extracted** from remaining models whose model_id encoded
+  zero-shot/few-shot/fine-tuned/CoT/greedy/maj@k into a trailing parenthetical —
+  qualifier moved to `results.setup`; model_id updated to base name.
+- **Net**: 5,165 → 5,018 models (−147); 28,294 → 28,275 results (−19, 0 post-merge dupes).
 
 ---
 
