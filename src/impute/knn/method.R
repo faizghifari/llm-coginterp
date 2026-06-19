@@ -58,7 +58,7 @@ impute_knn <- function(x, ks = 1:10, seed = 1L) {
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per k,
 # plus an omega_h distribution (bifactor at the fixed `nf` from the main run).
-sensitivity_knn <- function(x, ks = 1:10, n_seeds = 50L, holdout_frac = 0.2,
+sensitivity_knn <- function(x, ks = 1:10, n_seeds = 20L, holdout_frac = 0.2,
                             nf = NA_integer_) {
   suppressMessages({ library(parallel); library(doParallel); library(foreach) })
   ks <- ks[ks < nrow(x)]

@@ -2,6 +2,26 @@
 
 A curated, verified dataset of LLM benchmark evaluations across diverse cognitive domains — built for research into how language models interpret, reason, and generalize across tasks.
 
+## Running
+
+```bash
+# install python, R, julia
+make deps
+# install language-specific deps
+make install
+# preprocess dataset
+make preproc
+# run everything
+make runall
+
+# optionally run individual runs
+# use --reimpute to do actual imputation even if first time
+# use --raw to run on the supersparse data (not actually the raw dataset)
+# use --sensitivity to run random-seed sensitivity (slow)
+#   Rscript src/run/main.R --method softimpute --reimpute --sensitivity
+#   Rscript src/run/main.R --method softimpute --reimpute --sensitivity --raw
+```
+
 ## Dataset Overview
 
 | Table | Rows | Description |

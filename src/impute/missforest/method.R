@@ -54,7 +54,7 @@ impute_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L), seed = 1L) {
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per ntree.
 sensitivity_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L),
-                                   n_seeds = 50L, holdout_frac = 0.2,
+                                   n_seeds = 20L, holdout_frac = 0.2,
                                    nf = NA_integer_) {
   suppressMessages({ library(parallel); library(doParallel); library(foreach) })
   n_cores <- max(1L, detectCores() - 2L)

@@ -51,7 +51,7 @@ function main()
         if get(ENV, "OSMC_SENSITIVITY", "") != ""
             @info "  sensitivity seed-sweep..."
             sensitivity_onesided(in_path,
-                joinpath(sweep_dir, "sensitivity.csv"); r_grid = 1:10, n_seeds = 50)
+                joinpath(sweep_dir, "sensitivity.csv"); r_grid = 1:10, n_seeds = 20)
         end
     end
 end

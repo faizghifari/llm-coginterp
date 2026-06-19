@@ -77,7 +77,7 @@ impute_mice <- function(x, ms = c(5L, 10L, 20L), seed = 1L) {
 }
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per m.
-sensitivity_mice <- function(x, ms = c(5L, 10L, 20L), n_seeds = 50L,
+sensitivity_mice <- function(x, ms = c(5L, 10L, 20L), n_seeds = 20L,
                              holdout_frac = 0.2, nf = NA_integer_) {
   suppressMessages({ library(parallel); library(doParallel); library(foreach) })
   n_cores <- max(1L, detectCores() - 2L)

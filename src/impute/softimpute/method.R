@@ -76,7 +76,7 @@ impute_softimpute <- function(x, max_rank = 15L, seed = 1L) {
 
 # Repeated-holdout sensitivity of the held-out RMSE curve (parallelised), plus an
 # omega_h distribution (bifactor at the fixed `nf` from the main run).
-sensitivity_softimpute <- function(x, max_rank = 15L, n_seeds = 50L,
+sensitivity_softimpute <- function(x, max_rank = 15L, n_seeds = 20L,
                                    holdout_frac = 0.2, nf = NA_integer_) {
   suppressMessages({ library(parallel); library(doParallel); library(foreach) })
   xs <- biScale(x, row.center = FALSE, row.scale = FALSE,
