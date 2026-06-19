@@ -28,17 +28,17 @@ preproc:
 
 runall:
 	# skip iterativepca (not pushed to git) and mice (slow as hell)
-	Rscript src/run/main.R --method softimpute --reimpute
-	Rscript src/run/main.R --method softimpute --reimpute --raw
+	Rscript src/run/main.R --method softimpute --reimpute --sensitivity
+	Rscript src/run/main.R --method softimpute --reimpute  --sensitivity --raw
 
-	Rscript src/run/main.R --method onesidedmc --reimpute
-	Rscript src/run/main.R --method onesidedmc --reimpute --raw
+	Rscript src/run/main.R --method onesidedmc --reimpute --sensitivity
+	Rscript src/run/main.R --method onesidedmc --reimpute --sensitivity --raw
 
-	Rscript src/run/main.R --method missforest --reimpute
-	Rscript src/run/main.R --method missforest --reimpute --raw
+	Rscript src/run/main.R --method missforest --reimpute --sensitivity
+	Rscript src/run/main.R --method missforest --reimpute --sensitivity --raw
 
-	Rscript src/run/main.R --method knn --reimpute
-	Rscript src/run/main.R --method knn --reimpute --raw
+	Rscript src/run/main.R --method knn --reimpute --sensitivity
+	Rscript src/run/main.R --method knn --reimpute --sensitivity --raw
 
 	python scripts/compare_loadings.py
 
