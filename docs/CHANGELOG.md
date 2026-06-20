@@ -2,7 +2,37 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 858 benchmarks, 4,873 models, 28,242 result entries.
+**Current totals:** 858 benchmarks, 4,762 models, 28,067 result entries.
+
+---
+
+## Family Audit Standardisation Pass 5 (2026-06-21)
+
+- **Applied `scripts/standardise_pass5.py --write`** — final cleanup pass removing
+  compound/pipeline models (methodology exclusion) and extracting prompting-method
+  qualifiers into `results.setup`.
+- **86 REMOVE** (cascade: model + all results):
+  - 3 ASR transcription pipelines (`GPT-4o Transcribe + GPT-4o`, `GPT-4o mini Transcribe + GPT-4o`, `Whisper-1 + GPT-4o`)
+  - 9 DePlot/StructChart visual compound systems (`DePlot+GPT-4`, `DePlot+GPT3`, `DePlot+FlanPaLM`, etc.)
+  - 13 code-generation agent pipelines (LPW, MapCoder, L2MAC, AFlow, CodeSim, Self-Debugging, INTERVENOR, LATS, AgentCoder)
+  - 7 retrieval/search augmented pipelines (`GPT-4+WebSearch`, RAPTOR, RALM, MCR, Self-ask+Search, ReST, Rethinking+retrieval)
+  - 9 visual compound systems (`BLIP-2+ChatGPT`, `InstructBLIP+GPT-4`, `CLIP+PaLM`, `GaC(Qwen2+Llama3)`, etc.)
+  - 9 QurrentOS-coder compound variants
+  - 4 GPT-4-code model / CR pipeline entries
+  - 9 prompting frameworks and verifier systems (MMCTAgent, SKiC, PHP, KeyComp, OpenPipe-MoA, Phi-GSM+V, DUP, Finetuned GPT-3+verifier, etc.)
+  - 7 method-only labels without base model (`Auto-CoT`, `CoT`, `MC-CoT`, `CoT_Eng`, `PoT_Eng`, `Self-Ask`)
+  - 10 Gemini+CoT/MMICL+CoT entries (ambiguous base, unrecoverable)
+  - 1 `Gemini 1.5 Family` aggregate placeholder
+- **6 RENAME**: `ToRA 7B/13B (w/ code)` → base names; `OVM-Mistral-7B/Llama2-7B (verify100@1)` → base
+  names; `Few-shot CoT LaMDA 137B` → `LaMDA 137B`; `MiniGPT4-13B` → `MiniGPT-4-13B`.
+- **4 REMAP**: `miniGPT4` → `MiniGPT-4-7B`; `GPT4RoI` → `GPT4ROI 7B (ROI)`;
+  `GPT-3.5 Turbo (175B)` / `GPT-3.5 Turbo (ChatGPT)` → `GPT-3.5-Turbo`.
+- **21 SETUP_REMAP**: `InstructBLIP/LLaVA-1.5 ZS-CoT`; `GPT-4V + CoCoT`; `OpenFlamingo + CoCoT`;
+  CoT/Direct/Self-Ask setups from GPT-3 davinci-002; Few-shot CoT on GPT-J / GPT-3.5-Turbo;
+  `GPT4-Vision 4-shot`; `GPT-4o + CA`; Selected Demo & Uncertainty on GPT-3.5/LLaMA-2-13B/70B;
+  `Claude Instant + SigExt` / `Mistral 7B + SigExt`; ToRA w/code variants; `OVM verify@20`.
+- **Net**: 4,873 → 4,762 models (−111); 28,242 → 28,067 results (−175).
+- **Totals:** 858 benchmarks, 4,762 models, 28,067 result entries.
 
 ---
 
@@ -23,11 +53,10 @@ All notable changes to the LLM Benchmarks dataset.
   OpenMath SC `k=50` variants; `PaLM 540B (Self Consistency)`;
   GAL {30/120}B and PaLM/Minerva 540B `5-shot mCoT`; `Codex 5-shot CoT`;
   `ToRA-70B (SC, k=50)` → `ToRA 70B`; `ToRA-Code-34B (SC, k=50)` → `ToRA-Code 34B`.
-- **32 entries left as-is** (intentional): compound pipeline models (`CR (GPT-4...)`,
+- **32 deferred entries** (processed in Pass 5): compound pipeline models (`CR (GPT-4...)`,
   `GPT-4-code model`, `DePlot+...`), prompting method papers (`Auto-CoT`, `CoT`,
-  `MC-CoT`), fine-tuned model identity names (`Bhāskara-{A,P}`, `Neo-{A,P}`),
-  OVM `verify@` variants with distinct verification budgets, ToRA `(w/ code)` entries
-  where code execution is the model's core mechanism with no non-code alternative.
+  `MC-CoT`), OVM `verify@` variants, ToRA `(w/ code)` entries — all addressed by Pass 5.
+  Fine-tuned model identity names (`Bhāskara-{A,P}`, `Neo-{A,P}`) intentionally kept.
 - **Net**: 4,902 → 4,873 models (−29); 28,242 results unchanged.
 - **Totals:** 858 benchmarks, 4,873 models, 28,242 result entries.
 
