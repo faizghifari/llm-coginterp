@@ -2,7 +2,56 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 858 benchmarks, 4,762 models, 28,067 result entries.
+**Current totals:** 858 benchmarks, 4,274 models, 27,104 result entries.
+
+---
+
+## Family Audit Standardisation Pass 6 (2026-06-21)
+
+- **Applied `scripts/standardise_pass6.py --write`** — comprehensive pass removing
+  task-specific/discriminative models (scope rule: keep only general-purpose generative
+  LMs that can process arbitrary text and tasks) and extracting LLM+technique setups.
+- **430 REMOVE** (cascade: model + all results) across major categories:
+  - **Discriminative QA readers** (55): BiDAF variants, DCN+, Match-LSTM, LSTMN,
+    AoA Reader, FusionNet++, SLQA+, DocQA, HGN+IR, RQA+IDR, r-net+, QANet+DA, etc.
+  - **Discriminative NLI encoders** (14): ESIM+ELMo, BiAttention+DCU-LSTM,
+    Decomposable Attention, Biattentive Classification Network, CBS-1+ESIM, TLM-I+E, etc.
+  - **Classical ML classifiers** (11): SVM, XGBoost, Logistic Regression, Multinomial NB,
+    Random Forest — all tf-idf/n-gram based, discriminative only.
+  - **Contrastive visual-semantic embeddings** (4): VSE++ (all COCO/Flickr30k variants).
+  - **MT-specific seq2seq systems** (16): ConvS2S+Risk, CMLM+LAT, Seq-KD+Seq-Inter,
+    Transformer+BPE/ADMIN/FRAGE/WDrop/BPE-dropout variants, Attentional encoder-decoder.
+  - **Task-specific summarization compounds** (11): ML+RL, PTGEN+Coverage, rnn-ext+abs+RL,
+    ROUGESal+Ent RL, ML+RL ROUGE+Novel, Two-Stage+RL, RL+pg+cbdec, Seq2seq+selective+MTL.
+  - **Task-specific VQA/video models** (22): MCAN+VC, NMN+LSTM+FT, TbD+reg, VIOLET+,
+    VinVL+L, LOGNet+VLR, UniMD+Sync., Pythia+LoRRA, LMH+Entropy, MHPGM+NOIC, etc.
+  - **Compound retrieval+generation** (8): BART+DPR, NormTab+SQL, TabSQLify, ReVeaL+WIT,
+    HGN+SemanticRetrievalMRS, HopRetriever+Sp-search, NeuralCRF+SAC, OpenIE6, etc.
+  - **KD/training-method compound labels** (19): DKD++, Seq-KD+, PEBG+DKT, etc.
+  - **Other pre-LLM task-specific** (270): aspect-sentiment LSTMs, task-specific OCR/MT,
+    discriminative code models, task-specific educational/causal/temporal models, etc.
+- **3 RENAME** (create base from compound name):
+  - `GPT-Neo 125M + Self-Sampling` → `GPT-Neo 125M`
+  - `CodeGen-Mono 16B + CodeT` → `CodeGen-Mono 16B`
+  - `code-davinci-001 175B + CodeT` → `code-davinci-001 175B`
+- **4 REMAP**: MoSLoRA spacing aliases → `LLaMA 3 8B + MoSLoRA`.
+- **54 SETUP_REMAP** (extract inference-time technique to `results.setup`):
+  - ITI on Alpaca-7B, LLaMA-7B, Vicuna-7B
+  - Representation Control on Llama-2-13B-Chat
+  - TruthX on Mistral-7B-Instruct-v0.2
+  - CFG on LLaMA {7/13/30/65}B (6 variants)
+  - CAPO on Llama-3.3-70B, Mistral-Small-24B, Qwen2.5-32B
+  - LATIN-Prompt on GPT-3.5-Turbo; text rationale+IoT on GPT-4o; LAPDoc on GPT-3.5-Turbo
+  - Self-Sampling on GPT-Neo 125M and GPT-Neo 2.7B; CC on GPT-J
+  - CodeT, Coder-Reviewer, MBR-Exec, LEVER, REPLUG, REPLUG LSR, Reviewer on
+    code-davinci-{001/002} 175B, code-cushman-001, InCoder 6.7B, CodeGen-16B-multi
+  - SIFT TTFT on GPT-2, GPT-2 Large, Llama-3.2-{1B/3B}, Phi-3 3.8B
+  - R-Drop, R3F, Adapters+LRL, pretraining variants on BART-Large
+  - SLiC, DotProd attention on PEGASUS; LaMenDa+4096ctx on MatCha
+  - CCoT on InstructBLIP, OpenFlamingo; DDCoT on OpenFlamingo
+  - Graph Text / Graph Text+Graph Neg on BLIP
+- **Net**: 4,762 → 4,274 models (−488); 28,067 → 27,104 results (−963).
+- **Totals:** 858 benchmarks, 4,274 models, 27,104 result entries.
 
 ---
 
