@@ -2,7 +2,26 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 858 benchmarks, 4,274 models, 27,104 result entries.
+**Current totals:** 858 benchmarks, 4,265 models, 27,074 result entries.
+
+---
+
+## Family Audit Standardisation Pass 7 (2026-06-21)
+
+- **Applied `scripts/standardise_pass7.py --write`** — removes 9 task-specific /
+  discriminative models that slipped through pass 6 (lacked the `+` compound-name
+  pattern the earlier sweep relied on).
+- **9 REMOVE** (all failed the scope rule: general-purpose generative LM):
+  - `GRAFT-Net`: discriminative graph QA reader (KGQA, not generative)
+  - `Robustly Fine-tuned Graph-based Recurrent Retriever`: discriminative graph+retrieval reader (HotpotQA)
+  - `GCN-Align`, `AlignEA`: entity alignment GNNs (not generative at all)
+  - `Pooling classifier pre-trained using force-aligned phoneme and word labels on LibriSpeech`: discriminative ASR classifier
+  - `Fine-Tuned LM-Pretrained Transformer`: NLI-only discriminative fine-tune on SNLI
+  - `ChatDev`: multi-agent compound software development system (not a single model)
+  - `InstructABSA`: task-specific ABSA fine-tune (SemEval 2014 sentiment only)
+  - `InstructDS`: task-specific dialogue summarisation fine-tune (SAMSum/DialogSum only)
+- **Net**: 4,274 → 4,265 models (−9); 27,104 → 27,074 results (−30).
+- **Totals:** 858 benchmarks, 4,265 models, 27,074 result entries.
 
 ---
 
