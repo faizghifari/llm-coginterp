@@ -26,9 +26,9 @@ make runall
 
 | Table | Rows | Description |
 |-------|------|-------------|
-| `benchmarks.csv` | 215 | Benchmark metadata: name, venue, category, source URLs |
-| `models.csv` | 1,096 | Model metadata: family, developer, size, type |
-| `results.csv` | 7,823 | Evaluation results: scores, metrics, setup parameters |
+| `benchmarks.csv` | 842 | Benchmark metadata: name, venue, category, source URLs |
+| `models.csv` | 4,262 | Model metadata: family, developer, size, type |
+| `results.csv` | 27,070 | Evaluation results: scores, metrics, setup parameters |
 
 ## Data Schema
 

@@ -2,7 +2,41 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 842 benchmarks, 4,262 models, 27,071 result entries.
+**Current totals:** 842 benchmarks, 4,262 models, 27,070 result entries.
+
+---
+
+## Conflict Benchmark Resolution (2026-06-23)
+
+- **Applied `scripts/resolve_conflict_benchmarks.py --write`** — resolved the last
+  6 conflicting duplicate-evaluation groups (`opencompass` ×3, `eifbench` ×2,
+  `mmar` ×1), the final remainder of an original 519. Re-verification against each
+  benchmark's cited source showed these were symptoms of bulk-import mis-extraction
+  (multi-dimensional results squashed into one mislabeled `accuracy` metric, scores
+  not matching the source), not genuine score disputes. Standardise pass 5 had
+  papered over them by arbitrarily keeping one row per collision; this pass corrects
+  to source.
+- **MMAR** (arXiv 2505.13032 — a deep **audio-reasoning** benchmark, was miscategorized
+  as multilingual / machine-translation):
+  - "Gemini 1.5 Pro" does not appear in the paper at all → result row **dropped**.
+  - The other 3 stored scores matched no column in the paper's Table 2; corrected to
+    the Avg column: GPT-4o Audio 54.3→**63.5**, Qwen2-Audio 52.1→**30.4**,
+    SALMONN-13B 38.2→**33.2**.
+  - Benchmark metadata fixed: category multilingual→**audio/speech**, subcategory &
+    task_type machine-translation→**audio-reasoning**, year→2025, title set.
+- **OpenCompass** (`rank.opencompass.org.cn` CompassAcademic leaderboard): the source's
+  7 capability dimensions had been imported all mislabeled `accuracy`; pass 5 kept only
+  the first — the **overall/average** (confirmed ≈ mean of the other 6 per model) — and
+  dropped the rest. Relabeled metric_name `accuracy`→**`overall`** for the 3 rows and
+  recorded in `notes` that the per-dimension breakdown is unrecoverable (live API still
+  returns only the SPA shell). No row change.
+- **EIFBench** (arXiv 2506.08375, EMNLP 2025 — complex instruction following): paper
+  reports ILA/CLA sub-scores (0–1) per scenario; our single `accuracy` values can't be
+  verified against any table, so the 15 result rows were **left untouched**. Benchmark
+  metadata fixed: category alignment/safety→**instruction-following**, paper_url + year
+  added.
+- **Net**: 27,071 → 27,070 results (−1, the invalid MMAR row); 842 benchmarks unchanged.
+- **Totals:** 842 benchmarks, 4,262 models, 27,070 result entries.
 
 ---
 
