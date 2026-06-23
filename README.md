@@ -137,10 +137,11 @@ Checks include:
 |--------|---------|
 | `scripts/verify_data.py` | Data integrity checks (FK, orphans, exhaustion) — run after every change |
 | `scripts/manage_data.py` | Dataset maintenance CLI — duplicate detection/resolution, alias fixes, model categorization. Run `python3 scripts/manage_data.py --help` for the full command list |
+| `scripts/standardise.py` | Normalize/standardise models, results, and benchmarks from a JSON rules file (remove/rename/remap/setup-extract/merge-benchmark) plus dedup cleanups. Dry-run by default; `--write` to apply |
 | `scripts/export_eee_jsonl.py` | Export to EEE JSONL schema |
 | `scripts/export_xlsx.py` | Export to Excel workbook |
 
-All four scripts are thin entry points over the shared, reusable toolkit in
+All of these scripts are thin entry points over the shared, reusable toolkit in
 `scripts/lib/` (config/trust-tier data, CSV I/O, integrity checks, dedup
 resolution, alias/standardization helpers, model categorization, exports) — new
 cleanup needs should extend that library rather than adding another

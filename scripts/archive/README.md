@@ -12,11 +12,16 @@ we get here" reference — **none of these should be re-run as-is**:
   `analyze_dupes.py`, `deduplicate_results.py`, `fix_results_issues.py`).
 - Two reimplement the same model-categorization heuristic with diverging
   trusted-dev/from-scratch lists (`analyze_models.py`, `categorize_models.py`).
-- The seven applied **model-standardisation passes** (`fix_setup_in_names.py`,
-  `standardise_models.py`, `standardise_pass3.py`–`pass7.py`). Each hardcodes the
-  specific remove/rename/remap/setup-extraction map it applied to `models.csv` /
-  `results.csv`; they are historical and already reflected in the committed data.
-  See docs/CHANGELOG.md for each pass's net effect.
+
+The seven one-off **model-standardisation passes** (`fix_setup_in_names.py`,
+`standardise_models.py`, `standardise_pass3.py`–`pass7.py`) and the
+`deduplicate_models.py` / `merge_duplicate_benchmarks.py` scripts were
+**deleted, not archived**: each hardcoded one pass's remove/rename/remap/
+setup-extraction/benchmark-merge map, and all of that logic is now generic
+and reusable in `scripts/lib/standardise.py` behind `scripts/standardise.py`
+(drive it with a JSON rules file). The passes are already reflected in the
+committed data; recover the exact historical maps from git history if ever
+needed, and see docs/CHANGELOG.md for each pass's net effect.
 
 The HELM/PwC/Kaggle **staging→merge pipeline** (`extract_helm_staging.py`,
 `merge_helm_staging.py`, `merge_kaggle_staging.py`, `merge_pwc_staging.py`) and
@@ -36,6 +41,7 @@ lives in `scripts/lib/` and is exposed through `scripts/manage_data.py`:
 | `find_aliases.py` | `scripts/manage_data.py find-aliases` |
 | `fix_model_aliases.py`, `fix_results_fk.py`, `merge_models.py` | `scripts/manage_data.py apply-aliases --map-file <renames.json>` |
 | `standardize_model_ids.py` (root) | `scripts/manage_data.py standardize-ids` |
+| `fix_setup_in_names.py`, `standardise_models.py`, `standardise_pass3.py`–`pass7.py`, `deduplicate_models.py`, `merge_duplicate_benchmarks.py` | `scripts/standardise.py --rules <pass.json>` |
 | `analyze_models.py`, `categorize_models.py` | `scripts/manage_data.py categorize-models` |
 | `remove_suspicious_orphans.py`, `keep_latest_snapshot.py`, `update_models_with_research.py`, `check_issues.py` | No direct replacement — narrow one-off passes; see git history if similar work is needed again. |
 

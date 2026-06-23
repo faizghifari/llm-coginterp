@@ -6,6 +6,27 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## Standardisation Consolidation — one reusable tool (2026-06-23)
+
+Tidy-up only; no change to `benchmarks.csv` / `models.csv` / `results.csv`
+(`verify_data.py` still clean).
+
+- **Consolidated the standardisation capability into one tool.** The seven
+  one-off passes that the prior cleanup had archived (`fix_setup_in_names.py`,
+  `standardise_models.py`, `standardise_pass3.py`–`pass7.py`) plus
+  `deduplicate_models.py` and `merge_duplicate_benchmarks.py` each hardcoded a
+  single pass's map. Their generic logic now lives in `scripts/lib/standardise.py`
+  (REMOVE cascade, RENAME, REMAP, SETUP_EXTRACT, MERGE_BENCHMARK, result/model
+  dedup) behind a new standalone `scripts/standardise.py` driven by a JSON rules
+  file — dry-run by default, `--write` to apply, dedup + stat recompute built in.
+- **Deleted all nine superseded scripts** (the seven passes + the two dedup
+  scripts) rather than re-archiving them: the logic is fully reproduced in the
+  reusable tool and the exact historical maps remain in git history.
+- Docs updated: README utility-scripts table, `scripts/archive/README.md`
+  replacement table.
+
+---
+
 ## Scripts Cleanup — retire applied one-shots & staging pipeline (2026-06-23)
 
 Tidy-up only; no change to `benchmarks.csv` / `models.csv` / `results.csv`.
@@ -13,8 +34,9 @@ Tidy-up only; no change to `benchmarks.csv` / `models.csv` / `results.csv`.
 - **Archived the 7 applied model-standardisation passes** into `scripts/archive/`
   (`fix_setup_in_names.py`, `standardise_models.py`, `standardise_pass3.py`–
   `pass7.py`). They were scattered at the `scripts/` root but are historical
-  one-offs whose effect is already in the committed data — kept for audit trail
-  per the existing archive convention.
+  one-offs whose effect is already in the committed data. _(Superseded by the
+  2026-06-23 "Standardisation Consolidation" entry above: their logic was folded
+  into the reusable `scripts/standardise.py` and the files deleted.)_
 - **Deleted the HELM/PwC/Kaggle staging→merge pipeline**, now that all three
   sources are merged into the main files: `extract_helm_staging.py`,
   `merge_helm_staging.py`, `merge_kaggle_staging.py`, `merge_pwc_staging.py`, and
