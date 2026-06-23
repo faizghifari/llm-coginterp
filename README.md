@@ -8,7 +8,7 @@ A curated, verified dataset of LLM benchmark evaluations across diverse cognitiv
 # install python, R, julia
 make deps
 # install language-specific deps
-make install
+make env
 # preprocess dataset
 make preproc
 # run everything
