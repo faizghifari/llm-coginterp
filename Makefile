@@ -1,6 +1,6 @@
 JULIA_PROJECT := src/impute/OneSidedMC
 
-.PHONY: install env-py env-r env-julia
+.PHONY: install env-py env-r env-jl
 
 SUDO := $(shell if [ "$$(id -u)" -eq 0 ]; then echo ""; else echo "sudo"; fi)
 
@@ -11,11 +11,11 @@ deps:
 	curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install all three environments: Python (uv), R (install.R), Julia (OSMC project).
-env: env-py env-r env-julia
+env: env-py env-r env-jl
 	@echo "All environments installed."
 
 
-export PATH := $(HOME)/.local/bin:$(PATH)
+export PATH := $(HOME)/.juliaup/bin:$(HOME)/.local/bin:$(PATH)
 
 env-py:
 	uv sync
@@ -23,7 +23,7 @@ env-py:
 env-r:
 	Rscript install.R
 
-env-julia:
+env-jl:
 	julia --project=$(JULIA_PROJECT) -e 'using Pkg; Pkg.instantiate()'
 
 preproc:
