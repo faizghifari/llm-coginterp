@@ -6,6 +6,29 @@ All notable changes to the LLM Benchmarks dataset.
 
 ---
 
+## Scripts Cleanup — retire applied one-shots & staging pipeline (2026-06-23)
+
+Tidy-up only; no change to `benchmarks.csv` / `models.csv` / `results.csv`.
+
+- **Archived the 7 applied model-standardisation passes** into `scripts/archive/`
+  (`fix_setup_in_names.py`, `standardise_models.py`, `standardise_pass3.py`–
+  `pass7.py`). They were scattered at the `scripts/` root but are historical
+  one-offs whose effect is already in the committed data — kept for audit trail
+  per the existing archive convention.
+- **Deleted the HELM/PwC/Kaggle staging→merge pipeline**, now that all three
+  sources are merged into the main files: `extract_helm_staging.py`,
+  `merge_helm_staging.py`, `merge_kaggle_staging.py`, `merge_pwc_staging.py`, and
+  the orphaned `data/staging_helm_{benchmarks,models,results}.csv` outputs.
+  Recoverable from git history (`086363c` HELM merge, `3de712a` PwC+Kaggle merge)
+  if a re-import is ever needed. `docs/extraction_guide.md` updated to point its
+  "working example" reference at git history.
+- Also removed matching local extraction scratch artifacts that were never
+  committed (one-off HELM batch/extract scripts and their JSON dumps).
+- `scripts/lib/` + `scripts/manage_data.py` (the reusable toolkit) and the
+  remaining active scripts are untouched. `verify_data.py` still clean.
+
+---
+
 ## Conflict Benchmark Resolution (2026-06-23)
 
 - **Applied `scripts/resolve_conflict_benchmarks.py --write`** — resolved the last

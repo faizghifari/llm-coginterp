@@ -12,6 +12,19 @@ we get here" reference — **none of these should be re-run as-is**:
   `analyze_dupes.py`, `deduplicate_results.py`, `fix_results_issues.py`).
 - Two reimplement the same model-categorization heuristic with diverging
   trusted-dev/from-scratch lists (`analyze_models.py`, `categorize_models.py`).
+- The seven applied **model-standardisation passes** (`fix_setup_in_names.py`,
+  `standardise_models.py`, `standardise_pass3.py`–`pass7.py`). Each hardcodes the
+  specific remove/rename/remap/setup-extraction map it applied to `models.csv` /
+  `results.csv`; they are historical and already reflected in the committed data.
+  See docs/CHANGELOG.md for each pass's net effect.
+
+The HELM/PwC/Kaggle **staging→merge pipeline** (`extract_helm_staging.py`,
+`merge_helm_staging.py`, `merge_kaggle_staging.py`, `merge_pwc_staging.py`) and
+its `data/staging_helm_*.csv` outputs were **deleted, not archived**, once all
+three sources were merged into the main files — they were bulky and fully
+superseded. Recover from git history if a re-import is ever needed
+(`086363c` HELM, `3de712a` PwC+Kaggle); `docs/extraction_guide.md` still
+documents the staging→merge pattern for adding new sources.
 
 The **reusable, generic** version of everything these scripts did now
 lives in `scripts/lib/` and is exposed through `scripts/manage_data.py`:

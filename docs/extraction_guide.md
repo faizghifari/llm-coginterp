@@ -876,7 +876,10 @@ After staging is validated, write `scripts/merge_{source}_staging.py` (same patt
 6. **Dry run by default** — require `--write` flag to actually modify files.
 7. **Abort on FK violations** even with `--write`.
 
-Reference: `scripts/merge_helm_staging.py` is a complete, working example to follow.
+Reference: the HELM/PwC/Kaggle merge scripts were one-off pipelines that have
+been applied and removed from the tree now that those sources are merged. For a
+complete, working example to follow, see `scripts/merge_helm_staging.py` in git
+history (commit `086363c`, or the PwC/Kaggle merge in `3de712a`).
 
 ---
 
