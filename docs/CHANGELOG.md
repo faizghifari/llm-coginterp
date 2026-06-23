@@ -2,7 +2,39 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 858 benchmarks, 4,265 models, 27,074 result entries.
+**Current totals:** 842 benchmarks, 4,262 models, 27,071 result entries.
+
+---
+
+## Cross-Source Benchmark Deduplication (2026-06-23)
+
+- **Applied `scripts/merge_duplicate_benchmarks.py --write`** — merged duplicate
+  benchmarks that the PwC/Kaggle/HELM imports created under source-prefixed or
+  underscore-variant IDs and that the string-keyed dedup tooling never caught.
+- **Detection**: normalized each `benchmark_id` (strip `pwc_`/`kaggle_`/`helm_`
+  prefix, lowercase, drop separators) and each `benchmark_name`; surfaced 14
+  genuine collision pairs. A fuzzy substring sweep confirmed the remaining
+  near-matches are legitimately distinct (language splits like `xcopa_id`,
+  dataset versions like `squad1_1`/`squad2_0`, and different benchmarks sharing
+  a stem: `clevr`/`clevrer`, `a_okvqa`/`ok_vqa`, `medal`/`medalign`,
+  `pubmedqa`/`pwc_pubmed` (QA vs summarization), `conll`/`conll03`).
+- **14 MERGE** (canonical ← merged, with full cascade on `results.benchmark_id`):
+  - drop `pwc_` prefix into native ID: `flores_200`←`pwc_flores_200`,
+    `gsm8k`←`pwc_gsm8k`, `raft`←`pwc_raft`, `winogrande`←`pwc_winogrande`,
+    `summarization_cnndm`←`pwc_cnn_daily_mail`, `summarization_xsum`←`pwc_x_sum`
+  - merge spelling variant: `pwc_storycloze`←`pwc_story_cloze`
+  - HELM underscore-variant → native concatenated acronym: `arabicmmlu`←`arabic_mmlu`,
+    `harmbench`←`harm_bench`, `medmcqa`←`med_mcqa`, `medqa`←`med_qa`,
+    `pubmedqa`←`pubmed_qa`, `thaiexam`←`thai_exam`, `truthfulqa`←`truthful_qa`
+- **Metadata ported**: non-empty fields (notably HELM/PwC `source_url`,
+  `description`, `organization`, `paper_url`) copied from each merged row into
+  empty fields of the canonical row.
+- **No data loss**: 0 result rows dropped. HELM and PwC rows for the same
+  model+metric carry different `source_url`s, so they correctly remain separate
+  rows per the "multiple scores per model-benchmark pair" methodology — the merge
+  only relabels `benchmark_id` and consolidates the benchmark definition.
+- **Net**: 856 → 842 benchmarks (−14); 27,071 results unchanged.
+- **Totals:** 842 benchmarks, 4,262 models, 27,071 result entries.
 
 ---
 
