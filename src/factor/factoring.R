@@ -9,7 +9,7 @@
 # learns it is synthetic; it just factors a data matrix like any other.
 #
 # Factoring choices (held constant across all methods):
-#   - principal-axis factoring (fm = "pa")
+#   - minimum-residual factoring (fm = "minres")
 #   - promax rotation when >1 factor, else none
 #   - number of factors from Horn's parallel analysis (fa.parallel)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,10 +56,10 @@ safe_nf <- function(M, nf) {
 # warnings (smc<0, singular pseudo-inverse) still return a usable fa object.
 fa_try <- function(M, nf) {
   rot <- if (nf > 1) "promax" else "none"
-  efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "pa", rotate = rot)),
+  efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "minres", rotate = rot)),
                   error = function(e) NULL)
   if (!is.null(efa)) return(efa)
-  tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "pa", rotate = rot,
+  tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "minres", rotate = rot,
                                SMC = FALSE)),
            error = function(e) NULL)
 }
@@ -126,7 +126,7 @@ higher_order <- function(M, nf) {
   efa1 <- fa_try(M, nf)
   if (!is.null(efa1) && !is.null(efa1$Phi)) {
     so <- tryCatch(
-      suppressWarnings(fa(efa1$Phi, nfactors = 1, fm = "pa",
+      suppressWarnings(fa(efa1$Phi, nfactors = 1, fm = "minres",
                           n.obs = nrow(M), rotate = "none")),
       error = function(e) NULL)
     if (!is.null(so)) {
@@ -137,7 +137,7 @@ higher_order <- function(M, nf) {
 
   # ── bifactor / Schmid-Leiman via psych::omega ───────────────────────────────
   om <- tryCatch(
-    suppressWarnings(psych::omega(M, nfactors = nf, fm = "pa", flip = FALSE,
+    suppressWarnings(psych::omega(M, nfactors = nf, fm = "minres", flip = FALSE,
                                   plot = FALSE)),
     error = function(e) NULL)
   if (!is.null(om)) {
@@ -155,7 +155,7 @@ higher_order <- function(M, nf) {
 # omega_h only (cheap): for the sensitivity seed-sweep. Returns NA only on failure.
 omega_h_only <- function(M, nf) {
   om <- tryCatch(
-    suppressWarnings(psych::omega(M, nfactors = nf, fm = "pa", flip = FALSE,
+    suppressWarnings(psych::omega(M, nfactors = nf, fm = "minres", flip = FALSE,
                                   plot = FALSE)),
     error = function(e) NULL)
   if (is.null(om)) NA_real_ else tryCatch(as.numeric(om$omega_h),
