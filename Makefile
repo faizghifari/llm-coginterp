@@ -27,8 +27,8 @@ env-jl:
 	julia --project=$(JULIA_PROJECT) -e 'using Pkg; Pkg.instantiate()'
 
 preproc:
-	python scripts/collapse_results.py
-	python scripts/densify.py
+	uv run python scripts/collapse_results.py
+	uv run python scripts/densify.py
 
 runall:
 	# skip iterativepca (not pushed to git) and mice (slow as hell)
@@ -45,8 +45,31 @@ runall:
 	Rscript src/run/main.R --method knn --reimpute
 	Rscript src/run/main.R --method knn --reimpute --raw
 
-	python scripts/compare_loadings.py
+	uv run python scripts/compare_loadings.py
 
+runall-softimpute-csr:
+	Rscript src/run/main.R --method softimpute --reimpute
+
+runall-softimpute-raw:
+	Rscript src/run/main.R --method softimpute --reimpute --raw
+
+runall-onesidedmc-csr:
+	Rscript src/run/main.R --method onesidedmc --reimpute
+
+runall-onesidedmc-raw:
+	Rscript src/run/main.R --method onesidedmc --reimpute --raw
+
+runall-missforest-csr:
+	Rscript src/run/main.R --method missforest --reimpute
+
+runall-missforest-raw:
+	Rscript src/run/main.R --method missforest --reimpute --raw
+
+runall-knn-csr:
+	Rscript src/run/main.R --method knn --reimpute
+
+runall-knn-raw:
+	Rscript src/run/main.R --method knn --reimpute --raw
 
 clean:
 	cd results && rm -rf *
