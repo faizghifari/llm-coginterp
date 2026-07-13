@@ -13,18 +13,55 @@
 using OneSidedMC
 using LinearAlgebra, Random, Statistics
 
+# Split a CSV line into fields, respecting RFC4180-style double-quoting (a
+# quoted field may contain commas; "" inside a quoted field is an escaped
+# quote). collapse_key values like `"RL-IP/TT (Choubey et al., 2021)"` have a
+# comma inside quotes, which a naive split(line, ',') would break on.
+function split_csv_line(ln::AbstractString)
+    fields = String[]
+    buf = IOBuffer()
+    in_quotes = false
+    chars = collect(ln)
+    i, n = 1, length(chars)
+    while i <= n
+        c = chars[i]
+        if in_quotes
+            if c == '"'
+                if i < n && chars[i + 1] == '"'
+                    write(buf, '"'); i += 1
+                else
+                    in_quotes = false
+                end
+            else
+                write(buf, c)
+            end
+        else
+            if c == '"'
+                in_quotes = true
+            elseif c == ','
+                push!(fields, String(take!(buf)))
+            else
+                write(buf, c)
+            end
+        end
+        i += 1
+    end
+    push!(fields, String(take!(buf)))
+    return fields
+end
+
 # Minimal CSV reader for the model x benchmark table: first column is the string
 # key `collapse_key`, the rest are numeric with empty cells = missing.
 function read_table(path::AbstractString)
     lines = readlines(path)
-    header = split(strip(lines[1]), ',')
+    header = split_csv_line(strip(lines[1]))
     bench = String.(header[2:end])
     p = length(bench)
     keys = String[]
     rows = Vector{Vector{Union{Missing, Float64}}}()
     for ln in lines[2:end]
         isempty(strip(ln)) && continue
-        f = split(ln, ',')
+        f = split_csv_line(ln)
         push!(keys, String(f[1]))
         vals = Vector{Union{Missing, Float64}}(undef, p)
         for j in 1:p
@@ -326,12 +363,23 @@ function synthesize_surrogate(Θ::AbstractMatrix, n::Int, μ, σ;
     return Xorig
 end
 
+# RFC4180-quote a field if it contains a comma, quote, or newline (mirrors
+# split_csv_line above). collapse_key values like
+# `RL-IP/TT (Choubey et al., 2021)` contain a comma and must be quoted on
+# write, or the row silently shifts columns on read-back.
+function csv_escape(s::AbstractString)
+    if occursin(',', s) || occursin('"', s) || occursin('\n', s)
+        return "\"" * replace(s, "\"" => "\"\"") * "\""
+    end
+    return s
+end
+
 # Write surrogate matrix in the imputed-table format consumed by R factoring.
 function write_surrogate(path, keys, bench, X)
     open(path, "w") do io
-        println(io, "collapse_key," * join(bench, ","))
+        println(io, "collapse_key," * join(csv_escape.(bench), ","))
         for i in 1:size(X, 1)
-            println(io, keys[i] * "," * join(string.(@view X[i, :]), ","))
+            println(io, csv_escape(keys[i]) * "," * join(string.(@view X[i, :]), ","))
         end
     end
     @info "wrote surrogate" path
