@@ -342,6 +342,14 @@ def main():
         aggfunc='mean'
     ).reset_index()
 
+    # Drop benchmarks that have only 1 model's results
+    val_cols = [c for c in baseline_pivot.columns if c != 'model_id']
+    cols_to_keep = [c for c in val_cols if baseline_pivot[c].notna().sum() > 1]
+    baseline_pivot = baseline_pivot[['model_id'] + cols_to_keep]
+
+    # Drop models that have no benchmarks remaining
+    baseline_pivot = baseline_pivot[baseline_pivot[cols_to_keep].notna().any(axis=1)]
+
     def get_stats(pivot, name):
         models = pivot.shape[0]
         benches = len(pivot.columns) - 1
@@ -350,6 +358,12 @@ def main():
         non_null = int(pivot[val_cols].notna().sum().sum())
         density = 100 * non_null / total if total > 0 else 0.0
         sparsity = 100 * (1 - non_null / total) if total > 0 else 100.0
+
+        # Calculate benchmarks per model
+        b_per_m = pivot[val_cols].notna().sum(axis=1)
+        # Calculate models per benchmark
+        m_per_b = pivot[val_cols].notna().sum(axis=0)
+
         return {
             'strategy': name,
             'models': models,
@@ -358,7 +372,15 @@ def main():
             'total_cells': total,
             'non_null': non_null,
             'density_pct': f"{density:.4f}",
-            'sparsity_pct': f"{sparsity:.4f}"
+            'sparsity_pct': f"{sparsity:.4f}",
+            'min_b_per_m': int(b_per_m.min()) if len(b_per_m) > 0 else 0,
+            'avg_b_per_m': f"{b_per_m.mean():.2f}" if len(b_per_m) > 0 else "0.00",
+            'med_b_per_m': f"{b_per_m.median():.1f}" if len(b_per_m) > 0 else "0.0",
+            'max_b_per_m': int(b_per_m.max()) if len(b_per_m) > 0 else 0,
+            'min_m_per_b': int(m_per_b.min()) if len(m_per_b) > 0 else 0,
+            'avg_m_per_b': f"{m_per_b.mean():.2f}" if len(m_per_b) > 0 else "0.00",
+            'med_m_per_b': f"{m_per_b.median():.1f}" if len(m_per_b) > 0 else "0.0",
+            'max_m_per_b': int(m_per_b.max()) if len(m_per_b) > 0 else 0
         }
 
     summary_rows = [get_stats(baseline_pivot, 'original_no_collapse')]
@@ -394,6 +416,14 @@ def main():
             aggfunc='mean'
         ).reset_index()
 
+        # Drop benchmarks that have only 1 model's results
+        val_cols = [c for c in pivot_df.columns if c != 'collapse_key']
+        cols_to_keep = [c for c in val_cols if pivot_df[c].notna().sum() > 1]
+        pivot_df = pivot_df[['collapse_key'] + cols_to_keep]
+
+        # Drop models that have no benchmarks remaining
+        pivot_df = pivot_df[pivot_df[cols_to_keep].notna().any(axis=1)]
+
         # Write output
         out_file = strategy_dir / "model_benchmark_table.csv"
         pivot_df.to_csv(out_file, index=False)
@@ -402,13 +432,23 @@ def main():
         # Collect stats
         summary_rows.append(get_stats(pivot_df, "aggressive_collapse_all" if name == "all_aggressive" else "standard_collapse_all"))
 
-    # Print final summary comparison table
-    print("\n" + "="*40 + "\nCOLLAPSE STRATEGY COMPARISON SUMMARY\n" + "="*40)
+    # Print detailed stats table first
+    print("\n" + "="*50 + "\nCOLLAPSE STRATEGY DETAILED BENCHMARK/MODEL STATS\n" + "="*50)
     summary_df = pd.DataFrame(summary_rows)
-    cols = ['strategy', 'models', 'benchmarks', 'matrix_size', 'total_cells', 'non_null', 'density_pct', 'sparsity_pct']
-    summary_df = summary_df[cols]
-    print(summary_df.to_string(index=False))
-    print("="*40)
+    stats_cols = [
+        'strategy', 'min_b_per_m', 'avg_b_per_m', 'med_b_per_m', 'max_b_per_m',
+        'min_m_per_b', 'avg_m_per_b', 'med_m_per_b', 'max_m_per_b'
+    ]
+    print(summary_df[stats_cols].to_string(index=False))
+    print("="*50)
+
+    # Print final summary comparison table reporting sparsity only
+    print("\n" + "="*50 + "\nCOLLAPSE STRATEGY COMPARISON SUMMARY\n" + "="*50)
+    summary_cols = [
+        'strategy', 'models', 'benchmarks', 'matrix_size', 'total_cells', 'non_null', 'sparsity_pct'
+    ]
+    print(summary_df[summary_cols].to_string(index=False))
+    print("="*50)
 
 
 if __name__ == "__main__":
