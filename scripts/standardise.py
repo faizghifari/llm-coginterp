@@ -7,24 +7,36 @@ which each hardcoded one cleanup's map. Here the maps live in a JSON
 rules file, so the same code applies any pass:
 
     {
-      "merge_benchmark": { "merged_id":  "canonical_id", ... },
-      "remove":          { "model_id":   "reason", ... },
-      "rename":          { "old_id":     "new_canonical_id", ... },
-      "remap":           { "old_id":     "existing_canonical_id", ... },
-      "setup_extract":   { "old_id":     {"base": "base_id", "setup": "cot"}, ... }
+      "merge_benchmark":  { "merged_id":  "canonical_id", ... },
+      "remove_benchmark": { "benchmark_id": "reason", ... },
+      "remove":           { "model_id":   "reason", ... },
+      "rename":           { "old_id":     "new_canonical_id", ... },
+      "remap":            { "old_id":     "existing_canonical_id", ... },
+      "setup_extract":    { "old_id":     {"base": "base_id", "setup": "cot"}, ... }
     }
 
+`merge_benchmark` values may also be an object
+`{"canonical": "canonical_id", "language": "id"}` to backfill
+results.language (only where currently blank) during the merge -- for
+consolidating a per-language benchmark variant into one shared id while
+preserving which language each row came from.
+
 Every key is optional. Operations run in the order above (benchmark
-merges first, then model removals, renames, remaps, and setup
-extractions), then duplicate result rows and duplicate model rows are
-collapsed, and finally models.csv's aggregate stats are recomputed.
+merges and removals first, then model removals, renames, remaps, and
+setup extractions), then duplicate result rows and duplicate model rows
+are collapsed, and finally models.csv's aggregate stats are recomputed.
 
 Run with no --rules to do just the cleanup half (result + model dedup +
 stat recompute) -- handy after any other edit to results.csv.
 
 Operation meanings (see scripts/lib/standardise.py for the exact logic):
-  merge_benchmark  relabel a duplicate benchmark to its canonical id,
-                   porting metadata, then drop the duplicate row.
+  merge_benchmark  relabel a duplicate/variant benchmark to its canonical
+                   id, porting metadata (and optionally backfilling
+                   results.language), then drop the duplicate row.
+  remove_benchmark cascade-delete a benchmark row + all its results (a
+                   benchmark variant, e.g. a literal-translation
+                   duplicate or a zero-result stub, that should be
+                   dropped entirely rather than merged).
   remove           cascade-delete a model row + all its results.
   rename           rename a model_id in place (same model, canonical id).
   remap            merge a model into an existing canonical model_id.
@@ -49,7 +61,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib import config, io, standardise, stats
 
-KNOWN_KEYS = {"merge_benchmark", "remove", "rename", "remap", "setup_extract"}
+KNOWN_KEYS = {"merge_benchmark", "remove_benchmark", "remove", "rename", "remap", "setup_extract"}
 
 
 def load_rules(path):
@@ -84,6 +96,9 @@ def main(argv=None):
     if rules.get("merge_benchmark"):
         benchmarks, results, _ = standardise.merge_benchmarks(
             benchmarks, results, rules["merge_benchmark"])
+    if rules.get("remove_benchmark"):
+        benchmarks, results, _ = standardise.apply_remove_benchmark(
+            benchmarks, results, rules["remove_benchmark"])
     if rules.get("remove"):
         models, results, _ = standardise.apply_remove(models, results, rules["remove"])
     if rules.get("rename"):

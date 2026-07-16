@@ -23,6 +23,17 @@ Commands:
                      form, merging any collisions this creates.
   categorize-models  Classify every model row as KEEP / FLAG / REMOVE,
                      to surface fine-tune/orphan cleanup candidates.
+  audit-model-scope  Classify every model row as KEEP / REMOVE on the
+                     modality/inclusion-scope axis (is this a generative
+                     LLM or LLM-backed multimodal model at all, per
+                     METHODOLOGY.md's Model Inclusion Criteria) —
+                     orthogonal to categorize-models. Read-only; grouped
+                     by model_family for review.
+  find-language-clusters  Group benchmark_ids that look like per-language
+                     siblings of a shared stem (e.g. Kaggle/HELM
+                     per-language leaderboard imports), for human review.
+                     Heuristic hint only, not a translation-vs-distinct
+                     classifier. Read-only.
   recompute-stats    Recompute models.csv's benchmark_count/
                      total_results/avg_score from results.csv (these
                      drift out of sync the moment results.csv changes).
@@ -35,6 +46,7 @@ Examples:
   python3 scripts/manage_data.py apply-aliases --map-file my_renames.json --write
   python3 scripts/manage_data.py standardize-ids --write
   python3 scripts/manage_data.py categorize-models --output data/models_categorized.csv
+  python3 scripts/manage_data.py audit-model-scope --emit-remove-rules notes/scope_remove_draft.json
   python3 scripts/manage_data.py recompute-stats --write
 """
 import argparse
@@ -49,7 +61,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 
-from scripts.lib import aliases, categorize, config, dedup, integrity, io, stats
+from scripts.lib import aliases, benchmark_clusters, categorize, config, dedup, integrity, io, stats
 
 
 def cmd_verify(args):
@@ -171,6 +183,60 @@ def cmd_categorize_models(args):
     return 0
 
 
+def cmd_audit_model_scope(args):
+    _, models, _ = io.load_data()
+    scoped = categorize.classify_scope_all(models)
+    print(scoped["scope_category"].value_counts().to_string())
+
+    if args.output:
+        io.save_csv(scoped, args.output)
+        print(f"\nFull breakdown saved to: {args.output}")
+
+    flagged = scoped[scoped["scope_category"] != "KEEP"].copy()
+    if len(flagged):
+        group_key = flagged["model_family"].where(
+            flagged["model_family"].str.strip() != "", flagged["model_id"])
+        flagged["_group"] = group_key
+        print(f"\n=== REMOVE candidates by family "
+              f"({len(flagged)} rows, {flagged['_group'].nunique()} groups) ===")
+        for group, rows in flagged.groupby("_group"):
+            print(f"\n  {group}  ({len(rows)} rows)")
+            for reason in rows["scope_reason"].unique():
+                print(f"    reason: {reason}")
+            for _, r in rows.iterrows():
+                print(f"      {r['model_id']}")
+
+    if args.emit_remove_rules:
+        remove_ids = {r["model_id"]: r["scope_reason"] for _, r in flagged.iterrows()}
+        with open(args.emit_remove_rules, "w") as f:
+            json.dump({"remove": remove_ids}, f, indent=2)
+        print(f"\nDraft remove-rules written to: {args.emit_remove_rules}")
+        print("Review and prune by hand, then: "
+              "python3 scripts/standardise.py --rules <file> --write")
+    return 0
+
+
+def cmd_find_language_clusters(args):
+    benchmarks, _, results = io.load_data()
+    clusters = benchmark_clusters.find_language_clusters(benchmarks, results)
+    print(f"Candidate language clusters: {len(clusters)}\n")
+
+    rows_out = []
+    for c in clusters:
+        print(f"stem={c['stem']!r}  parent={c['parent_id']!r}  ({len(c['members'])} members)")
+        for m in c["members"]:
+            tag = "parent" if m["matched_suffix"] is None else m["matched_suffix"]
+            print(f"    {m['benchmark_id']:55s} suffix={tag:12s} "
+                  f"results={m['result_count']:4d}  lang_populated={m['language_populated_pct']}%")
+            rows_out.append({"stem": c["stem"], "parent_id": c["parent_id"] or "", **m})
+        print()
+
+    if args.output:
+        io.save_csv(pd.DataFrame(rows_out), args.output)
+        print(f"Full candidate list saved to: {args.output}")
+    return 0
+
+
 def cmd_recompute_stats(args):
     _, models, results = io.load_data()
     updated, report = stats.apply_model_stats(models, results)
@@ -222,6 +288,15 @@ def build_parser():
     p = sub.add_parser("categorize-models", help="Classify models as KEEP / FLAG / REMOVE.")
     p.add_argument("--output", help="Optional CSV path to save the full breakdown.")
     p.set_defaults(func=cmd_categorize_models)
+
+    p = sub.add_parser("audit-model-scope", help="Classify models as KEEP / REMOVE on the LLM-inclusion-scope axis (read-only).")
+    p.add_argument("--output", help="Optional CSV path to save the full per-row breakdown.")
+    p.add_argument("--emit-remove-rules", help="Optional path to write a draft {\"remove\": {...}} rules JSON for REMOVE-category rows.")
+    p.set_defaults(func=cmd_audit_model_scope)
+
+    p = sub.add_parser("find-language-clusters", help="Group benchmark_ids that look like per-language siblings of a shared stem (read-only).")
+    p.add_argument("--output", help="Optional CSV path to save the full candidate list.")
+    p.set_defaults(func=cmd_find_language_clusters)
 
     p = sub.add_parser("recompute-stats", help="Recompute models.csv's benchmark_count/total_results/avg_score from results.csv.")
     p.add_argument("--write", action="store_true", help="Persist changes (default: dry run).")

@@ -5,7 +5,16 @@ experimental/orphaned entries, etc.
 The trusted-developer / from-scratch-pattern / fine-tune-keyword
 knowledge base lives in config.py — extend that when a new model family
 or developer needs to be taught to this classifier, not the logic here.
+
+This module also exposes `classify_scope` / `classify_scope_all`, a
+second, orthogonal classifier over a different axis (is this model a
+generative LLM / LLM-backed multimodal model at all, per METHODOLOGY.md's
+"Model Inclusion Criteria" — not "is its provenance traceable?", which is
+all `categorize_model` above checks). A row can be KEEP on one axis and
+REMOVE on the other.
 """
+import re
+
 from . import config
 
 
@@ -72,4 +81,61 @@ def categorize_all(models):
         reasons.append(reason)
     out["category"] = cats
     out["reason"] = reasons
+    return out
+
+
+# ── scope (LLM-inclusion) axis ──────────────────────────────────────────
+
+def _pattern_matches(combined, pattern):
+    """Substring match, except patterns of length <= 3 (e.g. "t5", "vit")
+    which are matched only against whole tokens (split on non-alphanumeric
+    characters) to avoid false hits like "t5" inside "gpt5"."""
+    if len(pattern) <= 3:
+        tokens = re.split(r"[^a-z0-9]+", combined)
+        return pattern in tokens
+    return pattern in combined
+
+
+def _matched_patterns(combined, patterns):
+    return [p for p in patterns if _pattern_matches(combined, p)]
+
+
+def classify_scope(row):
+    """Classify one models.csv row on the modality/inclusion-scope axis
+    (LLM-or-LLM-backed-multimodal vs not), per METHODOLOGY.md's "Model
+    Inclusion Criteria". Orthogonal to categorize_model()'s fine-tune-
+    provenance axis. Returns (scope_category, scope_reason)."""
+    model_id = str(row.get("model_id", "") or "")
+    model_name = str(row.get("model_name", "") or "")
+    model_family = str(row.get("model_family", "") or "")
+    developer = str(row.get("developer", "") or "")
+    combined = f"{model_id} {model_name} {model_family} {developer}".lower()
+
+    if _matched_patterns(combined, config.VLM_ALM_ALLOWLIST):
+        return "KEEP", "Matches VLM/ALM allowlist (modality encoder on an LLM backbone)"
+
+    narrow = _matched_patterns(combined, config.NARROW_TASK_PATTERNS)
+    if narrow:
+        return "REMOVE", f"Narrow single-modality task model (matched: {', '.join(narrow)})"
+
+    non_gen = _matched_patterns(combined, config.NON_GENERATIVE_PATTERNS)
+    if non_gen:
+        return "REMOVE", f"Non-generative architecture (matched: {', '.join(non_gen)})"
+
+    return "KEEP", "No scope-exclusion pattern matched"
+
+
+def classify_scope_all(models):
+    """Run classify_scope on every row. Returns a copy of `models` with
+    `scope_category`/`scope_reason` columns appended — kept separate from
+    categorize_all()'s `category`/`reason` so the two axes never collide
+    in one DataFrame."""
+    out = models.copy()
+    cats, reasons = [], []
+    for _, row in models.iterrows():
+        cat, reason = classify_scope(row)
+        cats.append(cat)
+        reasons.append(reason)
+    out["scope_category"] = cats
+    out["scope_reason"] = reasons
     return out

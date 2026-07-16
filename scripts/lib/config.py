@@ -107,3 +107,80 @@ FINE_TUNE_KEYWORDS = {
     "openhermes", "zephyr", "openchat", "open-orca", "orca", "kto",
     "simpo", "ppo", "wizard", "magpie", "solar",
 }
+
+# --- Model-inclusion SCOPE axis (used by `classify_scope` in categorize.py) ---
+#
+# Orthogonal to everything above: FROM_SCRATCH_PATTERNS/FINE_TUNE_KEYWORDS
+# answer "is this a traceable base model or an untraceable fine-tune?".
+# The three sets below answer a different question -- "is this a
+# generative LLM (or an LLM-backed multimodal model) at all?", per
+# METHODOLOGY.md's "Model Inclusion Criteria". A model can KEEP on one
+# axis and REMOVE on the other (e.g. mT5-XXL: KEEP under
+# categorize_model() since it has a clear model_family, but REMOVE under
+# classify_scope() since T5 is encoder-decoder, not a decoder-only
+# generative LLM).
+
+# Architecture-name fragments identifying non-generative models: encoder-
+# only classifiers, embedding-only models, bare pure-vision/CV models, or
+# encoder-decoder (T5-family) models -- none of which are decoder-only
+# generative LLMs capable of handling arbitrary prompts. Checked ONLY
+# after VLM_ALM_ALLOWLIST -- several legitimate VLMs (e.g.
+# BLIP2-FLAN-T5-XXL) have architecture names that contain these fragments
+# as their LLM backbone's name, not as the model's own identity.
+#
+# Note: plain T5/mT5/FLAN-T5 (encoder-decoder but still a general-purpose
+# generative LM that can be prompted with arbitrary instructions) are
+# deliberately NOT in this set -- only T5-derived architectures fine-tuned
+# into a narrow, non-generative head (ST5 = sentence-embedding, monoT5 =
+# binary relevance reranker) are.
+NON_GENERATIVE_PATTERNS = {
+    "bert", "roberta", "albert", "electra", "deberta",
+    "clip", "resnet", "vit", "convnext", "knowledge review",
+    "monot5", "st5",
+    "sentence-transformer", "sbert", "simcse",
+}
+
+# Narrow single-modality task families (dedicated TTS/ASR/MT-only, music
+# generation) -- cannot be prompted with arbitrary text even though some
+# internally use an LLM-like text component.
+NARROW_TASK_PATTERNS = {
+    "seamlessm4t", "whisper", "wav2vec", "musicgen",
+    "m2ugen", "mullama", "musilingo", "nllb", "madlad", "vall-e",
+}
+
+# Explicit allow-list, checked BEFORE NON_GENERATIVE_PATTERNS /
+# NARROW_TASK_PATTERNS: models that add a modality encoder ON TOP OF an
+# LLM backbone (policy-compliant per METHODOLOGY.md) but whose family/name
+# happens to contain an exclude-pattern fragment naming their backbone
+# (e.g. "BLIP2-FLAN-T5-XXL" contains "t5"). Extend THIS set, never the
+# exclude patterns, when a new VLM/ALM family is added to the dataset.
+VLM_ALM_ALLOWLIST = {
+    "llava", "blip2", "blip-2", "instructblip", "qwen2-audio", "qwen-audio",
+    "phi-3-vision", "phi-3.5-vision", "llama-3.2-vision",
+    "gemini", "glm4v", "glm-4v", "palmyra-vision",
+    "internlm2+vit", "taco (llama3-8b",
+}
+
+# --- Multilingual benchmark-cluster discovery (used by
+# scripts/lib/benchmark_clusters.find_language_clusters) ---
+#
+# Language-name / ISO-code fragments that, when found as a trailing
+# `_<suffix>` on a benchmark_id, HINT that it's a per-language sibling of
+# a shared-stem benchmark family (e.g. "kaggle_vijitsingh1_mgsm_chinese"
+# hints at stem "kaggle_vijitsingh1_mgsm" + language "chinese"). This is
+# heuristic-only -- a hint for human review, not a translation-vs-distinct
+# classifier. Multi-word entries (e.g. "simplified_mandarin") are matched
+# against the LAST TWO underscore-separated tokens before falling back to
+# the last one, so both single- and two-word suffixes are caught.
+LANGUAGE_SUFFIX_HINTS = {
+    "english", "en", "chinese", "zh", "simplified_mandarin", "traditional_mandarin",
+    "cantonese", "mandarin", "japanese", "ja", "korean", "ko",
+    "thai", "th", "vietnamese", "vi", "indonesian", "id", "malay", "ms",
+    "tagalog", "khmer", "km", "burmese", "my", "hindi", "hi", "bengali", "bn",
+    "urdu", "ur", "marathi", "mr", "tamil", "ta", "telugu", "te", "swahili", "sw",
+    "yoruba", "arabic", "ar", "hebrew", "he", "farsi", "persian", "fa",
+    "turkish", "tr", "russian", "ru", "german", "de", "french", "fr",
+    "spanish", "es", "italian", "it", "portuguese", "pt", "dutch", "nl",
+    "polish", "pl", "czech", "cs", "romanian", "ro", "swedish", "sv",
+    "greek", "el", "ukrainian", "uk", "finnish", "fi", "hungarian", "hu",
+}
