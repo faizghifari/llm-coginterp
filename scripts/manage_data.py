@@ -29,6 +29,11 @@ Commands:
                      METHODOLOGY.md's Model Inclusion Criteria) —
                      orthogonal to categorize-models. Read-only; grouped
                      by model_family for review.
+  audit-benchmark-modality  Classify every benchmark row as TEXT /
+                     NON_TEXT on the input/output modality axis (does
+                     this benchmark require vision/audio/video). Read-
+                     only; grouped by category for review, with
+                     --emit-panel-input for subagent-panel batching.
   find-language-clusters  Group benchmark_ids that look like per-language
                      siblings of a shared stem (e.g. Kaggle/HELM
                      per-language leaderboard imports), for human review.
@@ -61,7 +66,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 
-from scripts.lib import aliases, benchmark_clusters, categorize, config, dedup, integrity, io, stats
+from scripts.lib import aliases, benchmark_clusters, categorize, config, dedup, integrity, io, modality, stats
 
 
 def cmd_verify(args):
@@ -216,6 +221,41 @@ def cmd_audit_model_scope(args):
     return 0
 
 
+def cmd_audit_benchmark_modality(args):
+    benchmarks, _, _ = io.load_data()
+    scoped = modality.classify_benchmark_modality_all(benchmarks)
+    print(scoped["modality_category"].value_counts().to_string())
+
+    if args.output:
+        io.save_csv(scoped, args.output)
+        print(f"\nFull breakdown saved to: {args.output}")
+
+    flagged = scoped[scoped["modality_category"] == "NON_TEXT"].copy()
+    if len(flagged):
+        print(f"\n=== NON_TEXT candidates by category "
+              f"({len(flagged)} rows, {flagged['category'].nunique()} categories) ===")
+        for cat, rows in flagged.groupby(flagged["category"].fillna("")):
+            print(f"\n  {cat or '(blank)'}  ({len(rows)} rows)")
+            for _, r in rows.iterrows():
+                print(f"      {r['benchmark_id']}  [{r['modality_reason']}]")
+
+    if args.emit_panel_input:
+        cols = ["benchmark_id", "benchmark_name", "category", "subcategory",
+                "task_type", "task_types", "domain", "description", "modality_reason"]
+        cols = [c for c in cols if c in flagged.columns]
+        batch_size = 50
+        base = Path(args.emit_panel_input)
+        n_batches = 0
+        for i in range(0, len(flagged), batch_size):
+            batch = flagged.iloc[i:i + batch_size][cols]
+            batch_path = base.with_name(f"{base.stem}_batch{i // batch_size + 1}{base.suffix}")
+            io.save_csv(batch, batch_path)
+            n_batches += 1
+        print(f"\n{len(flagged)} NON_TEXT candidates written across {n_batches} "
+              f"batch file(s) alongside: {base}")
+    return 0
+
+
 def cmd_find_language_clusters(args):
     benchmarks, _, results = io.load_data()
     clusters = benchmark_clusters.find_language_clusters(benchmarks, results)
@@ -293,6 +333,11 @@ def build_parser():
     p.add_argument("--output", help="Optional CSV path to save the full per-row breakdown.")
     p.add_argument("--emit-remove-rules", help="Optional path to write a draft {\"remove\": {...}} rules JSON for REMOVE-category rows.")
     p.set_defaults(func=cmd_audit_model_scope)
+
+    p = sub.add_parser("audit-benchmark-modality", help="Classify benchmarks as TEXT / NON_TEXT on the input/output modality axis (read-only).")
+    p.add_argument("--output", help="Optional CSV path to save the full per-row breakdown.")
+    p.add_argument("--emit-panel-input", help="Optional CSV path prefix; writes NON_TEXT candidates chunked into <=50-row batch files for subagent-panel review.")
+    p.set_defaults(func=cmd_audit_benchmark_modality)
 
     p = sub.add_parser("find-language-clusters", help="Group benchmark_ids that look like per-language siblings of a shared stem (read-only).")
     p.add_argument("--output", help="Optional CSV path to save the full candidate list.")
