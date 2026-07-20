@@ -161,6 +161,63 @@ VLM_ALM_ALLOWLIST = {
     "internlm2+vit", "taco (llama3-8b",
 }
 
+# --- Benchmark-modality axis (used by `classify_benchmark_modality` in
+# scripts/lib/modality.py) ---
+#
+# A different axis again: not "is this model in scope" but "does THIS
+# BENCHMARK require the model to consume or produce a non-text modality
+# (vision, audio, video) to do the task at all". benchmarks.csv has no
+# dedicated modality column -- this is inferred from free-text category/
+# subcategory/task_type/task_types/domain/benchmark_name/description
+# fields left over from several merged source-CSV schemas.
+#
+# Word-fragment set, matched on WHOLE-WORD boundaries only (never raw
+# substring -- "vision" as a substring would false-positive on e.g.
+# "Historical Revisionism Detection"). Deliberately a little
+# over-inclusive (some fragments currently match zero rows) -- cheap
+# future-proofing, matching this repo's existing pattern-list style.
+NON_TEXT_MODALITY_PATTERNS = {
+    "vision", "visual", "image", "video", "multimodal", "vqa",
+    "audio", "speech", "spoken", "acoustic", "ocr", "asr", "tts",
+    "photo", "diagram", "chart", "screenshot", "music", "song", "sound",
+}
+
+# Explicit allow-list, checked BEFORE NON_TEXT_MODALITY_PATTERNS:
+# benchmark_ids where the source data's own category/subcategory tag is
+# misleading -- confirmed text-only on inspection of the benchmark's own
+# description despite matching an exclude pattern. Extend THIS set,
+# never the exclude patterns, when a new false positive is found.
+TEXT_MODALITY_ALLOWLIST = {
+    "abceval": "Evaluates text-based ABC notation only, no audio/image input despite category=audio/speech",
+    "ziqi_eval": "Pure text-QA music-knowledge benchmark, no audio/image input despite category=audio/speech",
+    "aci_bench": "Stanford MedHELM task is text-transcript-to-clinical-note summarization; model never receives audio despite description mentioning 'spoken medical dialogue'",
+}
+
+# The mirror-image override: benchmark_ids confirmed NON-text on inspection
+# whose metadata carries no matchable keyword at all (blank/sparse rows) or
+# is outright mislabeled (e.g. cmmMU's benchmark_name says "Chinese
+# Multilingual MMLU" but its rows cite arXiv:2401.11944 -- CMMMU, the
+# *multimodal* benchmark, scored on Qwen-VL/Yi-VL/GPT-4V). Found by a
+# 2026-07-17 audit of the text_only copy: cross-referencing each surviving
+# benchmark's result-row models and source papers. Checked BEFORE the
+# pattern match, after TEXT_MODALITY_ALLOWLIST (the two sets must stay
+# disjoint).
+NON_TEXT_MODALITY_OVERRIDES = {
+    "alm_bench": "ALM-Bench (arXiv:2411.16508): image-based cultural VQA across 100 languages; rows are VLMs (GLM-4V, InternVL2); metadata only says 'alignment'",
+    "exams_v": "EXAMS-V (arXiv:2403.10378): multimodal multilingual exam benchmark with images; rows include GPT-4V/Gemini Pro Vision; metadata says only 'exam questions'",
+    "mmau": "MMAU (arXiv:2410.19168): Massive Multi-Task AUDIO Understanding; rows are audio LMs (Qwen2-Audio, SALMONN); subcategory mislabeled 'australian-languages'",
+    "mmt_bench": "MMT-Bench (arXiv:2404.16006, OpenGVLab): massive multitask MULTIMODAL benchmark; rows are VLMs (GPT-4V, LLaVA-NeXT); category mislabeled 'machine-translation'",
+    "cmmMU": "Actually CMMMU (arXiv:2401.11944), Chinese multi-discipline MULTIMODAL understanding; rows are VLMs (Qwen-VL, Yi-VL, GPT-4V); benchmark_name mislabeled 'Chinese Multilingual MMLU'",
+    "temporalbench": "TemporalBench (arXiv:2410.10818): fine-grained temporal understanding for multimodal VIDEO models; rows include Qwen2-VL",
+    "voice_jailbreak_attacks": "Stanford HELM Audio leaderboard: voice-mode (audio-input) jailbreak attacks; rows include Qwen2-Audio; 'voice' not in pattern set",
+    "pwc_next_qa_open_ended_videoqa": "NExT-QA open-ended VideoQA; rows are video LMs (Video-ChatGPT, MovieChat); 'VideoQA' is one token so no word-boundary pattern matches",
+    "pwc_salmon": "SALMon: acoustic/speech language-model suite (metrics: Speaker/Room/Background Consistency); PwC task mislabeled plain 'Language Modelling'",
+    "kaggle_aminmohamedmohami_video_qa": "Kaggle VideoQA leaderboard; name 'VideoQA' is one token so no word-boundary pattern matches",
+    "kaggle_sjmikler_mathvista_testmini": "MathVista testmini (arXiv:2310.02255): image-based math VQA; the curated 'mathvista' twin is already pattern-removed",
+    "kaggle_andrewmingwang_parsebench": "ParseBench (arXiv:2604.08538): document-image parsing/OCR for agents (tables, charts, visual grounding); metadata otherwise blank",
+    "longshot": "LongShOTBench (arXiv:2512.16978): omni-modal reasoning in long VIDEOS (vision + speech + ambient audio); rows are VLMs (LLaVA, InternVL, Qwen3-VL); subcategory misleadingly says 'long document reasoning'",
+}
+
 # --- Multilingual benchmark-cluster discovery (used by
 # scripts/lib/benchmark_clusters.find_language_clusters) ---
 #

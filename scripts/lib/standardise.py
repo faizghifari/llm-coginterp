@@ -31,7 +31,7 @@ Result rows that become identical after a merge are collapsed with
 what every pass did as its final step; genuine multi-setup / multi-source
 rows differ on the key and are preserved.
 """
-from . import config
+from . import config, integrity
 
 
 # ── model operations ──────────────────────────────────────────────────────
@@ -244,6 +244,29 @@ def apply_remove_benchmark(benchmarks, results, remove_map):
         report["removed_results"] += n
 
     return benchmarks.reset_index(drop=True), results.reset_index(drop=True), report
+
+
+def cascade_remove_benchmarks(benchmarks, models, results, remove_map):
+    """apply_remove_benchmark(), then cascade onto the model axis: any
+    model left with zero result rows once those benchmarks are gone is
+    itself removed via apply_remove(). One pass in each direction is
+    provably sufficient -- an orphaned model has no result rows left to
+    delete, so removing it cannot itself orphan any (other) benchmark.
+    Returns (benchmarks, models, results, report)."""
+    benchmarks, results, bench_report = apply_remove_benchmark(benchmarks, results, remove_map)
+
+    orphans = integrity.check_orphans(benchmarks, models, results)["orphan_models"]
+    orphan_reasons = {m: "Orphaned by benchmark cascade removal" for m in orphans}
+    models, results, model_report = apply_remove(models, results, orphan_reasons)
+
+    report = {
+        "removed_benchmarks": bench_report["removed_benchmarks"],
+        "removed_results": bench_report["removed_results"],
+        "missing_benchmarks": bench_report["missing"],
+        "orphaned_models": model_report["removed_models"],
+        "orphan_model_ids": sorted(orphans),
+    }
+    return benchmarks, models, results, report
 
 
 # ── cleanups ────────────────────────────────────────────────────────────────
