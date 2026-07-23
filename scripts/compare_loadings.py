@@ -63,7 +63,11 @@ def parse_name(path: Path):
 def load_loadings(path: Path, kind: str):
     """Return (rownames_sorted, L) with rows sorted by name and columns sorted by
     SSQ descending. Drops bifactor diagnostic columns. None on failure."""
-    df = pl.read_csv(path)
+    # infer_schema_length=None: sample the whole file. These CSVs are small
+    # (loadings tables), and a short sample can lock a numeric column to i64
+    # from early whole-number rows, then choke on a later float like
+    # 1.00000000000001 (e.g. a communality column).
+    df = pl.read_csv(path, infer_schema_length=None)
     key = KIND_KEY[kind]
     if key not in df.columns:
         return None
