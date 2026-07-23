@@ -2,7 +2,131 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 842 benchmarks, 4,262 models, 27,070 result entries.
+**Current totals:** 627 benchmarks, 2,028 models, 19,078 result entries.
+
+---
+
+## Residual Cleanup: Non-Suffixed Translated Benchmarks & Narrow-Task Models (2026-07-16)
+
+Follow-up validation sweep after the two-phase cleanup below, catching what
+its heuristics structurally couldn't see: benchmarks that are translations
+*as a whole* (no per-language sibling ids for `find-language-clusters` to
+group), and non-LLM research systems whose names carry no architecture
+keyword for `audit-model-scope` to match (found instead by sweeping for
+models whose entire result set lives on MT/NER leaderboards). Applied via
+`scripts/standardise.py` JSON rules; `verify_data.py` clean after each
+write.
+
+**Translated benchmarks removed (5 benchmark_ids / 126 result rows):**
+`mmmlu` (OpenAI's Multilingual MMLU — human-translated MMLU, "avg 57 langs"
+aggregate rows; original kept as `mmlu`); `global_mmlu` (translated-MMLU
+"avg" aggregate, arXiv:2412.03304); `kaggle_nanliao7_global_mmlu_lite_ca` /
+`_cs` (a second, parallel Kaggle import of Global MMLU Lite split by
+culturally-agnostic/sensitive instead of by language — same translated pool
+whose per-language variants were removed in the pass below); `indicxnli`
+(machine-translated from XNLI per its own description; parent `xnli` kept).
+Left for case-by-case decision: `mgsm` (llm-stats aggregate), `belebele`,
+`humaneval_xl` — flagged, not clear-cut.
+
+**Non-LLM models removed (12 models / 22 result rows):** NER encoders and
+systems (`BioMegatron`, `LUKE（Large）` — full-width parens had evaded
+pattern matching — `Pooled Flair`, `Straková et al., 2019`, `LS-unLLaMA` —
+LLaMA converted into a classification encoder), NMT research systems
+(`HeadMask (Impt-18)`, `PartialFormer`, `Variational Attention`,
+`Caglayan`), encoder-only architectures (`BigBird`, `BigBird-etc`;
+`BigBird-Pegasus` left for case-by-case decision), and `YiSi-1` (an MT
+evaluation *metric*, not a model). This orphaned 10 pure NER/MT
+Papers With Code leaderboard benchmarks with no LLM rows (`pwc_aces`,
+`pwc_bc5cdr_chemical`, `pwc_bc5cdr_disease`, `pwc_conll`,
+`pwc_conll_2002_dutch`, `pwc_conll_2002_spanish`, `pwc_conll_2003_german`,
+`pwc_iwslt2014_german_english`, `pwc_multi30k`, `pwc_wikihop`) — removed as
+zero-result stubs per existing policy. The `mmmlu` removal likewise
+orphaned 3 models whose only result row was mmmlu (`Gemma 4 E2B`,
+`Gemma 4 E4B`, `K-EXAONE-236B-A23B`) — model rows removed; re-add when
+results on in-scope benchmarks are imported.
+
+**Metadata fix:** `distilgpt2` had its HF repo path leaked into
+`model_name` (`distilbert/distilgpt2`) and namespace into `developer`
+(`distilbert`) — corrected to `distilgpt2` / `Hugging Face`, eliminating
+the one standing `audit-model-scope` false positive (the scope audit is now
+100% KEEP).
+
+Totals: 642 → 627 benchmarks, 2,043 → 2,028 models, 19,226 → 19,078
+result entries.
+
+## Non-LLM Removal & Multilingual Benchmark De-duplication (2026-07-16)
+
+Two-phase cleanup, both driven by extensions to the existing `scripts/lib/`
+toolkit (no one-off scripts): a modality/inclusion-scope classifier for
+models, and benchmark-level `remove_benchmark`/language-backfilling
+`merge_benchmark` operations for multilingual duplicates. `verify_data.py`
+clean after each write (0 FK violations, 0 orphans).
+
+**Phase A — Non-LLM model removal.** Added `classify_scope`/
+`classify_scope_all` to `scripts/lib/categorize.py` (a second, orthogonal
+axis to the existing fine-tune-provenance `categorize_model` — "is this a
+generative LLM or LLM-backed multimodal model at all?" per
+`docs/METHODOLOGY.md`'s Model Inclusion Criteria, not "is its provenance
+traceable?"), backed by new `NON_GENERATIVE_PATTERNS`/`NARROW_TASK_PATTERNS`/
+`VLM_ALM_ALLOWLIST` knowledge in `scripts/lib/config.py`, surfaced via a new
+read-only `scripts/manage_data.py audit-model-scope` (grouped by
+`model_family` for review). Reviewed with the user before any write —
+T5/mT5/FLAN-T5 (encoder-decoder but still capable of arbitrary-instruction
+generation) and 3 genuine VLMs whose names happened to match an exclude
+pattern (`MMICL (FLAN-T5-XXL)`, `TACO (LLaMA3-8B / CLIP)`,
+`InternLM2+ViT (QMoSLoRA)`) were deliberately kept; `distilgpt2` was kept
+(flagged only via a pre-existing `developer="distilbert"` metadata bug, not
+its own architecture). Removed 10 models / 16 result rows: bare
+embedding/vision models (`CLIP (frozen)`, `PMC-CLIP`, `ST5-XXL`,
+`monoT5-3B`), a pure vision classifier (`Knowledge Review`), and narrow
+single-modality models (`NLLB-3.3B`, `SeamlessM4T-Large-V1` — the latter is
+METHODOLOGY.md's own named exclusion example — `m2ugen`, `mullama`,
+`musilingo`). This orphaned one benchmark (`pwc_vsr`, Papers With Code
+"VSR" — its only evaluated model was `PMC-CLIP`); removed as a zero-result
+stub per existing policy.
+
+**Phase B — Multilingual benchmark de-duplication.** Added
+`apply_remove_benchmark` (cascade-delete, mirrors the existing model-level
+`apply_remove`) and extended `merge_benchmarks` to accept
+`{"canonical": id, "language": value}` map values that backfill
+`results.language` on reassigned rows (only where currently blank) —
+both in `scripts/lib/standardise.py`, wired into `scripts/standardise.py`'s
+JSON rules schema as `remove_benchmark` and an optional `merge_benchmark`
+object form. Discovery via a new read-only
+`scripts/manage_data.py find-language-clusters` (heuristic stem+
+language-suffix grouping, `scripts/lib/benchmark_clusters.py`), then
+case-by-case research against each cluster's source paper before deciding:
+  - **Removed** (literal translations of an existing/kept original,
+    28 benchmark_ids / 992 result rows): **MGSM** (Shi et al. 2022,
+    arXiv:2210.03057 — 250 GSM8K problems manually translated into 10
+    languages) — removed the 10 non-English Kaggle variants + their
+    now-meaningless aggregate, kept `kaggle_vijitsingh1_mgsm_english`;
+    **Global MMLU Lite** (Cohere For AI, arXiv:2412.03304 — machine-translated
+    + professionally post-edited MMLU) — removed the 15 non-English variants
+    + aggregate, kept `kaggle_sripalthilakraj_global_mmlu_lite_english`;
+    **`mbzuai_human_translated_arabic_mmlu`** (Inception/JAIS human
+    translation of the standard English MMLU) — removed entirely, original
+    already present as `mmlu`.
+  - **Consolidated** (translated, but no English/original variant existed
+    in *our* import to prefer — merged into the parent id with `language`
+    backfilled instead of deleted, matching this repo's established
+    afrobench/irokobench convention; 8 benchmark_ids / 168 rows relabeled,
+    zero rows lost): **XCOPA** `xcopa_{id,ta,th,vi}` → `xcopa` (Ponti et al.
+    2020 — translated from English COPA, a separate, unrelated
+    benchmark_id); **XNLI** `xnli_{th,vi}` → `xnli` (Conneau et al. 2018 —
+    translated from MultiNLI); **XQuAD** `xquad_{th,vi}` → `xquad` (Artetxe
+    et al. 2020 — professionally translated from SQuAD v1.1).
+  - **Left alone** (confirmed genuinely distinct content, not translation
+    duplicates — see `notes/multilingual_duplication_audit.md` for full
+    per-cluster sourcing): **MultiLoKo** (Hupkes & Bogoychev 2025,
+    arXiv:2504.10356 — locally-sourced Wikipedia content per language, not
+    parallel translations); **FLORES** direction pairs (each `en→lang`/
+    `lang→en` is a distinct MT-quality task); **LINDSEA** (Indonesian-only,
+    no counterpart); Thai `thai_exam_*` (distinct named national exams, not
+    a language split); **ArabicMMLU** (Koto et al. 2024 — natively sourced
+    from Arabic school exams, not translated); PwC WMT/CoNLL-2002
+    language-pair benchmarks (each pair/corpus is a distinct MT or NER
+    task).
 
 ---
 

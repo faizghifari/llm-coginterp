@@ -63,7 +63,11 @@ def parse_name(path: Path):
 def load_loadings(path: Path, kind: str):
     """Return (rownames_sorted, L) with rows sorted by name and columns sorted by
     SSQ descending. Drops bifactor diagnostic columns. None on failure."""
-    df = pl.read_csv(path)
+    # infer_schema_length=None: sample the whole file. These CSVs are small
+    # (loadings tables), and a short sample can lock a numeric column to i64
+    # from early whole-number rows, then choke on a later float like
+    # 1.00000000000001 (e.g. a communality column).
+    df = pl.read_csv(path, infer_schema_length=None)
     key = KIND_KEY[kind]
     if key not in df.columns:
         return None
@@ -103,9 +107,13 @@ def main():
     results_dir = Path(args.results)
     out_path = Path(args.out) if args.out else results_dir / "loadings_congruence.md"
 
-    # collect every loadings csv (first-order, secondorder, bifactor)
+    # collect every loadings csv (first-order, secondorder, bifactor). Every
+    # method writes to results_dir/<method>/<file> (one level deep) — glob at
+    # that fixed depth rather than rglob, so a nested dataset tree living
+    # under results_dir (e.g. results/text_only/) isn't silently pulled into
+    # this dataset's comparison groups (its files sit two levels deep here).
     entries = []
-    for path in sorted(results_dir.rglob("*_loadings.csv")):
+    for path in sorted(results_dir.glob("*/*_loadings.csv")):
         parsed = parse_name(path)
         if parsed is None:
             continue

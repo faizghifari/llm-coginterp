@@ -209,4 +209,10 @@ def main(peek: bool = False):
 
 if __name__ == "__main__":
     import sys
-    main(peek="--peek" in sys.argv[1:])
+    argv = sys.argv[1:]
+    if "--data-root" in argv:
+        _root = Path(argv[argv.index("--data-root") + 1])
+        _root = _root if _root.is_absolute() else REPO / _root
+        SRC = _root / "combinations"
+        DST_ROOT = _root
+    main(peek="--peek" in argv)

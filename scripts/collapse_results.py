@@ -452,4 +452,11 @@ def main():
 
 
 if __name__ == "__main__":
+    import sys
+    argv = sys.argv[1:]
+    if "--data-root" in argv:
+        _root = Path(argv[argv.index("--data-root") + 1])
+        _root = _root if _root.is_absolute() else ROOT / _root
+        DATA_PATH = _root / "results.csv"
+        OUT_DIR = _root / "combinations"
     main()

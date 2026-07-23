@@ -26,6 +26,9 @@
 #     --raw          run ONLY the slow undensified "raw" level (default: C,S,R)
 #     --smoke        use the data/smoke fixture instead of data/
 #     --sensitivity  also run the (slow) seed-sweep sensitivity analysis
+#     --data-root    input tree, relative to the repo root (default data; e.g.
+#                    data/text_only for the derived text-only copy)
+#     --results-root output tree, relative to the repo root (default results)
 # Strategies (all_standard, all_aggressive) always run.
 #
 # Inputs read from <repo>/data/, outputs written to <repo>/data/imputed and
@@ -57,10 +60,13 @@ ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
 parse_args <- function(args) {
   method <- "all"; smoke <- FALSE; sens <- FALSE; raw <- FALSE
   reimpute <- FALSE; no_balance <- FALSE
+  data_root <- "data"; results_root <- "results"
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]
     if (a == "--method") { method <- args[[i + 1L]]; i <- i + 2L }
+    else if (a == "--data-root")    { data_root    <- args[[i + 1L]]; i <- i + 2L }
+    else if (a == "--results-root") { results_root <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--smoke")       { smoke      <- TRUE; i <- i + 1L }
     else if (a == "--sensitivity") { sens       <- TRUE; i <- i + 1L }
     else if (a == "--raw")         { raw        <- TRUE; i <- i + 1L }
@@ -72,7 +78,8 @@ parse_args <- function(args) {
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
   list(methods = if (method == "all") ALL_METHODS else method,
        smoke = smoke, sensitivity = sens, raw = raw, reimpute = reimpute,
-       no_balance = no_balance)
+       no_balance = no_balance,
+       data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
 
@@ -88,8 +95,8 @@ REIMPUTE   <- opt$reimpute   # force fresh imputation even if an imputed CSV exi
 # scores). Set in common.R's BALANCE_HOLDOUT, which the scorers read.
 BALANCE_HOLDOUT <- !opt$no_balance
 MAX_RANK   <- 10L
-DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else "data")
-RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else "results")
+DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
+RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
 dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
 cat(sprintf("methods=[%s]  data_root=%s  results=%s  sensitivity=%s  reimpute=%s\n",
             paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT, DO_SENS, REIMPUTE))

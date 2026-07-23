@@ -31,7 +31,7 @@ Result rows that become identical after a merge are collapsed with
 what every pass did as its final step; genuine multi-setup / multi-source
 rows differ on the key and are preserved.
 """
-from . import config
+from . import config, integrity
 
 
 # ── model operations ──────────────────────────────────────────────────────
@@ -153,15 +153,30 @@ def apply_setup_extract(models, results, setup_map):
 # ── benchmark operations ────────────────────────────────────────────────────
 
 def merge_benchmarks(benchmarks, results, merge_map):
-    """Relabel {merged_id: canonical_id} duplicate benchmarks. Ports any
-    non-empty metadata from the merged row into *empty* fields of the
-    canonical row, reassigns results.benchmark_id, then drops the merged
-    benchmark row. Returns (benchmarks, results, report)."""
-    report = {"merged": 0, "reassigned_results": 0, "missing": [], "missing_target": []}
+    """Relabel {merged_id: canonical_id} duplicate/variant benchmarks.
+    Each value may be a plain string canonical_id (metadata ported, no
+    language backfill -- the historical behavior) or a dict
+    {"canonical": canonical_id, "language": value} -- for consolidating a
+    per-language benchmark variant into a shared id while preserving which
+    language each row came from: every reassigned result row gets
+    results.language backfilled to `value`, ONLY where currently blank
+    (never overwrites an already-populated language, e.g. an existing
+    "avg N langs" row already on the canonical benchmark).
+
+    Ports any non-empty metadata from the merged row into *empty* fields
+    of the canonical row, reassigns results.benchmark_id, then drops the
+    merged benchmark row. Returns (benchmarks, results, report)."""
+    report = {"merged": 0, "reassigned_results": 0, "backfilled_language": 0,
+              "missing": [], "missing_target": []}
     b = benchmarks.copy()
     r = results.copy()
 
-    for merged_id, canon_id in merge_map.items():
+    for merged_id, spec in merge_map.items():
+        if isinstance(spec, dict):
+            canon_id, language = spec["canonical"], spec.get("language")
+        else:
+            canon_id, language = spec, None
+
         if merged_id not in set(b["benchmark_id"]):
             report["missing"].append(merged_id)
             print(f"  WARN  MERGE source missing: {merged_id!r}")
@@ -171,7 +186,8 @@ def merge_benchmarks(benchmarks, results, merge_map):
             print(f"  ERROR MERGE target missing: {canon_id!r}")
             continue
         n = int((r["benchmark_id"] == merged_id).sum())
-        print(f"  MERGE_BENCHMARK  {merged_id!r} -> {canon_id!r}  ({n}r)")
+        tag = f"  language={language!r}" if language else ""
+        print(f"  MERGE_BENCHMARK  {merged_id!r} -> {canon_id!r}  ({n}r){tag}")
 
         mrow = b[b["benchmark_id"] == merged_id].iloc[0]
         cmask = b["benchmark_id"] == canon_id
@@ -186,12 +202,71 @@ def merge_benchmarks(benchmarks, results, merge_map):
                 ported.append(col)
         if ported:
             print(f"           ported metadata into canonical: {', '.join(ported)}")
-        r.loc[r["benchmark_id"] == merged_id, "benchmark_id"] = canon_id
+
+        mmask = r["benchmark_id"] == merged_id
+        if language and "language" in r.columns:
+            blank_lang = mmask & (r["language"].str.strip() == "")
+            report["backfilled_language"] += int(blank_lang.sum())
+            r.loc[blank_lang, "language"] = language
+        r.loc[mmask, "benchmark_id"] = canon_id
         b = b[b["benchmark_id"] != merged_id]
         report["merged"] += 1
         report["reassigned_results"] += n
 
     return b.reset_index(drop=True), r, report
+
+
+def apply_remove_benchmark(benchmarks, results, remove_map):
+    """Cascade-delete each benchmark_id in `remove_map` from
+    benchmarks.csv and every matching results.csv row -- for a benchmark
+    variant that should be dropped entirely rather than relabeled/kept
+    under any id (e.g. a machine/human-translated per-language leaderboard
+    split whose question set is a literal translation of an
+    original-language benchmark already present, or a zero-result stub
+    left behind by a model removal). `remove_map` may be a list, or a
+    {benchmark_id: reason} dict (reason used only for the log line).
+    Returns (benchmarks, results, report)."""
+    reasons = remove_map if isinstance(remove_map, dict) else {i: "" for i in remove_map}
+    report = {"removed_benchmarks": 0, "removed_results": 0, "missing": []}
+    present = set(benchmarks["benchmark_id"])
+
+    for bid, reason in reasons.items():
+        if bid not in present:
+            report["missing"].append(bid)
+            print(f"  WARN  REMOVE_BENCHMARK source missing: {bid!r}")
+            continue
+        n = int((results["benchmark_id"] == bid).sum())
+        tag = f"  [{reason}]" if reason else ""
+        print(f"  REMOVE_BENCHMARK  {bid!r}  ({n}r){tag}")
+        benchmarks = benchmarks[benchmarks["benchmark_id"] != bid]
+        results = results[results["benchmark_id"] != bid]
+        report["removed_benchmarks"] += 1
+        report["removed_results"] += n
+
+    return benchmarks.reset_index(drop=True), results.reset_index(drop=True), report
+
+
+def cascade_remove_benchmarks(benchmarks, models, results, remove_map):
+    """apply_remove_benchmark(), then cascade onto the model axis: any
+    model left with zero result rows once those benchmarks are gone is
+    itself removed via apply_remove(). One pass in each direction is
+    provably sufficient -- an orphaned model has no result rows left to
+    delete, so removing it cannot itself orphan any (other) benchmark.
+    Returns (benchmarks, models, results, report)."""
+    benchmarks, results, bench_report = apply_remove_benchmark(benchmarks, results, remove_map)
+
+    orphans = integrity.check_orphans(benchmarks, models, results)["orphan_models"]
+    orphan_reasons = {m: "Orphaned by benchmark cascade removal" for m in orphans}
+    models, results, model_report = apply_remove(models, results, orphan_reasons)
+
+    report = {
+        "removed_benchmarks": bench_report["removed_benchmarks"],
+        "removed_results": bench_report["removed_results"],
+        "missing_benchmarks": bench_report["missing"],
+        "orphaned_models": model_report["removed_models"],
+        "orphan_model_ids": sorted(orphans),
+    }
+    return benchmarks, models, results, report
 
 
 # ── cleanups ────────────────────────────────────────────────────────────────
