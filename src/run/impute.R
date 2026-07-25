@@ -133,7 +133,8 @@ run_osmc_subprocess <- function() {
              OSMC_DATA_ROOT    = normalizePath(DATA_ROOT, mustWork = FALSE),
              OSMC_RESULTS_ROOT = normalizePath(RESULTS_ROOT, mustWork = FALSE),
              OSMC_SENSITIVITY  = if (DO_SENS) "1" else "",
-             OSMC_BALANCE      = if (BALANCE_HOLDOUT) "1" else "0")
+             OSMC_BALANCE      = if (BALANCE_HOLDOUT) "1" else "0",
+             OSMC_ALLCOLHOLDOUT = if (ALLCOLHOLDOUT) "1" else "0")
   osmc <- file.path(SRC, "impute", "OneSidedMC")
   status <- system2("julia",
     args = c("--threads=auto", paste0("--project=", osmc),

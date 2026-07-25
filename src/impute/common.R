@@ -47,6 +47,7 @@ make_holdout <- function(x, frac = 0.2, min_keep = 2L) {
     n_obs <- length(rows_obs)
     if (n_obs == 0L) next
     n_hold <- min(floor(frac * n_obs), n_obs - min_keep)
+    if (ALLCOLHOLDOUT && n_obs > min_keep) n_hold <- max(n_hold, 1L)
     if (n_hold > 0L) {
       picked <- rows_obs[sample.int(n_obs, size = n_hold)]
       holdout <- c(holdout, (j - 1L) * nr + picked)
@@ -62,6 +63,10 @@ make_holdout <- function(x, frac = 0.2, min_keep = 2L) {
 # the per-column RMSE/R^2 (equal weight per benchmark) to remove that bias.
 # Set BALANCE_HOLDOUT <- FALSE (via --no-balance) for the old cell-weighted score.
 BALANCE_HOLDOUT <- TRUE
+
+# When TRUE, every column with >= min_keep + 1 observations gets at least 1 cell
+# held out, so that all benchmarks are represented in the held-out set.
+ALLCOLHOLDOUT <- TRUE
 
 # Score held-out cells given true (zt) and predicted (zh) standardized values and
 # the held-out linear indices (column-major). Returns c(rmse, r2). R^2 baseline

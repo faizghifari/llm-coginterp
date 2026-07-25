@@ -90,9 +90,10 @@ sensitivity_softimpute <- function(x, max_rank = 15L, n_seeds = 20L,
 
   # each seed returns (rmse, r2) per rank + omega_h of the best-rank completion
   res_list <- foreach(s = seq_len(n_seeds), .packages = c("softImpute", "psych"),
-                      .export = c("fit_at_rank", "make_holdout",
-                                  "score_holdout", "BALANCE_HOLDOUT",
-                                  "omega_h_only")) %dopar% {
+.export = c("fit_at_rank", "make_holdout",
+                                   "score_holdout", "BALANCE_HOLDOUT",
+                                   "ALLCOLHOLDOUT",
+                                   "omega_h_only")) %dopar% {
     set.seed(s)
     holdout <- make_holdout(xs, frac = holdout_frac)   # min_keep = 2 (shared default)
     rmse <- numeric(length(ranks)); r2 <- numeric(length(ranks))

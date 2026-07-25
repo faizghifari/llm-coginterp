@@ -65,6 +65,7 @@ sensitivity_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L),
   res_list <- foreach(s = seq_len(n_seeds), .packages = c("missForest", "psych"),
                       .export = c("fit_missforest", "holdout_rmse_r2_mf",
                                   "make_holdout", "score_holdout", "BALANCE_HOLDOUT",
+                                  "ALLCOLHOLDOUT",
                                   "omega_h_only")) %dopar% {
     set.seed(s)
     holdout <- make_holdout(x, frac = holdout_frac)

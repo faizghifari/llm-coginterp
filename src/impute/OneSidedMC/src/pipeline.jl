@@ -157,31 +157,70 @@ function holdout_pairs(obs::RaggedObs; frac::Float64 = 0.2,
 end
 
 # ── Cell-level scoring (the metric we actually use) ──────────────────────────
-# Hold out a fraction of each row's observed cells, but unlike holdout_pairs the
-# scoring is CELL-level: each test item carries the row's SURVIVING (train) cells
-# so we can predict the held-out cell by conditioning on them (conditional
-# Gaussian / best linear predictor using the recovered covariance Theta-hat).
+# Column-stratified holdout (matching R's make_holdout), but with an ADDITIONAL
+# row constraint: a cell is only held out if its row would still have >= 2 cells
+# remaining in training (OSMC needs them to condition the prediction).
 # Returns (train_obs, test_cells) where each test cell is
 #   (kept_cols::Vector{Int}, kept_vals::Vector{Float64}, held_col::Int, held_val).
 function holdout_cells(obs::RaggedObs; frac::Float64 = 0.2,
                        rng::AbstractRNG = Random.default_rng())
-    train = RaggedObs()
-    test_cells = Tuple{Vector{Int}, Vector{Float64}, Int, Float64}[]
-    for (cols, vals) in obs
-        k = length(cols)
-        n_hold = min(floor(Int, frac * k), k - 2)   # keep >= 2 to condition on
-        if n_hold <= 0
-            push!(train, (copy(cols), copy(vals)))
-            continue
-        end
-        perm = randperm(rng, k)
-        held = perm[1:n_hold]; kept = perm[(n_hold + 1):end]
-        kc = cols[kept]; kv = vals[kept]
-        push!(train, (kc, kv))
-        for h in held
-            push!(test_cells, (kc, kv, cols[h], vals[h]))
+    n_rows = length(obs)
+
+    # column -> [(row_idx, pos_in_row, value), ...]
+    col_map = Dict{Int, Vector{Tuple{Int, Int, Float64}}}()
+    for (row_idx, (cols, vals)) in enumerate(obs)
+        for (pos, (c, v)) in enumerate(zip(cols, vals))
+            push!(get!(col_map, c, Vector{Tuple{Int, Int, Float64}}()),
+                  (row_idx, pos, v))
         end
     end
+
+    row_left = [length(cols) for (cols, _) in obs]
+    held_out = Set{Tuple{Int, Int}}()
+
+    # Shuffle column order so early columns don't starve later ones of row capacity.
+    col_order = shuffle(rng, collect(keys(col_map)))
+    for col in col_order
+        entries = col_map[col]
+        total_col_obs = length(entries)
+        eligible = [(r, p, v) for (r, p, v) in entries if row_left[r] > 2]
+        n_eligible = length(eligible)
+
+        n_hold = min(floor(Int, frac * total_col_obs), total_col_obs - 2)
+        if OSMC_ALLCOLHOLDOUT && total_col_obs > 2
+            n_hold = max(n_hold, 1)
+        end
+        n_hold = min(n_hold, n_eligible)
+
+        if n_hold > 0
+            candidates = shuffle(rng, eligible)
+            for (row_idx, _, _) in candidates[1:n_hold]
+                push!(held_out, (row_idx, col))
+                row_left[row_idx] -= 1
+            end
+        end
+    end
+
+    # Build train RaggedObs and test_cells from the held-out mask.
+    train = RaggedObs()
+    test_cells = Tuple{Vector{Int}, Vector{Float64}, Int, Float64}[]
+    for (row_idx, (cols, vals)) in enumerate(obs)
+        kept_cols = Int[]; kept_vals = Float64[]
+        held_info = Tuple{Int, Float64}[]
+        for (c, v) in zip(cols, vals)
+            if (row_idx, c) in held_out
+                push!(held_info, (c, v))
+            else
+                push!(kept_cols, c)
+                push!(kept_vals, v)
+            end
+        end
+        push!(train, (kept_cols, kept_vals))
+        for (hc, hv) in held_info
+            push!(test_cells, (kept_cols, kept_vals, hc, hv))
+        end
+    end
+
     return train, test_cells
 end
 
@@ -207,6 +246,10 @@ end
 # Balanced (default): average per-column RMSE/R^2 so high-frequency columns don't
 # dominate. Cell-weighted: one global mean over all held-out cells.
 const OSMC_BALANCE = get(ENV, "OSMC_BALANCE", "1") != "0"
+
+# When true, every column with >= 3 observations gets at least one held-out cell,
+# mirroring R's ALLCOLHOLDOUT. Ensures all benchmarks are represented in scoring.
+const OSMC_ALLCOLHOLDOUT = get(ENV, "OSMC_ALLCOLHOLDOUT", "1") != "0"
 
 # Per-column accumulation of (residual^2, baseline^2 = z^2) keyed by column j.
 function _percol_ss(V::AbstractMatrix, test_cells)

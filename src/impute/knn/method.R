@@ -72,6 +72,7 @@ sensitivity_knn <- function(x, ks = 1:10, n_seeds = 20L, holdout_frac = 0.2,
   res_list <- foreach(s = seq_len(n_seeds), .packages = c("VIM", "psych"),
                       .export = c("fit_knn", "holdout_rmse_r2_knn",
                                   "make_holdout", "score_holdout", "BALANCE_HOLDOUT",
+                                  "ALLCOLHOLDOUT",
                                   "omega_h_only")) %dopar% {
     set.seed(s)
     holdout <- make_holdout(x, frac = holdout_frac)

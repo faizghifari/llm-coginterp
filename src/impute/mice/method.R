@@ -88,6 +88,7 @@ sensitivity_mice <- function(x, ms = c(5L, 10L, 20L), n_seeds = 20L,
   res_list <- foreach(s = seq_len(n_seeds), .packages = c("mice", "psych"),
                       .export = c("fit_mice", "holdout_rmse_r2_mice",
                                   "make_holdout", "score_holdout", "BALANCE_HOLDOUT",
+                                  "ALLCOLHOLDOUT",
                                   "omega_h_only")) %dopar% {
     set.seed(s)
     holdout <- make_holdout(x, frac = holdout_frac)
