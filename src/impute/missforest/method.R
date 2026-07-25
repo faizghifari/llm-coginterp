@@ -29,7 +29,7 @@ holdout_rmse_r2_mf <- function(x, ntree, holdout) {
 }
 
 # Main entry point. Sweeps ntree, picks CV-best by held-out RMSE, returns the
-# uniform contract. complete_at(ntree) re-imputes at that ntree.
+# uniform contract.
 impute_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L), seed = 1L) {
   set.seed(seed)
   holdout <- make_holdout(x, frac = 0.2)
@@ -45,11 +45,9 @@ impute_missforest <- function(x, ntrees = c(50L, 100L, 200L, 400L), seed = 1L) {
   cat(sprintf("  >> CV-best ntree = %d (RMSE %.4f, R2 %.3f)\n",
               best_nt, rmse_v[best_i], r2_v[best_i]))
 
-  complete_at <- function(v) fit_missforest(x, v)
-  list(M = complete_at(best_nt),
+  list(M = fit_missforest(x, best_nt),
        best_param = best_nt, params = ntrees, curve = rmse_v, curve_r2 = r2_v,
-       param_name = "ntree", metric_name = "Held-out RMSE",
-       complete_at = complete_at)
+       param_name = "ntree", metric_name = "Held-out RMSE")
 }
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per ntree.

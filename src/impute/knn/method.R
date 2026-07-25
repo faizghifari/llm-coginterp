@@ -32,7 +32,7 @@ holdout_rmse_r2_knn <- function(x, k, holdout) {
 }
 
 # Main entry point. Sweeps k, picks the CV-best by held-out RMSE, returns the
-# uniform method contract. complete_at(k) re-imputes at that k.
+# uniform method contract.
 impute_knn <- function(x, ks = 1:10, seed = 1L) {
   ks <- ks[ks < nrow(x)]
   set.seed(seed)
@@ -49,11 +49,9 @@ impute_knn <- function(x, ks = 1:10, seed = 1L) {
   cat(sprintf("  >> CV-best k = %d (RMSE %.4f, R2 %.3f)\n",
               best_k, rmse_v[best_i], r2_v[best_i]))
 
-  complete_at <- function(v) fit_knn(x, v)
-  list(M = complete_at(best_k),
+  list(M = fit_knn(x, best_k),
        best_param = best_k, params = ks, curve = rmse_v, curve_r2 = r2_v,
-       param_name = "k", metric_name = "Held-out RMSE",
-       complete_at = complete_at)
+       param_name = "k", metric_name = "Held-out RMSE")
 }
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per k,

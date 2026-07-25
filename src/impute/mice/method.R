@@ -53,7 +53,7 @@ holdout_rmse_r2_mice <- function(x, m, holdout, seed = 1L) {
 }
 
 # Main entry point. Sweeps m, picks CV-best by held-out RMSE, returns the uniform
-# contract. complete_at(m) re-imputes (mean of m completions) at that m.
+# contract.
 impute_mice <- function(x, ms = c(5L, 10L, 20L), seed = 1L) {
   set.seed(seed)
   holdout <- make_holdout(x, frac = 0.2)
@@ -69,11 +69,9 @@ impute_mice <- function(x, ms = c(5L, 10L, 20L), seed = 1L) {
   cat(sprintf("  >> CV-best m = %d (RMSE %.4f, R2 %.3f)\n",
               best_m, rmse_v[best_i], r2_v[best_i]))
 
-  complete_at <- function(v) fit_mice(x, v, seed)
-  list(M = complete_at(best_m),
+  list(M = fit_mice(x, best_m, seed),
        best_param = best_m, params = ms, curve = rmse_v, curve_r2 = r2_v,
-       param_name = "m", metric_name = "Held-out RMSE",
-       complete_at = complete_at)
+       param_name = "m", metric_name = "Held-out RMSE")
 }
 
 # Seed-sweep sensitivity: repeated random holdouts, RMSE + R^2 distribution per m.

@@ -2,24 +2,22 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Factor-analysis-only orchestrator.
 #
-# Reads COMPLETED matrices (from data/imputed/) and SWEEP CURVES (from results/)
-# written by the imputation stage, then runs parallel analysis, PAF + promax,
-# higher-order factor analysis, and dashboard generation. No imputation here.
+# Reads COMPLETED matrices (from data/imputed/) written by the imputation stage,
+# gates on imputation R² >= 0.4 (SQLite), then runs two bifactor analyses per
+# cell: one at the PA-based factor count (min 2) and one forced to 2 factors.
 #
 # Output (per cell):
-#   results/<method>/<method>_<dz>_<st>_loadings.csv
-#   results/<method>/<method>_<dz>_<st>_loadings.md
-#   results/<method>/<method>_<dz>_<st>_secondorder_loadings.csv
-#   results/<method>/<method>_<dz>_<st>_secondorder_loadings.md
-#   results/<method>/<method>_<dz>_<st>_bifactor_loadings.csv
-#   results/<method>/<method>_<dz>_<st>_bifactor_loadings.md
-#   results/<method>/<method>_<dz>_<st>_bifactor_scalars.csv
-#   results/<method>/<method>_<dz>_<st>_bifactor_omega_group.csv
-#   results/<method>/<method>_<dz>_<st>_dashboard.png
+#   results/<method>/<method>_<dz>_<st>_bifactor_pa_loadings.csv
+#   results/<method>/<method>_<dz>_<st>_bifactor_pa_loadings.md
+#   results/<method>/<method>_<dz>_<st>_bifactor_pa_scalars.csv
+#   results/<method>/<method>_<dz>_<st>_bifactor_pa_omega_group.csv
+#   results/<method>/<method>_<dz>_<st>_bifactor_2f_loadings.csv
+#   results/<method>/<method>_<dz>_<st>_bifactor_2f_loadings.md
+#   results/<method>/<method>_<dz>_<st>_bifactor_2f_scalars.csv
+#   results/<method>/<method>_<dz>_<st>_bifactor_2f_omega_group.csv
 #
-# Dashboard panels 3 (cumulative variance vs param) and 6 (PA nf vs param) show
-# "no data" because the per-param complete_at() closure is only available during
-# in-memory imputation — they are populated only in the combined main.R pipeline.
+# Factoring results are also persisted to results/<prefix>/database.db, table
+# `factoring`.
 #
 # Run from anywhere:
 #   Rscript src/run/factor.R [--method <name>] [--raw]
@@ -41,8 +39,7 @@ REPO <- dirname(SRC)
 if (file.exists(.renv_activate)) source(.renv_activate)
 
 source(file.path(SRC, "factor", "factoring.R"))
-source(file.path(SRC, "run", "dashboard.R"))
-source(file.path(SRC, "run", "plots.R"))
+source(file.path(SRC, "factor", "db.R"))
 
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
                  "knn", "missforest", "mice")
@@ -70,12 +67,13 @@ opt <- parse_args(commandArgs(trailingOnly = TRUE))
 METHODS    <- opt$methods
 DENSIFIERS <- if (opt$raw) "raw" else c("C", "S", "R")
 STRATEGIES <- c("all_standard", "all_aggressive")
-MAX_RANK   <- 10L
 DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
 RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
 dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
 cat(sprintf("factor: methods=[%s]  data_root=%s  results=%s\n",
             paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT))
+
+DB_FILE <- file.path(RESULTS_ROOT, "database.db")
 
 res_path <- function(method, dz, st, suffix) {
   d <- file.path(RESULTS_ROOT, method)
@@ -97,73 +95,66 @@ build_contract_from_disk <- function(method, dz, st) {
     cat("  missing completed matrix:", completed_csv, "\n")
     return(NULL)
   }
-  mb <- read_matrix(completed_csv)
-
-  sweep_csv <- res_path(method, dz, st, "rank_sweep.csv")
-  if (!file.exists(sweep_csv) && method == "onesidedmc") {
-    sweep_csv <- file.path(RESULTS_ROOT, "_osmc_sweep",
-                           sprintf("%s_%s", dz, st), "rank_sweep.csv")
-  }
-  if (!file.exists(sweep_csv)) {
-    cat("  missing sweep CSV (no curve panels in dashboard):", sweep_csv, "\n")
-    return(list(M = mb$M, params = 1L, curve = NA_real_,
-                best_param = 1L, param_name = "rank",
-                metric_name = "Held-out RMSE", complete_at = NULL))
-  }
-
-  sw <- read.csv(sweep_csv)
-  if (method == "onesidedmc") {
-    rmse_col <- if ("rmse" %in% names(sw)) sw$rmse else sw$pairwise_rmse
-    params <- sw$r
-    curve <- rmse_col
-    curve_r2 <- if ("r2" %in% names(sw)) sw$r2 else NULL
-    param_name <- "r"
-  } else {
-    params <- sw$param
-    curve <- sw$rmse
-    curve_r2 <- if ("r2" %in% names(sw)) sw$r2 else NULL
-    param_name <- sw$param_name[1]
-  }
-  best_param <- params[which.min(replace(curve, is.na(curve), Inf))]
-
-  list(M = mb$M, params = params, curve = curve, curve_r2 = curve_r2,
-       best_param = best_param, param_name = param_name,
-       metric_name = "Held-out RMSE", complete_at = NULL)
+  read_matrix(completed_csv)
 }
 
-factor_and_report <- function(method, dz, st, res) {
+# Run a single bifactor analysis and write outputs for one (method, dz, st, run_tag).
+do_bifactor <- function(M, nf, method, dz, st, run_tag) {
+  ho <- tryCatch(higher_order(M, nf), error = function(e) {
+    cat(sprintf("  higher_order(nf=%d, %s) failed: %s\n", nf, run_tag,
+                conditionMessage(e))); NULL })
+  if (is.null(ho)) return(NULL)
+
+  tag <- paste0("bifactor_", run_tag)
+  write_higher_order(ho,
+    bifactor_csv = res_path(method, dz, st, paste0(tag, "_loadings.csv")),
+    scalar_csv   = res_path(method, dz, st, paste0(tag, "_scalars.csv")),
+    group_csv    = res_path(method, dz, st, paste0(tag, "_omega_group.csv")),
+    bifactor_md  = res_path(method, dz, st, paste0(tag, "_loadings.md")))
+
+  omega_hs <- if (!is.null(ho$omega_group) && "group" %in% colnames(ho$omega_group))
+    ho$omega_group[rownames(ho$omega_group) != "g", "group"] else numeric(0)
+  cat(sprintf("  %s: nf=%d omega_h=%.3f omega_total=%.3f omega_hs=%s\n",
+              run_tag, ho$nf, ho$omega_h, ho$omega_total,
+              if (length(omega_hs)) paste(sprintf("%.3f", omega_hs), collapse = ",") else "NA"))
+  ho
+}
+
+factor_and_report <- function(method, dz, st, M) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
-  fr <- factor_matrix(res$M, pa_iter = 100L)
-  cat(sprintf("  factored: nf = %d\n", fr$nf))
+  dataset <- paste0(dz, "_", st)
 
-  write_loadings_csv(fr$efa, res_path(method, dz, st, "loadings.csv"))
-  write_loadings_markdown(fr$efa, res_path(method, dz, st, "loadings.md"))
+  r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
+                 error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
+  if (is.na(r2) || r2 < 0.4) {
+    cat(sprintf("  skipping (%s) — imputation R² = %s < 0.4\n", tag,
+                if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
+    return(invisible())
+  }
+  cat(sprintf("  R² = %.3f >= 0.4, proceeding\n", r2))
 
-  ho <- tryCatch(higher_order(res$M, fr$nf), error = function(e) {
-    cat("  higher-order failed:", conditionMessage(e), "\n"); NULL })
-  if (!is.null(ho)) {
-    write_higher_order(ho,
-      second_csv   = res_path(method, dz, st, "secondorder_loadings.csv"),
-      bifactor_csv = res_path(method, dz, st, "bifactor_loadings.csv"),
-      scalar_csv   = res_path(method, dz, st, "bifactor_scalars.csv"),
-      group_csv    = res_path(method, dz, st, "bifactor_omega_group.csv"),
-      second_md    = res_path(method, dz, st, "secondorder_loadings.md"),
-      bifactor_md  = res_path(method, dz, st, "bifactor_loadings.md"))
-    omega_hs <- if (!is.null(ho$omega_group) && "group" %in% colnames(ho$omega_group))
-      ho$omega_group[rownames(ho$omega_group) != "g", "group"] else numeric(0)
-    cat(sprintf("  higher-order: omega_h = %.3f, omega_total = %.3f, omega_hs = %s\n",
-                ho$omega_h, ho$omega_total,
-                if (length(omega_hs)) paste(sprintf("%.3f", omega_hs), collapse = ",") else "NA"))
+  fr <- factor_matrix(M, pa_iter = 100L)
+  pa_nf <- fr$nf
+  var_explained <- extract_variance(fr$efa)
+  cat(sprintf("  factored: nf = %d  cumvar = %.3f\n", pa_nf, var_explained))
+
+  # PA-based bifactor
+  ho_pa <- do_bifactor(M, pa_nf, method, dz, st, "pa")
+  if (!is.null(ho_pa)) {
+    omega_hs_pa <- if (!is.null(ho_pa$omega_group) && "group" %in% colnames(ho_pa$omega_group))
+      ho_pa$omega_group[rownames(ho_pa$omega_group) != "g", "group"] else numeric(0)
+    db_insert_factoring(method, dataset, "pa", pa_nf, var_explained,
+                        ho_pa$omega_total, ho_pa$omega_h, omega_hs_pa, DB_FILE)
   }
 
-  dims <- c(nrow(res$M), ncol(res$M), 100)
-  sw <- tryCatch(sweep_factor_curve(res, pa_iter = 100L),
-                 error = function(e) {
-                   cat("  sweep-factor failed:", conditionMessage(e), "\n")
-                   list(cumvar = rep(NA, length(res$params)),
-                        pa_nf = rep(NA, length(res$params))) })
-  plot_dashboard(res_path(method, dz, st, "dashboard.png"), res, fr, sw,
-                 max_k = MAX_RANK, title = tag, dims = dims, ho = ho)
+  # Forced 2-factor bifactor
+  ho_2f <- do_bifactor(M, 2L, method, dz, st, "2f")
+  if (!is.null(ho_2f)) {
+    omega_hs_2f <- if (!is.null(ho_2f$omega_group) && "group" %in% colnames(ho_2f$omega_group))
+      ho_2f$omega_group[rownames(ho_2f$omega_group) != "g", "group"] else numeric(0)
+    db_insert_factoring(method, dataset, "forced2f", 2L, var_explained,
+                        ho_2f$omega_total, ho_2f$omega_h, omega_hs_2f, DB_FILE)
+  }
 }
 
 main <- function() {
@@ -172,18 +163,11 @@ main <- function() {
       cat("\n======== ", method, "/", dz, "/", st, " ========\n", sep = "")
       res <- build_contract_from_disk(method, dz, st)
       if (is.null(res)) next
-      tryCatch(factor_and_report(method, dz, st, res),
+      tryCatch(factor_and_report(method, dz, st, res$M),
                error = function(e) cat("  FACTOR FAILED:", conditionMessage(e), "\n"))
     }
   }
-
-  cat("\n-- combining dashboards --\n")
-  for (method in METHODS) for (st in STRATEGIES) {
-    tryCatch(combine_dashboards(method, st, RESULTS_ROOT),
-             error = function(e) cat("  combine dashboards failed:", conditionMessage(e), "\n"))
-  }
-
-  cat("\nDONE.\n  loadings + dashboards -> ", RESULTS_ROOT, "/\n", sep = "")
+  cat("\nDONE.\n  results -> ", RESULTS_ROOT, "/\n", sep = "")
 }
 
 main()

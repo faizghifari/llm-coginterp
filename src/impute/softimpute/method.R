@@ -43,9 +43,8 @@ fit_at_rank <- function(xs, holdout, rank_cap) {
 }
 
 # Main entry point. Sweeps rank, picks CV-best by holdout RMSE, returns the
-# uniform method contract (see README): the completed matrix at best rank, the
-# predictive curve, axis metadata, and a complete_at(v) closure so the
-# orchestrator can factor at any rank WITHOUT this module ever factoring itself.
+# uniform method contract (see README): the completed matrix at best rank plus
+# the predictive curve and axis metadata.
 impute_softimpute <- function(x, max_rank = 15L, seed = 1L) {
   xs <- biScale(x, row.center = FALSE, row.scale = FALSE,
                 col.center = TRUE, col.scale = TRUE, maxit = 100)
@@ -65,13 +64,9 @@ impute_softimpute <- function(x, max_rank = 15L, seed = 1L) {
   cat(sprintf("  >> CV-best imputation rank = %d (RMSE %.4f, R2 %.3f)\n",
               best_r, rmse_v[best_k], r2_v[best_k]))
 
-  # Completed matrix at any swept rank (reuses that rank's fit; no re-fit).
-  complete_at <- function(v) complete(x, fits[[which(ranks == v)]]$fit)
-
   list(M = complete(x, fits[[best_k]]$fit),
        best_param = best_r, params = ranks, curve = rmse_v, curve_r2 = r2_v,
-       eff_rank = eff_v, param_name = "rank", metric_name = "Held-out RMSE",
-       complete_at = complete_at)
+       eff_rank = eff_v, param_name = "rank", metric_name = "Held-out RMSE")
 }
 
 # Repeated-holdout sensitivity of the held-out RMSE curve (parallelised), plus an

@@ -67,6 +67,6 @@ choose_nfactors <- function(M, n.iter = 100L, quantile = 0.95,
   obs <- observed_pc_eigenvalues(M)
   cut <- pa_cutoffs(n, p, n.iter, quantile, cache_dir = cache_dir,
                     verbose = verbose)
-  nf <- max(1L, sum(obs > cut, na.rm = TRUE))
+  nf <- max(2L, sum(obs > cut, na.rm = TRUE))
   list(nf = nf, observed = obs, cutoffs = cut)
 }
