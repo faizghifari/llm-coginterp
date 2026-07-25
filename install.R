@@ -32,7 +32,9 @@ pkgs <- c(
   "magick",      # stacking result PNGs into combined figures
   "doParallel",  # parallel sensitivity seed-sweeps
   "foreach",     # parallel sensitivity seed-sweeps
-  "boot"         # bootstrap CIs (reference code)
+  "boot",         # bootstrap CIs (reference code)
+  "DBI",
+  "RSQLite"
   # "parallel" is part of base R — no install needed.
 )
 

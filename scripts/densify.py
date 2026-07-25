@@ -188,7 +188,7 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
 
     # ── column obs distribution (densified output) ─────────────────────────
     out_obs = col_obs_counts(out, out_value_cols)
-    out_obs2 = sum(1 for n in out_obs if n == 2)
+    out_obs2 = sum(1 for n in out_obs if n == MIN_OBS)
 
     sub = mask[np.ix_(rkeep, ckeep)]
     kept_filled = int(sub.sum())
@@ -222,7 +222,7 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
         f"({orig_filled} cells, {100*orig_filled/(orig_models*orig_bench):.1f}%) -> "
         f"{out.height}x{len(out_value_cols)} "
         f"({100*density:.1f}%)  retained {100*kept_filled/orig_filled:.0f}%"
-        f"  out obs=2: {out_obs2}"
+        f"  out obs={MIN_OBS}: {out_obs2}"
     )
     # parts = []
     # if raw_obs2: parts.append(f"raw obs=2: {raw_obs2}")

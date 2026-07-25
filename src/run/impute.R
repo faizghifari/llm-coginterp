@@ -33,6 +33,7 @@ REPO <- dirname(SRC)
 if (file.exists(.renv_activate)) source(.renv_activate)
 
 source(file.path(SRC, "impute", "common.R"))
+source(file.path(SRC, "impute", "db.R"))
 source(file.path(SRC, "run", "plots.R"))
 
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
@@ -185,6 +186,13 @@ run_cell <- function(method, dz, st) {
     imputed_csv <- file.path(out_dir, "imputed_model_benchmark_table.csv")
     res <- osmc_contract(dz, st, imputed_csv)
     if (is.null(res)) { cat("  no OSMC outputs, skipping\n"); return(NULL) }
+    best_idx  <- which(res$params == res$best_param)
+    best_rmse <- res$curve[best_idx]
+    best_r2   <- if (!is.null(res$curve_r2)) res$curve_r2[best_idx] else NA
+    desc <- build_desc(res$params, res$param_name, res$best_param)
+    db_insert_imputation(method, paste0(dz, "_", st),
+                         best_rmse, best_r2, desc,
+                         file.path(RESULTS_ROOT, "database.db"), REIMPUTE)
     return(NULL)  # OSMC has no R-side seed-sweep sensitivity
   }
 
@@ -212,6 +220,13 @@ run_cell <- function(method, dz, st) {
                        rmse = res$curve,
                        r2 = if (!is.null(res$curve_r2)) res$curve_r2 else NA),
             sweep_csv, row.names = FALSE)
+  best_idx  <- which(res$params == res$best_param)
+  best_rmse <- res$curve[best_idx]
+  best_r2   <- if (!is.null(res$curve_r2)) res$curve_r2[best_idx] else NA
+  desc <- build_desc(res$params, res$param_name, res$best_param)
+  db_insert_imputation(method, paste0(dz, "_", st),
+                       best_rmse, best_r2, desc,
+                       file.path(RESULTS_ROOT, "database.db"), REIMPUTE)
   list(x = x, nf = NA_integer_)
 }
 

@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_PATH = ROOT / "data" / "results.csv"
+DATA_PATH = ROOT / "data" / "text_only"/ "results.csv"
 OUT_DIR = ROOT / "data" / "combinations"
 
 # normalize tokens
@@ -60,13 +60,13 @@ def normalize_standard(row):
 
     # Strip organization prefix first (everything before the first slash)
     m_clean = m.split('/', 1)[-1] if '/' in m else m
-    
+
     # Clean parentheses
     m_clean = clean_parentheses(m_clean)
-    
+
     # Strip dates and metadata
     m_clean = strip_dates_and_metadata(m_clean)
-    
+
     # Normalize version hyphens (e.g. 3-5 to 3.5, 3-1 to 3.1)
     m_clean = re.sub(r'\b(\d+)[-_](\d+)\b', r'\1.\2', m_clean)
 
@@ -75,13 +75,13 @@ def normalize_standard(row):
         # Skip if family is numeric-only (likely data error)
         if re.match(r"^\d+(?:\.\d+)?$", fam_clean):
             fam_clean = None
-            
+
         if fam_clean:
             fam_base = re.sub(r"\s+", "-", fam_clean).lower()
             # Extract versions in family name
             fam_versions = set(re.findall(r"(\d+(?:\.\d+)?)", fam_base))
             lower_fam_base = re.split(r"[-\s]", fam_clean.lower())[0]
-            
+
             # Find family base in model name to extract suffix
             idx = m_clean.find(lower_fam_base)
             if idx != -1:
@@ -93,11 +93,11 @@ def normalize_standard(row):
             # Tokenize suffix using non-alphanumeric chars as delimiters (preserve dot for decimal versions/sizes)
             tokens = re.split(r"[^A-Za-z0-9.]+", suffix)
             tokens = [t.strip('. ') for t in tokens if t.strip()]
-            
+
             preserved = []
             size_part = None
             seen_versions = set()
-            
+
             for tok in tokens:
                 if tok.lower() in ALL_STRIP:
                     continue
@@ -107,11 +107,11 @@ def normalize_standard(row):
                 # Skip context lengths like 32k, 128k, 1m, 2m
                 if re.match(r"^\d+[kK]$", tok) or re.match(r"^[12][mM]$", tok):
                     continue
-                    
+
                 # Check if it is a size part (e.g. 70b, 1.5b, 8B)
                 is_size = False
                 size_val = None
-                
+
                 num_b_match = re.match(r"^(\d+(?:\.\d+)?)[bB]$", tok)
                 if num_b_match:
                     is_size = True
@@ -129,7 +129,7 @@ def normalize_standard(row):
                                     canonical_size_matches = True
                             except ValueError:
                                 pass
-                        
+
                         # Check if it is a common size
                         is_common_size = False
                         try:
@@ -142,16 +142,16 @@ def normalize_standard(row):
                                         is_common_size = True
                         except ValueError:
                             pass
-                            
+
                         if canonical_size_matches or is_common_size:
                             is_size = True
                             size_val = val_str
-                            
+
                 if is_size:
                     formatted_size = str(int(float(size_val))) if float(size_val).is_integer() else str(float(size_val))
                     size_part = f"{formatted_size}B"
                     continue
-                    
+
                 # Check version number
                 if re.match(r"^\d+(\.\d+)?$", tok):
                     # check compatibility with fam_versions
@@ -169,14 +169,14 @@ def normalize_standard(row):
                         preserved.append(tok)
                         seen_versions.add(tok)
                     continue
-                    
+
                 if len(tok) > 2 and tok.lower() not in ALL_STRIP:
                     preserved.append(tok.lower())
-                    
+
             if pd.notna(size) and str(size).strip() != "" and not size_part:
                 if re.match(r"^\d+$", str(size).strip()):
                     size_part = f"{int(float(size))}B"
-                    
+
             parts = [fam_base] + preserved + ([size_part] if size_part else [])
             return '-'.join(parts)
 
@@ -189,7 +189,7 @@ def normalize_standard(row):
     preserved = []
     size_part = None
     seen_versions = set()
-    
+
     for tok in tokens:
         if tok.lower() in ALL_STRIP:
             continue
@@ -199,7 +199,7 @@ def normalize_standard(row):
         # Skip context lengths like 32k, 128k, 1m, 2m
         if re.match(r"^\d+[kK]$", tok) or re.match(r"^[12][mM]$", tok):
             continue
-            
+
         # Check if size part
         is_size = False
         size_val = None
@@ -220,7 +220,7 @@ def normalize_standard(row):
                             canonical_size_matches = True
                     except ValueError:
                         pass
-                
+
                 # Check common sizes
                 is_common_size = False
                 try:
@@ -231,30 +231,30 @@ def normalize_standard(row):
                             is_common_size = True
                 except ValueError:
                     pass
-                    
+
                 if canonical_size_matches or is_common_size:
                     is_size = True
                     size_val = val_str
-                    
+
         if is_size:
             formatted_size = str(int(float(size_val))) if float(size_val).is_integer() else str(float(size_val))
             size_part = f"{formatted_size}B"
             continue
-            
+
         # Check version number
         if re.match(r"^\d+(\.\d+)?$", tok):
             if tok not in seen_versions:
                 preserved.append(tok)
                 seen_versions.add(tok)
             continue
-            
+
         if len(tok) > 2 and tok.lower() not in ALL_STRIP:
             preserved.append(tok.lower())
-            
+
     if pd.notna(size) and str(size).strip() != "" and not size_part:
         if re.match(r"^\d+$", str(size).strip()):
             size_part = f"{int(float(size))}B"
-            
+
     parts = preserved + ([size_part] if size_part else [])
     return '-'.join(parts) if parts else str(mid)
 
@@ -262,7 +262,7 @@ def normalize_standard(row):
 def normalize_aggressive(row):
     mid = row.get('model_id')
     fam = row.get('model_family')
-    
+
     # 1. Prefer model_family if it is a valid family name
     if pd.notna(fam) and str(fam).strip() != "":
         fam_str = str(fam).strip().lower()
@@ -274,7 +274,7 @@ def normalize_aggressive(row):
                 token = re.sub(r"[^a-z0-9]", "", token)
                 if token and re.search(r"[a-z]", token):
                     return token
-                    
+
     # 2. Fallback: parse model_id
     if pd.notna(mid) and str(mid).strip() != "":
         mid_str = str(mid).strip().lower()
@@ -290,7 +290,7 @@ def normalize_aggressive(row):
             token = re.sub(r"[^a-z0-9]", "", token)
             if token and re.search(r"[a-z]", token):
                 return token
-                
+
     return 'unknown'
 
 
@@ -399,7 +399,7 @@ def main():
         # Save mapping of model_id -> collapse_key
         strategy_dir = OUT_DIR / name
         strategy_dir.mkdir(parents=True, exist_ok=True)
-        
+
         mapping_file = strategy_dir / "collapse_mapping.csv"
         mapping_df = df_strat[['model_id', 'collapse_key']].drop_duplicates().sort_values(['collapse_key', 'model_id'])
         mapping_df.to_csv(mapping_file, index=False)
