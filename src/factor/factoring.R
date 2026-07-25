@@ -54,13 +54,13 @@ safe_nf <- function(M, nf) {
 # matrices: if the default (SMC communalities) errors, retry with SMC = FALSE
 # (unity diagonal). Only ERRORS trigger the fallback / NULL — psych's benign
 # warnings (smc<0, singular pseudo-inverse) still return a usable fa object.
-fa_try <- function(M, nf) {
+fa_try <- function(M, nf, n_obs = NA) {
   rot <- if (nf > 1) "promax" else "none"
-  efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "minres", rotate = rot)),
+  efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, n.obs = n_obs, fm = "minres", rotate = rot)),
                   error = function(e) NULL)
   if (!is.null(efa)) return(efa)
   cat(sprintf("    fa_try(nf=%d, rot=%s) failed, retrying SMC=FALSE\n", nf, rot))
-  efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "minres", rotate = rot,
+  efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, n.obs = n_obs, fm = "minres", rotate = rot,
                                SMC = FALSE)),
            error = function(e) NULL)
   if (is.null(efa)) cat(sprintf("    fa_try(nf=%d, SMC=FALSE) also failed\n", nf))
@@ -82,6 +82,74 @@ extract_variance <- function(efa) {
   rn <- rownames(va)
   cum_row <- if ("Cumulative Var" %in% rn) "Cumulative Var" else "Proportion Var"
   va[cum_row, ncol(va)]
+}
+
+# Per-factor variance explained and inter-factor correlations from an fa object.
+# Returns list(phi_avg, phi, var_factors, var_avg) suitable for db_insert_factoring.
+efa_stats <- function(efa) {
+  phi <- efa$Phi
+  phi_avg <- if (!is.null(phi) && ncol(phi) > 1)
+    mean(phi[upper.tri(phi)]) else NA_real_
+
+  va <- efa$Vaccounted
+  nf_e <- ncol(unclass(efa$loadings))
+  pv <- if (!is.null(va) && "Proportion Var" %in% rownames(va))
+    as.numeric(va["Proportion Var", 1:nf_e]) else numeric(0)
+  var_avg <- if (length(pv) > 0) mean(pv) else NA_real_
+
+  list(phi_avg = phi_avg, phi = phi, var_factors = pv, var_avg = var_avg)
+}
+
+# Pairwise-complete correlation from a sparse matrix (NAs allowed), PSD-smoothed.
+# Returns the smoothed correlation R, effective N (harmonic mean of per-pair
+# complete-case counts), and eigenvalues of the RAW correlation (unsmoothed).
+prepare_raw_cor <- function(M) {
+  R <- cor(M, use = "pairwise.complete.obs")
+  R[!is.finite(R)] <- 0; diag(R) <- 1
+
+  p <- ncol(M)
+  N_mat <- matrix(NA_integer_, p, p)
+  for (i in seq_len(p)) for (j in seq_len(p)) {
+    N_mat[i, j] <- sum(stats::complete.cases(M[, c(i, j)]))
+  }
+  pw_n <- N_mat[upper.tri(N_mat)]
+  n_eff <- round(length(pw_n) / sum(1 / pw_n))
+
+  eig_raw <- sort(eigen(R, symmetric = TRUE, only.values = TRUE)$values,
+                  decreasing = TRUE)
+  R_smooth <- psych::cor.smooth(R)
+
+  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
+}
+
+# Factoring of sparse data via pairwise-complete correlation + PSD smoothing.
+# PA uses raw eigenvalues vs cutoffs at effective N. Returns the same shape
+# as factor_matrix plus R (smoothed correlation) and n_eff for downstream use.
+factor_raw <- function(M, pa_iter = 100L, pa_quantile = 0.95) {
+  prep <- prepare_raw_cor(M)
+
+  cut <- pa_cutoffs(prep$n_eff, ncol(M), n.iter = pa_iter,
+                    quantile = pa_quantile)
+  nf_req <- max(2L, sum(prep$eig_raw > cut, na.rm = TRUE))
+  nf_req <- min(nf_req, 20L)
+
+  rk <- sum(prep$eig_raw > 1e-8, na.rm = TRUE)
+  nf <- max(2L, min(nf_req, ncol(M) - 1L, prep$n_eff - 1L, rk - 1L))
+  cat("  raw pa$nf =", nf_req, " capped nf =", nf, "\n")
+
+  efa <- NULL
+  for (k in seq.int(nf, 2L)) {
+    cat("  trying nf =", k, "...\n"); t0 <- Sys.time()
+    efa <- fa_try(prep$R, k, n_obs = prep$n_eff)
+    cat("  nf =", k, "took", Sys.time() - t0, "\n")
+    if (!is.null(efa)) { nf <- k; break }
+  }
+  if (is.null(efa))
+    stop("raw factoring failed at every nf down to 2")
+
+  list(efa = efa, eig = prep$eig_raw, cutoffs = cut,
+       nf = ncol(unclass(efa$loadings)),
+       R = prep$R, n_eff = prep$n_eff)
 }
 
 # One-shot factoring of a completed matrix: cached parallel analysis picks the
@@ -112,14 +180,14 @@ factor_matrix <- function(M, pa_iter = 100L, pa_quantile = 0.95,
 # factors. Schmid-Leiman bifactor via psych::omega: every benchmark loads
 # directly on a general factor g + its group factor; yields omega_h (proportion
 # of variance from g) and omega_total.
-higher_order <- function(M, nf) {
+higher_order <- function(M, nf, n_obs = NA) {
   out <- list(bifactor_loadings = NULL, omega_h = NA_real_,
               omega_h_asymptotic = NA_real_, omega_total = NA_real_,
               omega_group = NULL, nf = nf)
 
   om <- tryCatch(
-    suppressWarnings(psych::omega(M, nfactors = nf, fm = "minres", flip = FALSE,
-                                  plot = FALSE)),
+    suppressWarnings(psych::omega(M, nfactors = nf, n.obs = n_obs, fm = "minres",
+                                  flip = FALSE, plot = FALSE)),
     error = function(e) NULL)
   if (!is.null(om)) {
     out$bifactor_loadings <- unclass(om$schmid$sl)

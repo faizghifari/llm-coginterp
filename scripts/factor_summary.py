@@ -17,7 +17,8 @@ def main():
     con = sqlite3.connect(str(DB_PATH))
     con.row_factory = sqlite3.Row
     cur = con.execute("""
-        SELECT dataset, method, run, nf, var_explained, omega_t, omega_h, omega_hs
+        SELECT dataset, method, run, nf, var_explained, var_factors, var_avg,
+               omega_t, omega_h, omega_hs, phi_avg, phi
         FROM factoring
         ORDER BY omega_h DESC
     """)
@@ -28,14 +29,22 @@ def main():
         print("No rows in factoring table.")
         return
 
-    hdr = f"{'dataset':24s} {'method':14s} {'run':>8s} {'nf':>3s} {'var':>8s} {'ωt':>8s} {'ωh':>8s}  ωhs"
+    hdr = (
+        f"{'dataset':24s} {'method':14s} {'run':>8s} {'nf':>3s} "
+        f"{'var':>8s} {'var_avg':>8s} {'ωt':>8s} {'ωh':>8s}  "
+        f"{'φ_avg':>6s}  ωhs"
+    )
     print(hdr)
-    print("-" * 100)
+    print("-" * 120)
     for r in rows:
         print(
             f"{r['dataset']:24s} {r['method']:14s} {r['run']:>8s} "
-            f"{r['nf']:3d} {r['var_explained'] or 0:8.3f} "
-            f"{r['omega_t'] or 0:8.3f} {r['omega_h'] or 0:8.3f}  {r['omega_hs']}"
+            f"{r['nf']:3d} "
+            f"{r['var_explained'] or 0:8.3f} "
+            f"{r['var_avg'] or 0:8.3f} "
+            f"{r['omega_t'] or 0:8.3f} {r['omega_h'] or 0:8.3f}  "
+            f"{r['phi_avg'] or 0:6.3f}  "
+            f"{r['omega_hs']}"
         )
 
 

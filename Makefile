@@ -73,6 +73,8 @@ runall-impute:
 	Rscript src/run/impute.R --method knn --reimpute --raw
 
 runall-factor:
+	Rscript src/run/factor.R --method raw
+
 	Rscript src/run/factor.R --method softimpute
 	Rscript src/run/factor.R --method softimpute --raw
 
@@ -83,7 +85,7 @@ runall-factor:
 	Rscript src/run/factor.R --method missforest --raw
 
 	Rscript src/run/factor.R --method knn
-	Rscript src/run/factor.R --method knn --raw
+	# Rscript src/run/factor.R --method knn --raw
 
 clean:
 	cd results && rm -rf *

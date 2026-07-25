@@ -16,12 +16,21 @@ db_ensure_factoring_table <- function(con) {
       run           TEXT NOT NULL,
       nf            INTEGER NOT NULL,
       var_explained REAL,
+      var_factors   TEXT,
+      var_avg       REAL,
       omega_t       REAL,
       omega_h       REAL,
       omega_hs      TEXT,
+      phi_avg       REAL,
+      phi           TEXT,
       PRIMARY KEY (dataset, method, run)
     )
   ")
+  new_cols <- c("var_factors TEXT", "var_avg REAL", "phi_avg REAL", "phi TEXT")
+  for (col in new_cols) {
+    tryCatch(dbExecute(con, sprintf("ALTER TABLE factoring ADD COLUMN %s", col)),
+             error = function(e) NULL)
+  }
 }
 
 db_read_r2 <- function(method, dataset, db_file) {
@@ -35,21 +44,26 @@ db_read_r2 <- function(method, dataset, db_file) {
 }
 
 db_insert_factoring <- function(method, dataset, run, nf, var_explained,
-                                omega_t, omega_h, omega_hs, db_file) {
+                                var_factors, var_avg,
+                                omega_t, omega_h, omega_hs,
+                                phi_avg, phi, db_file) {
   con <- dbConnect(SQLite(), db_file)
   on.exit(dbDisconnect(con))
   db_ensure_factoring_table(con)
 
-  hs_json <- if (length(omega_hs) == 0) "[]" else toJSON(omega_hs, digits = 4, na = "null")
+  hs_json  <- if (length(omega_hs) == 0) "[]" else toJSON(omega_hs, digits = 4, na = "null")
+  vf_json  <- if (length(var_factors) == 0) "[]" else toJSON(var_factors, digits = 4, na = "null")
+  phi_json <- if (is.null(phi) || length(phi) == 0) "[]" else toJSON(unname(as.matrix(phi)), digits = 4, na = "null")
 
   dbExecute(con,
     "INSERT OR REPLACE INTO factoring
-       (dataset, method, run, nf, var_explained, omega_t, omega_h, omega_hs)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    params = list(dataset, method, run, nf, var_explained,
-                  omega_t, omega_h, hs_json))
-  cat(sprintf("  db: %s/%s/%s nf=%d var=%.3f ωt=%.3f ωh=%.3f ωhs=%s\n",
-              method, dataset, run, nf, var_explained,
-              omega_t, omega_h, hs_json))
+       (dataset, method, run, nf, var_explained, var_factors, var_avg,
+        omega_t, omega_h, omega_hs, phi_avg, phi)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    params = list(dataset, method, run, nf, var_explained, vf_json, var_avg,
+                  omega_t, omega_h, hs_json, phi_avg, phi_json))
+  cat(sprintf("  db: %s/%s/%s nf=%d var=%.3f var_avg=%.3f ωt=%.3f ωh=%.3f ωhs=%s φ_avg=%.3f φ=%s\n",
+              method, dataset, run, nf, var_explained, var_avg,
+              omega_t, omega_h, hs_json, phi_avg, phi_json))
   invisible(TRUE)
 }

@@ -21,7 +21,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/factor.R [--method <name>] [--raw]
-#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | all
+#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | raw | all
 #     --raw          run ONLY the "raw" densifier level (default: C,S,R)
 #     --data-root    input tree, relative to repo root (default data)
 #     --results-root output tree, relative to repo root (default results)
@@ -40,9 +40,10 @@ if (file.exists(.renv_activate)) source(.renv_activate)
 
 source(file.path(SRC, "factor", "factoring.R"))
 source(file.path(SRC, "factor", "db.R"))
+source(file.path(SRC, "impute", "common.R"))
 
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
-                 "knn", "missforest", "mice")
+                 "knn", "missforest", "mice", "raw")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
   data_root <- "data"; results_root <- "results"
@@ -89,6 +90,17 @@ read_matrix <- function(path) {
 }
 
 build_contract_from_disk <- function(method, dz, st) {
+  if (method == "raw") {
+    sparse_csv <- file.path(DATA_ROOT,
+      if (dz == "raw") "combinations" else sprintf("combinations_%s", dz),
+      st, "model_benchmark_table.csv")
+    if (!file.exists(sparse_csv)) {
+      cat("  missing sparse input:", sparse_csv, "\n")
+      return(NULL)
+    }
+    pm <- prep_matrix(sparse_csv)
+    return(list(M = pm$x, keys = pm$keys))
+  }
   completed_csv <- file.path(DATA_ROOT, "imputed", method, dz, st,
                              "imputed_model_benchmark_table.csv")
   if (!file.exists(completed_csv)) {
@@ -99,8 +111,8 @@ build_contract_from_disk <- function(method, dz, st) {
 }
 
 # Run a single bifactor analysis and write outputs for one (method, dz, st, run_tag).
-do_bifactor <- function(M, nf, method, dz, st, run_tag) {
-  ho <- tryCatch(higher_order(M, nf), error = function(e) {
+do_bifactor <- function(M, nf, method, dz, st, run_tag, n_obs = NA) {
+  ho <- tryCatch(higher_order(M, nf, n_obs = n_obs), error = function(e) {
     cat(sprintf("  higher_order(nf=%d, %s) failed: %s\n", nf, run_tag,
                 conditionMessage(e))); NULL })
   if (is.null(ho)) return(NULL)
@@ -124,6 +136,39 @@ factor_and_report <- function(method, dz, st, M) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   dataset <- paste0(dz, "_", st)
 
+  if (method == "raw") {
+    cat(sprintf("  raw factoring — pairwise-complete correlation (no imputation R² gate)\n"))
+    fr <- factor_raw(M, pa_iter = 100L)
+    pa_nf <- fr$nf
+    var_explained <- extract_variance(fr$efa)
+    st_pa <- efa_stats(fr$efa)
+    cat(sprintf("  factored: nf = %d  cumvar = %.3f  n_eff = %d  phi_avg = %.3f\n",
+                pa_nf, var_explained, fr$n_eff, st_pa$phi_avg))
+
+    ho_pa <- do_bifactor(fr$R, pa_nf, method, dz, st, "pa", n_obs = fr$n_eff)
+    if (!is.null(ho_pa)) {
+      omega_hs_pa <- if (!is.null(ho_pa$omega_group) && "group" %in% colnames(ho_pa$omega_group))
+        ho_pa$omega_group[rownames(ho_pa$omega_group) != "g", "group"] else numeric(0)
+      db_insert_factoring(method, dataset, "pa", pa_nf, var_explained,
+                          st_pa$var_factors, st_pa$var_avg,
+                          ho_pa$omega_total, ho_pa$omega_h, omega_hs_pa,
+                          st_pa$phi_avg, st_pa$phi, DB_FILE)
+    }
+
+    efa_2f <- fa_try(fr$R, 2L, n_obs = fr$n_eff)
+    st_2f <- if (!is.null(efa_2f)) efa_stats(efa_2f) else list(phi_avg = NA_real_, phi = NULL, var_factors = numeric(0), var_avg = NA_real_)
+    ho_2f <- do_bifactor(fr$R, 2L, method, dz, st, "2f", n_obs = fr$n_eff)
+    if (!is.null(ho_2f)) {
+      omega_hs_2f <- if (!is.null(ho_2f$omega_group) && "group" %in% colnames(ho_2f$omega_group))
+        ho_2f$omega_group[rownames(ho_2f$omega_group) != "g", "group"] else numeric(0)
+      db_insert_factoring(method, dataset, "forced2f", 2L, var_explained,
+                          st_2f$var_factors, st_2f$var_avg,
+                          ho_2f$omega_total, ho_2f$omega_h, omega_hs_2f,
+                          st_2f$phi_avg, st_2f$phi, DB_FILE)
+    }
+    return(invisible())
+  }
+
   r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
                  error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
   if (is.na(r2) || r2 < 0.4) {
@@ -136,24 +181,30 @@ factor_and_report <- function(method, dz, st, M) {
   fr <- factor_matrix(M, pa_iter = 100L)
   pa_nf <- fr$nf
   var_explained <- extract_variance(fr$efa)
-  cat(sprintf("  factored: nf = %d  cumvar = %.3f\n", pa_nf, var_explained))
+  st_pa <- efa_stats(fr$efa)
+  cat(sprintf("  factored: nf = %d  cumvar = %.3f  phi_avg = %.3f\n",
+              pa_nf, var_explained, st_pa$phi_avg))
 
-  # PA-based bifactor
   ho_pa <- do_bifactor(M, pa_nf, method, dz, st, "pa")
   if (!is.null(ho_pa)) {
     omega_hs_pa <- if (!is.null(ho_pa$omega_group) && "group" %in% colnames(ho_pa$omega_group))
       ho_pa$omega_group[rownames(ho_pa$omega_group) != "g", "group"] else numeric(0)
     db_insert_factoring(method, dataset, "pa", pa_nf, var_explained,
-                        ho_pa$omega_total, ho_pa$omega_h, omega_hs_pa, DB_FILE)
+                        st_pa$var_factors, st_pa$var_avg,
+                        ho_pa$omega_total, ho_pa$omega_h, omega_hs_pa,
+                        st_pa$phi_avg, st_pa$phi, DB_FILE)
   }
 
-  # Forced 2-factor bifactor
+  efa_2f <- fa_try(M, 2L)
+  st_2f <- if (!is.null(efa_2f)) efa_stats(efa_2f) else list(phi_avg = NA_real_, phi = NULL, var_factors = numeric(0), var_avg = NA_real_)
   ho_2f <- do_bifactor(M, 2L, method, dz, st, "2f")
   if (!is.null(ho_2f)) {
     omega_hs_2f <- if (!is.null(ho_2f$omega_group) && "group" %in% colnames(ho_2f$omega_group))
       ho_2f$omega_group[rownames(ho_2f$omega_group) != "g", "group"] else numeric(0)
     db_insert_factoring(method, dataset, "forced2f", 2L, var_explained,
-                        ho_2f$omega_total, ho_2f$omega_h, omega_hs_2f, DB_FILE)
+                        st_2f$var_factors, st_2f$var_avg,
+                        ho_2f$omega_total, ho_2f$omega_h, omega_hs_2f,
+                        st_2f$phi_avg, st_2f$phi, DB_FILE)
   }
 }
 
