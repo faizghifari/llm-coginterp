@@ -33,43 +33,57 @@ preproc:
 runall:
 	# skip iterativepca (not pushed to git) and mice (slow as hell)
 	# skip sensitivity, probably not needed
-	Rscript src/run/main.R --method softimpute --reimpute
-	Rscript src/run/main.R --method softimpute --reimpute  --raw
+	Rscript src/run/impute.R --method softimpute --reimpute
+	Rscript src/run/impute.R --method softimpute --reimpute  --raw
 
-	Rscript src/run/main.R --method onesidedmc --reimpute
-	Rscript src/run/main.R --method onesidedmc --reimpute --raw
+	Rscript src/run/impute.R --method onesidedmc --reimpute
+	Rscript src/run/impute.R --method onesidedmc --reimpute --raw
 
-	Rscript src/run/main.R --method missforest --reimpute
-	Rscript src/run/main.R --method missforest --reimpute --raw
+	Rscript src/run/impute.R --method missforest --reimpute
+	Rscript src/run/impute.R --method missforest --reimpute --raw
 
-	Rscript src/run/main.R --method knn --reimpute
-	Rscript src/run/main.R --method knn --reimpute --raw
+	Rscript src/run/impute.R --method knn --reimpute
+	Rscript src/run/impute.R --method knn --reimpute --raw
+
+	Rscript src/run/factor.R --method softimpute
+	Rscript src/run/factor.R --method softimpute --raw
+
+	Rscript src/run/factor.R --method onesidedmc
+	Rscript src/run/factor.R --method onesidedmc --raw
+
+	Rscript src/run/factor.R --method missforest
+	Rscript src/run/factor.R --method missforest --raw
+
+	Rscript src/run/factor.R --method knn
+	Rscript src/run/factor.R --method knn --raw
 
 	uv run python scripts/compare_loadings.py
 
-runall-softimpute-csr:
-	Rscript src/run/main.R --method softimpute --reimpute
+runall-impute:
+	Rscript src/run/impute.R --method softimpute --reimpute
+	Rscript src/run/impute.R --method softimpute --reimpute --raw
 
-runall-softimpute-raw:
-	Rscript src/run/main.R --method softimpute --reimpute --raw
+	Rscript src/run/impute.R --method onesidedmc --reimpute
+	Rscript src/run/impute.R --method onesidedmc --reimpute --raw
 
-runall-onesidedmc-csr:
-	Rscript src/run/main.R --method onesidedmc --reimpute
+	Rscript src/run/impute.R --method missforest --reimpute
+	Rscript src/run/impute.R --method missforest --reimpute --raw
 
-runall-onesidedmc-raw:
-	Rscript src/run/main.R --method onesidedmc --reimpute --raw
+	Rscript src/run/impute.R --method knn --reimpute
+	Rscript src/run/impute.R --method knn --reimpute --raw
 
-runall-missforest-csr:
-	Rscript src/run/main.R --method missforest --reimpute
+runall-factor:
+	Rscript src/run/factor.R --method softimpute
+	Rscript src/run/factor.R --method softimpute --raw
 
-runall-missforest-raw:
-	Rscript src/run/main.R --method missforest --reimpute --raw
+	Rscript src/run/factor.R --method onesidedmc
+	Rscript src/run/factor.R --method onesidedmc --raw
 
-runall-knn-csr:
-	Rscript src/run/main.R --method knn --reimpute
+	Rscript src/run/factor.R --method missforest
+	Rscript src/run/factor.R --method missforest --raw
 
-runall-knn-raw:
-	Rscript src/run/main.R --method knn --reimpute --raw
+	Rscript src/run/factor.R --method knn
+	Rscript src/run/factor.R --method knn --raw
 
 clean:
 	cd results && rm -rf *

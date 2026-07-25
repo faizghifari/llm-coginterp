@@ -59,9 +59,12 @@ fa_try <- function(M, nf) {
   efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "minres", rotate = rot)),
                   error = function(e) NULL)
   if (!is.null(efa)) return(efa)
-  tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "minres", rotate = rot,
+  cat(sprintf("    fa_try(nf=%d, rot=%s) failed, retrying SMC=FALSE\n", nf, rot))
+  efa <- tryCatch(suppressWarnings(fa(M, nfactors = nf, fm = "minres", rotate = rot,
                                SMC = FALSE)),
            error = function(e) NULL)
+  if (is.null(efa)) cat(sprintf("    fa_try(nf=%d, SMC=FALSE) also failed\n", nf))
+  efa
 }
 
 run_efa <- function(M, nf) {
@@ -88,12 +91,22 @@ factor_matrix <- function(M, pa_iter = 100L, pa_quantile = 0.95,
                           nf_override = NULL) {
   pa <- choose_nfactors(M, n.iter = pa_iter, quantile = pa_quantile)
   nf_req <- if (!is.null(nf_override)) nf_override else pa$nf
+  nf_req <- min(nf_req, 20L)   # <-- add: cap runaway PA suggestions
   nf <- safe_nf(M, nf_req)
+  cat("  pa$nf =", pa$nf, " capped nf =", nf, "\n")   # <-- add
 
   # Singular / low-rank correlation matrices (p >> n, or low-rank surrogates)
   # can still make PAF fail; step down the factor count until it succeeds
   # (fa_try also retries each k with SMC = FALSE).
+
   efa <- NULL
+  for (k in seq.int(nf, 1L)) {
+    cat("  trying nf =", k, "...\n"); t0 <- Sys.time()   # <-- add
+    efa <- fa_try(M, k)
+    cat("  nf =", k, "took", Sys.time() - t0, "\n")       # <-- add
+    if (!is.null(efa)) { nf <- k; break }
+  }
+
   for (k in seq.int(nf, 1L)) {
     efa <- fa_try(M, k)
     if (!is.null(efa)) { nf <- k; break }

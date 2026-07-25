@@ -35,7 +35,7 @@ REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "data" / "combinations"
 DST_ROOT = REPO / "data"
 TARGET = 0.10  # target density (fraction)
-MIN_OBS = 2  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
+MIN_OBS = 3  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
 # Needed so all downstream methods are well-posed: prep_matrix drops <2-obs cols,
 # and OneSidedMC's pairwise-product loss needs >=2 obs per row (1 obs = 0 pairs).
 KEY = "collapse_key"
@@ -124,6 +124,29 @@ def enforce_min_obs(mask, rkeep, ckeep, min_obs):
     return rkeep, ckeep
 
 
+def drop_degenerate_cols(df, value_cols, min_obs=2):
+    """Drop columns that prep_matrix / drop_degenerate_cols would drop at runtime:
+    fewer than min_obs observed values, zero variance among observed values, or
+    only 1 observation (sd is undefined). Returns (df, dropped_names)."""
+    drop = []
+    for c in value_cols:
+        col = df[c]
+        vals = col.drop_nulls()
+        n = len(vals)
+        if n < min_obs or n <= 1:
+            drop.append(c)
+        elif vals.n_unique() == 1:
+            drop.append(c)
+    if drop:
+        df = df.drop(drop)
+    return df, drop
+
+
+def col_obs_counts(df, value_cols):
+    """Count non-null values per column. Returns list of obs counts (len = ncols)."""
+    return [df[c].len() - df[c].null_count() for c in value_cols]
+
+
 def run_densifier(mask: np.ndarray, densifier: str):
     if densifier == "C":
         return peel(mask, TARGET, "col")
@@ -138,6 +161,13 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
     df = pl.read_csv(SRC / strategy / "model_benchmark_table.csv")
     value_cols = [c for c in df.columns if c != KEY]
 
+    # ── column obs distribution (raw input) ────────────────────────────────
+    raw_obs = col_obs_counts(df, value_cols)
+    raw_obs2 = sum(1 for n in raw_obs if n == 2)
+    raw_degen = sum(1 for n in raw_obs if n < MIN_OBS)
+    raw_const = sum(1 for c, n in zip(value_cols, raw_obs)
+                    if n >= MIN_OBS and df[c].drop_nulls().n_unique() == 1)
+
     mask = df.select(value_cols).to_pandas().notna().to_numpy()  # models x benchmarks
     orig_models, orig_bench = mask.shape
     orig_filled = int(mask.sum())
@@ -147,6 +177,18 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
 
     kept_cols = [KEY] + [c for c, k in zip(value_cols, ckeep) if k]
     out = df.select(kept_cols).filter(pl.Series(rkeep))
+
+    # ── column degeneracy guard (parity with prep_matrix / drop_degenerate_cols) ──
+    out_value_cols = [c for c in out.columns if c != KEY]
+    out, dropped = drop_degenerate_cols(out, out_value_cols, MIN_OBS)
+    out_value_cols = [c for c in out.columns if c != KEY]
+    if dropped:
+        for c in dropped:
+            ckeep[value_cols.index(c)] = False
+
+    # ── column obs distribution (densified output) ─────────────────────────
+    out_obs = col_obs_counts(out, out_value_cols)
+    out_obs2 = sum(1 for n in out_obs if n == 2)
 
     sub = mask[np.ix_(rkeep, ckeep)]
     kept_filled = int(sub.sum())
@@ -164,7 +206,7 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
         "orig_benchmarks": orig_bench,
         "orig_density_pct": round(100 * orig_filled / (orig_models * orig_bench), 4),
         "kept_models": out.height,
-        "kept_benchmarks": len(kept_cols) - 1,
+        "kept_benchmarks": len(out_value_cols),
         "min_obs": MIN_OBS,
         "density_pct": round(100 * density, 4),
         "sparsity_pct": round(100 * (1 - density), 4),
@@ -172,24 +214,55 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
     }
     if not peek:
         pl.DataFrame([row]).write_csv(out_dir / "summary.csv")
+
+    # ── diagnostic print ───────────────────────────────────────────────────
+    print(
+        f"[{densifier}] {strategy:16} "
+        f"{orig_models}x{orig_bench} "
+        f"({orig_filled} cells, {100*orig_filled/(orig_models*orig_bench):.1f}%) -> "
+        f"{out.height}x{len(out_value_cols)} "
+        f"({100*density:.1f}%)  retained {100*kept_filled/orig_filled:.0f}%"
+        f"  out obs=2: {out_obs2}"
+    )
+    # parts = []
+    # if raw_obs2: parts.append(f"raw obs=2: {raw_obs2}")
+    # if raw_degen: parts.append(f"raw <{MIN_OBS}: {raw_degen}")
+    # if raw_const: parts.append(f"raw zero-var: {raw_const}")
+    # if dropped: parts.append(f"dropped degen: {len(dropped)}")
+    # if out_obs2: parts.append(f"out obs=2: {out_obs2}")
+    # if parts:
+    #     print("  | " + "  ".join(parts))
+    # else:
+    #     print()
+
     return row
 
 
 def main(peek: bool = False):
     all_rows = []
+
+    # ── raw table column-obs diagnostics (undensified inputs) ──────────────
+    for strategy in STRATEGIES:
+        rdf = pl.read_csv(SRC / strategy / "model_benchmark_table.csv")
+        rvc = [c for c in rdf.columns if c != KEY]
+        raw_obs = col_obs_counts(rdf, rvc)
+        raw_obs2 = sum(1 for n in raw_obs if n == 2)
+        raw_degen = sum(1 for n in raw_obs if n < MIN_OBS)
+        raw_const = sum(1 for c, n in zip(rvc, raw_obs)
+                        if n >= MIN_OBS and rdf[c].drop_nulls().n_unique() == 1)
+        print(
+            f"[raw] {strategy:16} "
+            f"{rdf.height}x{len(rvc)} "
+            # f"| raw obs=2: {raw_obs2}  raw <{MIN_OBS}: {raw_degen}"
+            # + (f"  raw zero-var: {raw_const}" if raw_const else "")
+        )
+
     for densifier in DENSIFIERS:
         rows = []
         for strategy in STRATEGIES:
             r = densify_one(strategy, densifier, peek=peek)
             rows.append(r)
             all_rows.append(r)
-            print(
-                f"[{densifier}] {strategy:16} "
-                f"{r['orig_models']}x{r['orig_benchmarks']} "
-                f"({r['orig_density_pct']:.1f}%) -> "
-                f"{r['kept_models']}x{r['kept_benchmarks']} "
-                f"({r['density_pct']:.1f}%)  retained {r['data_retained_pct']:.0f}%"
-            )
         if not peek:
             pl.DataFrame(rows).write_csv(DST_ROOT / f"combinations_{densifier}" / "summary.csv")
     if peek:
