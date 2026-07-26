@@ -67,3 +67,32 @@ db_insert_factoring <- function(method, dataset, run, nf, var_explained,
               omega_t, omega_h, hs_json, phi_avg, phi_json))
   invisible(TRUE)
 }
+
+db_ensure_loco_table <- function(con) {
+  dbExecute(con, "
+    CREATE TABLE IF NOT EXISTS loco (
+      dataset       TEXT NOT NULL,
+      method        TEXT NOT NULL,
+      run           TEXT NOT NULL,
+      nf            INTEGER NOT NULL,
+      delta_omega_h TEXT,
+      PRIMARY KEY (dataset, method, run)
+    )
+  ")
+}
+
+db_insert_loco <- function(method, dataset, run, nf, delta_omega_h, db_file) {
+  con <- dbConnect(SQLite(), db_file)
+  on.exit(dbDisconnect(con))
+  db_ensure_loco_table(con)
+
+  delta_json <- if (length(delta_omega_h) == 0) "[]" else toJSON(delta_omega_h, digits = 4, na = "null")
+
+  dbExecute(con,
+    "INSERT OR REPLACE INTO loco (dataset, method, run, nf, delta_omega_h)
+     VALUES (?, ?, ?, ?, ?)",
+    params = list(dataset, method, run, nf, delta_json))
+  cat(sprintf("  db loco: %s/%s/%s nf=%d delta_len=%d\n",
+              method, dataset, run, nf, length(delta_omega_h)))
+  invisible(TRUE)
+}

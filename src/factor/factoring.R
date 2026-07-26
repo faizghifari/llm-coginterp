@@ -15,6 +15,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 suppressMessages(library(psych))
+suppressMessages({ library(doParallel); library(foreach) })
 
 # Resolve this file's own directory so the sibling source + PA cache work from
 # any CWD, whether run via Rscript (--file=) or source()'d (ofile in a frame).
@@ -101,19 +102,21 @@ efa_stats <- function(efa) {
 }
 
 # Pairwise-complete correlation from a sparse matrix (NAs allowed), PSD-smoothed.
-# Returns the smoothed correlation R, effective N (harmonic mean of per-pair
-# complete-case counts), and eigenvalues of the RAW correlation (unsmoothed).
+# Returns the smoothed correlation R, the raw dataset's row count as the effective
+# sample size (N), and eigenvalues of the RAW correlation (unsmoothed).
+#
+# We use nrow(M) directly rather than the harmonic mean of pairwise complete-case
+# counts. The harmonic mean is unreliable with zero-imputation sparse data because
+# a single column pair with zero overlapping non-NA observations sends 1/0 = Inf
+# and collapses the entire effective sample size to zero. The raw row count is a
+# stable, conservative estimate that avoids this singularity and is appropriate
+# for no-imputation pairwise-complete correlation analysis where every row
+# contributes at least some pairwise information.
 prepare_raw_cor <- function(M) {
   R <- cor(M, use = "pairwise.complete.obs")
   R[!is.finite(R)] <- 0; diag(R) <- 1
 
-  p <- ncol(M)
-  N_mat <- matrix(NA_integer_, p, p)
-  for (i in seq_len(p)) for (j in seq_len(p)) {
-    N_mat[i, j] <- sum(stats::complete.cases(M[, c(i, j)]))
-  }
-  pw_n <- N_mat[upper.tri(N_mat)]
-  n_eff <- round(length(pw_n) / sum(1 / pw_n))
+  n_eff <- nrow(M)
 
   eig_raw <- sort(eigen(R, symmetric = TRUE, only.values = TRUE)$values,
                   decreasing = TRUE)
@@ -207,6 +210,39 @@ omega_h_only <- function(M, nf) {
     error = function(e) NULL)
   if (is.null(om)) NA_real_ else tryCatch(as.numeric(om$omega_h),
                                           error = function(e) NA_real_)
+}
+
+# Leave-One-Covariate-Out delta omega_h: for each benchmark (column index i),
+# drop the i-th row and column from the correlation matrix R, run a promax EFA
+# followed by a bifactor omega_h on the reduced matrix, and return
+# omega_h_full - omega_h_{-i} for every benchmark. Workers = detectCores() - 2
+# (embarrassingly parallel).
+loco_delta <- function(R, n_obs, nf) {
+  p <- ncol(R)
+
+  omega_full <- tryCatch(
+    suppressWarnings(psych::omega(R, nfactors = nf, n.obs = n_obs,
+                                   fm = "minres", flip = FALSE, plot = FALSE)$omega_h),
+    error = function(e) NA_real_)
+  if (is.na(omega_full)) return(rep(NA_real_, p))
+
+  n_workers <- max(1L, detectCores() - 2L)
+  cl <- makeCluster(n_workers)
+  registerDoParallel(cl)
+  on.exit({ stopCluster(cl); registerDoSEQ() })
+
+  omega_i <- foreach(i = seq_len(p), .packages = "psych",
+                     .export = "fa_try",
+                     .combine = c) %dopar% {
+    R_i <- R[-i, -i, drop = FALSE]
+    fa_try(R_i, nf, n_obs = n_obs)
+    tryCatch(
+      suppressWarnings(psych::omega(R_i, nfactors = nf, n.obs = n_obs,
+                                     fm = "minres", flip = FALSE, plot = FALSE)$omega_h),
+      error = function(e) NA_real_)
+  }
+
+  omega_full - unlist(omega_i)
 }
 
 # Generic loading-matrix -> markdown table (rowname column + numeric cols).

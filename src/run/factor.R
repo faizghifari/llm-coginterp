@@ -45,7 +45,7 @@ source(file.path(SRC, "impute", "common.R"))
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
                  "knn", "missforest", "mice", "raw")
 parse_args <- function(args) {
-  method <- "all"; raw <- FALSE; smoke <- FALSE
+  method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE
   data_root <- "data"; results_root <- "results"
   i <- 1L
   while (i <= length(args)) {
@@ -55,12 +55,13 @@ parse_args <- function(args) {
     else if (a == "--results-root") { results_root <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--raw")   { raw   <- TRUE; i <- i + 1L }
     else if (a == "--smoke") { smoke <- TRUE; i <- i + 1L }
+    else if (a == "--loco")  { loco  <- TRUE; i <- i + 1L }
     else stop("unknown arg: ", a)
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
   list(methods = if (method == "all") ALL_METHODS else method,
-       raw = raw, smoke = smoke,
+       raw = raw, smoke = smoke, loco = loco,
        data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -68,6 +69,7 @@ opt <- parse_args(commandArgs(trailingOnly = TRUE))
 METHODS    <- opt$methods
 DENSIFIERS <- if (opt$raw) "raw" else c("C", "S", "R")
 STRATEGIES <- c("all_standard", "all_aggressive")
+LOCO       <- opt$loco       # leave-one-covariate-out delta omega_h mode
 DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
 RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
 dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
@@ -136,13 +138,50 @@ factor_and_report <- function(method, dz, st, M) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   dataset <- paste0(dz, "_", st)
 
+  if (LOCO) {
+    if (method == "raw") {
+      prep    <- prepare_raw_cor(M)
+      R       <- prep$R
+      n_obs   <- prep$n_eff
+      cut     <- pa_cutoffs(n_obs, ncol(M))
+      nf_pa   <- max(2L, sum(prep$eig_raw > cut, na.rm = TRUE))
+      nf_pa   <- min(nf_pa, 20L)
+      nf_pa   <- max(2L, min(nf_pa, ncol(M) - 1L, n_obs - 1L,
+                             sum(prep$eig_raw > 1e-8, na.rm = TRUE) - 1L))
+    } else {
+      r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
+                     error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
+      if (is.na(r2) || r2 < 0.4) {
+        cat(sprintf("  skipping LOCO (%s) — imputation R² = %s < 0.4\n", tag,
+                    if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
+        return(invisible())
+      }
+      cat(sprintf("  R² = %.3f >= 0.4, proceeding\n", r2))
+      R     <- cor(M)
+      n_obs <- nrow(M)
+      pa    <- choose_nfactors(M)
+      nf_pa <- min(pa$nf, 20L)
+      nf_pa <- safe_nf(M, nf_pa)
+    }
+
+    cat(sprintf("  LOCO pa nf=%d\n", nf_pa))
+    deltas_pa <- loco_delta(R, n_obs, nf_pa)
+    db_insert_loco(method, dataset, "pa", nf_pa, deltas_pa, DB_FILE)
+
+    cat("  LOCO forced2f nf=2\n")
+    deltas_2f <- loco_delta(R, n_obs, 2L)
+    db_insert_loco(method, dataset, "forced2f", 2L, deltas_2f, DB_FILE)
+
+    return(invisible())
+  }
+
   if (method == "raw") {
     cat(sprintf("  raw factoring — pairwise-complete correlation (no imputation R² gate)\n"))
     fr <- factor_raw(M, pa_iter = 100L)
     pa_nf <- fr$nf
     var_explained <- extract_variance(fr$efa)
     st_pa <- efa_stats(fr$efa)
-    cat(sprintf("  factored: nf = %d  cumvar = %.3f  n_eff = %d  phi_avg = %.3f\n",
+    cat(sprintf("  factored: nf = %d  cumvar = %.3f  n = %d  phi_avg = %.3f\n",
                 pa_nf, var_explained, fr$n_eff, st_pa$phi_avg))
 
     ho_pa <- do_bifactor(fr$R, pa_nf, method, dz, st, "pa", n_obs = fr$n_eff)

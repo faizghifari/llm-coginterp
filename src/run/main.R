@@ -57,7 +57,7 @@ ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
                  "knn", "missforest", "mice", "raw")
 parse_args <- function(args) {
   method <- "all"; smoke <- FALSE; raw <- FALSE
-  reimpute <- FALSE; no_balance <- FALSE
+  reimpute <- FALSE; no_balance <- FALSE; loco <- FALSE
   data_root <- "data"; results_root <- "results"
   i <- 1L
   while (i <= length(args)) {
@@ -69,13 +69,14 @@ parse_args <- function(args) {
     else if (a == "--raw")         { raw        <- TRUE; i <- i + 1L }
     else if (a == "--reimpute")    { reimpute   <- TRUE; i <- i + 1L }
     else if (a == "--no-balance")  { no_balance <- TRUE; i <- i + 1L }
+    else if (a == "--loco")        { loco       <- TRUE; i <- i + 1L }
     else stop("unknown arg: ", a)
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
   list(methods = if (method == "all") ALL_METHODS else method,
        smoke = smoke, raw = raw, reimpute = reimpute,
-       no_balance = no_balance,
+       no_balance = no_balance, loco = loco,
        data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -86,6 +87,7 @@ METHODS    <- opt$methods
 DENSIFIERS <- if (opt$raw) "raw" else c("C", "S", "R")
 STRATEGIES <- c("all_standard", "all_aggressive")
 REIMPUTE   <- opt$reimpute   # force fresh imputation even if an imputed CSV exists
+LOCO       <- opt$loco       # leave-one-covariate-out delta omega_h mode
 # --no-balance: revert held-out RMSE/R^2 to the old cell-weighted score (high-
 # frequency columns dominate). Default is column-balanced (mean of per-column
 # scores). Set in common.R's BALANCE_HOLDOUT, which the scorers read.
@@ -205,6 +207,43 @@ do_bifactor <- function(M, nf, method, dz, st, run_tag, n_obs = NA) {
 factor_and_report <- function(method, dz, st, M) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   dataset <- paste0(dz, "_", st)
+
+  if (LOCO) {
+    if (method == "raw") {
+      prep    <- prepare_raw_cor(M)
+      R       <- prep$R
+      n_obs   <- prep$n_eff
+      cut     <- pa_cutoffs(n_obs, ncol(M))
+      nf_pa   <- max(2L, sum(prep$eig_raw > cut, na.rm = TRUE))
+      nf_pa   <- min(nf_pa, 20L)
+      nf_pa   <- max(2L, min(nf_pa, ncol(M) - 1L, n_obs - 1L,
+                             sum(prep$eig_raw > 1e-8, na.rm = TRUE) - 1L))
+    } else {
+      r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
+                     error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
+      if (is.na(r2) || r2 < 0.4) {
+        cat(sprintf("  skipping LOCO (%s) — imputation R² = %s < 0.4\n", tag,
+                    if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
+        return(invisible())
+      }
+      cat(sprintf("  R² = %.3f >= 0.4, proceeding\n", r2))
+      R     <- cor(M)
+      n_obs <- nrow(M)
+      pa    <- choose_nfactors(M)
+      nf_pa <- min(pa$nf, 20L)
+      nf_pa <- safe_nf(M, nf_pa)
+    }
+
+    cat(sprintf("  LOCO pa nf=%d\n", nf_pa))
+    deltas_pa <- loco_delta(R, n_obs, nf_pa)
+    db_insert_loco(method, dataset, "pa", nf_pa, deltas_pa, DB_FILE)
+
+    cat("  LOCO forced2f nf=2\n")
+    deltas_2f <- loco_delta(R, n_obs, 2L)
+    db_insert_loco(method, dataset, "forced2f", 2L, deltas_2f, DB_FILE)
+
+    return(invisible())
+  }
 
   if (method == "raw") {
     cat(sprintf("  raw factoring — pairwise-complete correlation (no imputation R² gate)\n"))

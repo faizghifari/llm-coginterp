@@ -20,7 +20,7 @@ def main():
         SELECT dataset, method, run, nf, var_explained, var_factors, var_avg,
                omega_t, omega_h, omega_hs, phi_avg, phi
         FROM factoring
-        ORDER BY omega_h DESC
+        ORDER BY phi_avg DESC
     """)
     rows = cur.fetchall()
     con.close()
@@ -31,8 +31,8 @@ def main():
 
     hdr = (
         f"{'dataset':24s} {'method':14s} {'run':>8s} {'nf':>3s} "
-        f"{'var':>8s} {'var_avg':>8s} {'ωt':>8s} {'ωh':>8s}  "
-        f"{'φ_avg':>6s}  ωhs"
+        f"{'var%':>8s} {'var% avg':>8s} {'ωt':>8s} {'ωh':>8s}  "
+        f"{'φ_avg':>6s}"
     )
     print(hdr)
     print("-" * 120)
@@ -44,7 +44,6 @@ def main():
             f"{r['var_avg'] or 0:8.3f} "
             f"{r['omega_t'] or 0:8.3f} {r['omega_h'] or 0:8.3f}  "
             f"{r['phi_avg'] or 0:6.3f}  "
-            f"{r['omega_hs']}"
         )
 
 

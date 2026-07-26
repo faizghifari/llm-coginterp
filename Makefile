@@ -85,7 +85,22 @@ runall-factor:
 	Rscript src/run/factor.R --method missforest --raw
 
 	Rscript src/run/factor.R --method knn
-	# Rscript src/run/factor.R --method knn --raw
+	Rscript src/run/factor.R --method knn --raw
+
+runall-loco:
+	Rscript src/run/factor.R --method raw --loco
+
+	Rscript src/run/factor.R --method softimpute --loco
+	Rscript src/run/factor.R --method softimpute --raw --loco
+
+	Rscript src/run/factor.R --method onesidedmc --loco
+	Rscript src/run/factor.R --method onesidedmc --raw --loco
+
+	# Rscript src/run/factor.R --method missforest --loco
+	Rscript src/run/factor.R --method missforest --raw --loco
+
+	Rscript src/run/factor.R --method knn --loco
+	Rscript src/run/factor.R --method knn --raw --loco
 
 clean:
 	cd results && rm -rf *
