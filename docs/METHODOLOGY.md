@@ -207,7 +207,7 @@ writes `data/combinations_<C|R|S>/<strategy>/`.
 - **raw**: the undensified matrix, run through the pipeline as a contrast level
   (gated behind `--raw` in the orchestrator because it's slow).
 
-After peeling, a hardcoded `MIN_OBS = 2` floor is enforced on **both** axes
+After peeling, a hardcoded `MIN_OBS = 3` floor is enforced on **both** axes
 (every kept model and benchmark must have ≥2 scores) so all downstream methods
 are well-posed. Knobs (`TARGET`, `MIN_OBS`) are constants at the top of the file;
 `--peek` previews shapes/density without writing. Only `all_standard` and

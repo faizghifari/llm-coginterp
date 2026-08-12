@@ -1,35 +1,26 @@
 """Plot KDE density of benchmark observation counts (non-missing scores per
 benchmark column) across the raw table and each densifier, for both strategies.
-
 Reads:
   data/combinations/<strategy>/model_benchmark_table.csv
   data/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv
-
 Writes:
-  data/density.png   (4 rows x 2 columns, KDE bell curves)
+  data/density.png   (4 rows x 2 columns, KDE bell curves + histograms)
 """
-
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
-
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "data"
-
 STRATEGIES = ["all_standard", "all_aggressive"]
 KEY = "collapse_key"
-
 SOURCES = [
     ("standard", "combinations"),
     ("C", "combinations_C"),
     ("R", "combinations_R"),
     ("S", "combinations_S"),
 ]
-
-
 def benchmark_obs_counts(csv_path: Path):
     df = pl.read_csv(csv_path)
     value_cols = [c for c in df.columns if c != KEY]
@@ -37,27 +28,42 @@ def benchmark_obs_counts(csv_path: Path):
     pairs.sort(key=lambda x: x[1])
     counts = np.array([p[1] for p in pairs], dtype=float)
     return pairs, counts
-
-
 def main():
     fig, axes = plt.subplots(4, 2, figsize=(12, 14), sharex=False)
     xs = np.linspace(0, 450, 500)
-
     colors = {"all_standard": "#2196F3", "all_aggressive": "#F44336"}
-
     for row_idx, (label, src_dir) in enumerate(SOURCES):
         for col_idx, strat in enumerate(STRATEGIES):
             ax = axes[row_idx, col_idx]
             csv_path = DATA / src_dir / strat / "model_benchmark_table.csv"
             _, counts = benchmark_obs_counts(csv_path)
+            color = colors[strat]
+            x_max = max(counts.max() * 1.05, 10)
+
+            # Histogram on its own y-axis (frequency), drawn behind the KDE.
+            ax_hist = ax.twinx()
+            n_bins = min(25, max(5, int(np.sqrt(len(counts)) * 2)))
+            bin_edges = np.linspace(0, x_max, n_bins + 1)
+            ax_hist.hist(
+                counts,
+                bins=bin_edges,
+                color=color,
+                alpha=0.25,
+                edgecolor="white",
+                linewidth=0.5,
+            )
+            ax_hist.set_ylim(bottom=0)
+
+            # Put the KDE axes on top with a transparent background so the
+            # histogram shows through underneath it.
+            ax.set_zorder(ax_hist.get_zorder() + 1)
+            ax.patch.set_visible(False)
 
             kde = gaussian_kde(counts)
-            ax.plot(xs, kde(xs), color=colors[strat], linewidth=2)
-            ax.fill_between(xs, kde(xs), color=colors[strat], alpha=0.15)
-
-            ax.set_xlim(0, max(counts.max() * 1.05, 10))
+            ax.plot(xs, kde(xs), color=color, linewidth=2)
+            ax.fill_between(xs, kde(xs), color=color, alpha=0.15)
+            ax.set_xlim(0, x_max)
             ax.set_ylim(bottom=0)
-
             mean_val = counts.mean()
             ax.axvline(mean_val, color="black", linestyle="--", linewidth=0.8, alpha=0.6)
             ax.text(
@@ -69,21 +75,21 @@ def main():
                 va="top",
                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.7),
             )
-
             if row_idx == 0:
                 ax.set_title(strat.replace("all_", "").title(), fontsize=11, fontweight="bold")
             if row_idx == 3:
                 ax.set_xlabel("Observation count per benchmark")
-
+            if col_idx == 1:
+                ax_hist.set_ylabel("Frequency", fontsize=9)
+            else:
+                ax_hist.set_yticklabels([])
         axes[row_idx, 0].set_ylabel(f"{label}\n\nDensity", fontsize=10)
-
     fig.suptitle("Benchmark observation count distributions", fontsize=13, fontweight="bold", y=1.01)
     fig.tight_layout()
-    out_path = DATA / "density.png"
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    out_path = "results/density_data.png"
+    fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {out_path}")
-
     # ── top 10 / bottom 10 per source+strategy ──────────────────────────
     for label, src_dir in SOURCES:
         for strat in STRATEGIES:
@@ -91,12 +97,10 @@ def main():
             pairs, _ = benchmark_obs_counts(csv_path)
             print(f"\n── {label} / {strat} ({len(pairs)} benchmarks) ──")
             print("  Top 10 most observed:")
-            for c, n in pairs[-10:][::-1]:
+            for c, n in pairs[-40:][::-1]:
                 print(f"    {c:50s} {n:4d}")
             print("  Bottom 10 least observed:")
-            for c, n in pairs[:10]:
+            for c, n in pairs[:40]:
                 print(f"    {c:50s} {n:4d}")
-
-
 if __name__ == "__main__":
     main()

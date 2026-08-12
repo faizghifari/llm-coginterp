@@ -35,7 +35,7 @@ REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "data" / "combinations"
 DST_ROOT = REPO / "data"
 TARGET = 0.10  # target density (fraction)
-MIN_OBS = 3  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
+MIN_OBS = 4  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
 # Needed so all downstream methods are well-posed: prep_matrix drops <2-obs cols,
 # and OneSidedMC's pairwise-product loss needs >=2 obs per row (1 obs = 0 pairs).
 KEY = "collapse_key"
