@@ -21,7 +21,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/factor.R [--method <name>] [--raw]
-#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | raw | all
+#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | default | cvxr | ggm | all
 #     --raw          run ONLY the "raw" densifier level (default: C,S,R)
 #     --data-root    input tree, relative to repo root (default data)
 #     --results-root output tree, relative to repo root (default results)
@@ -43,7 +43,8 @@ source(file.path(SRC, "factor", "db.R"))
 source(file.path(SRC, "impute", "common.R"))
 
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
-                 "knn", "missforest", "mice", "raw")
+                 "knn", "missforest", "mice", "default", "cvxr", "ggm")
+RAW_METHODS <- c("default", "cvxr", "ggm")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE
   data_root <- "data"; results_root <- "results"
@@ -92,7 +93,7 @@ read_matrix <- function(path) {
 }
 
 build_contract_from_disk <- function(method, dz, st) {
-  if (method == "raw") {
+  if (method %in% RAW_METHODS) {
     sparse_csv <- file.path(DATA_ROOT,
       if (dz == "raw") "combinations" else sprintf("combinations_%s", dz),
       st, "model_benchmark_table.csv")
@@ -139,8 +140,11 @@ factor_and_report <- function(method, dz, st, M) {
   dataset <- paste0(dz, "_", st)
 
   if (LOCO) {
-    if (method == "raw") {
-      prep    <- prepare_raw_cor(M)
+    if (method %in% RAW_METHODS) {
+      prep <- switch(method,
+        default = prepare_raw_default(M),
+        cvxr    = prepare_raw_cvxr(M),
+        ggm     = prepare_raw_ggm(M))
       R       <- prep$R
       n_obs   <- prep$n_eff
       cut     <- pa_cutoffs(n_obs, ncol(M))
@@ -175,9 +179,9 @@ factor_and_report <- function(method, dz, st, M) {
     return(invisible())
   }
 
-  if (method == "raw") {
-    cat(sprintf("  raw factoring — pairwise-complete correlation (no imputation R² gate)\n"))
-    fr <- factor_raw(M, pa_iter = 100L)
+  if (method %in% RAW_METHODS) {
+    cat(sprintf("  %s factoring — pairwise-complete correlation (no imputation R² gate)\n", method))
+    fr <- factor_raw(M, pa_iter = 100L, method = method)
     pa_nf <- fr$nf
     var_explained <- extract_variance(fr$efa)
     st_pa <- efa_stats(fr$efa)

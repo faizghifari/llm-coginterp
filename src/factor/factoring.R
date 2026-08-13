@@ -16,6 +16,7 @@
 
 suppressMessages(library(psych))
 suppressMessages({ library(doParallel); library(foreach) })
+suppressMessages({ library(CVXR); library(ggm) })
 
 # Resolve this file's own directory so the sibling source + PA cache work from
 # any CWD, whether run via Rscript (--file=) or source()'d (ofile in a frame).
@@ -112,7 +113,7 @@ efa_stats <- function(efa) {
 # stable, conservative estimate that avoids this singularity and is appropriate
 # for no-imputation pairwise-complete correlation analysis where every row
 # contributes at least some pairwise information.
-prepare_raw_cor <- function(M) {
+prepare_raw_default <- function(M) {
   R <- cor(M, use = "pairwise.complete.obs")
   off_diag <- R[upper.tri(R)]
   mu <- mean(off_diag[is.finite(off_diag)])
@@ -128,11 +129,105 @@ prepare_raw_cor <- function(M) {
   list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
 }
 
+# Shared by prepare_raw_cvxr / prepare_raw_ggm: pairwise-complete correlations,
+# plus a mask of which entries are "trustworthy" (co-observed row count >=
+# min_n) vs which should be left for the completion method to fill rather than
+# taken at face value. Untrusted/non-finite entries are zeroed as placeholders
+# only -- they're never read by the completion methods, only the mask is.
+partial_cor_mask <- function(M, min_n = 10L) {
+  present <- !is.na(M)
+  n_pair <- crossprod(present)  # p x p co-observed-row counts, vectorized
+  R <- suppressWarnings(cor(M, use = "pairwise.complete.obs"))
+
+  mask <- (n_pair >= min_n) & is.finite(R)
+  diag(mask) <- TRUE
+
+  R[!is.finite(R)] <- 0
+  diag(R) <- 1
+
+  list(R = R, mask = mask, n_pair = n_pair)
+}
+
+# Direct SDP completion (Vandenberghe/Boyd/Wu MAXDET): maximize log-det(Sigma)
+# subject to Sigma == R on `mask` entries and Sigma PSD. No decomposability
+# assumption, so it works regardless of whether the observed pattern is
+# chordal. Used directly by prepare_raw_cvxr, and as prepare_raw_ggm's
+# fallback when fitConGraph fails outright.
+cvxr_maxdet_complete <- function(R, mask) {
+  p <- ncol(R)
+  Sigma_var <- CVXR::Variable(c(p, p), symmetric = TRUE)
+
+  obs <- which(upper.tri(mask, diag = TRUE) & mask, arr.ind = TRUE)
+  constraints <- list(Sigma_var %>>% 0)
+  for (k in seq_len(nrow(obs))) {
+    i <- obs[k, 1]; j <- obs[k, 2]
+    constraints[[length(constraints) + 1]] <- Sigma_var[i, j] == R[i, j]
+  }
+
+  prob <- CVXR::Problem(CVXR::Maximize(CVXR::log_det(Sigma_var)), constraints)
+  CVXR::psolve(prob, solver = "SCS")
+  st <- CVXR::status(prob)
+  if (!st %in% c("optimal", "optimal_inaccurate"))
+    stop("cvxr_maxdet_complete: solver status = ", st)
+
+  out <- CVXR::value(Sigma_var)
+  dimnames(out) <- dimnames(R)
+  out
+}
+
+# Method "cvxr": pairwise-complete correlations trusted where co-observed
+# n >= min_n; everything else filled via MAXDET completion instead of
+# mean-imputation. cor.smooth is still applied as a cheap safety net against
+# solver numerical slack, not because the completion is expected to be
+# non-PSD.
+prepare_raw_cvxr <- function(M, min_n = 10L) {
+  pc <- partial_cor_mask(M, min_n = min_n)
+  R_complete <- cvxr_maxdet_complete(pc$R, pc$mask)
+
+  n_eff <- nrow(M)
+  eig_raw <- sort(eigen(R_complete, symmetric = TRUE, only.values = TRUE)$values,
+                  decreasing = TRUE)
+  R_smooth <- psych::cor.smooth(R_complete)
+
+  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
+}
+
+# Method "ggm": same trusted/untrusted split as prepare_raw_cvxr, but
+# completion via ggm::fitConGraph (graphical-model MLE, iterative conditional
+# fitting -- handles non-chordal patterns, not just decomposable ones). Falls
+# back to the CVXR completion if fitConGraph errors outright (e.g. a
+# degenerate/disconnected pattern).
+prepare_raw_ggm <- function(M, min_n = 10L) {
+  pc <- partial_cor_mask(M, min_n = min_n)
+  amat <- pc$mask
+  diag(amat) <- FALSE
+
+  fit <- tryCatch(
+    ggm::fitConGraph(amat, pc$R, n = nrow(M)),
+    error = function(e) {
+      cat("  fitConGraph failed (", conditionMessage(e), "), falling back to CVXR completion\n")
+      NULL
+    })
+  R_complete <- if (!is.null(fit)) fit$Shat else cvxr_maxdet_complete(pc$R, pc$mask)
+
+  n_eff <- nrow(M)
+  eig_raw <- sort(eigen(R_complete, symmetric = TRUE, only.values = TRUE)$values,
+                  decreasing = TRUE)
+  R_smooth <- psych::cor.smooth(R_complete)
+
+  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
+}
+
 # Factoring of sparse data via pairwise-complete correlation + PSD smoothing.
 # PA uses raw eigenvalues vs cutoffs at effective N. Returns the same shape
 # as factor_matrix plus R (smoothed correlation) and n_eff for downstream use.
-factor_raw <- function(M, pa_iter = 100L, pa_quantile = 0.95) {
-  prep <- prepare_raw_cor(M)
+factor_raw <- function(M, pa_iter = 100L, pa_quantile = 0.95,
+                       method = c("default", "cvxr", "ggm"), min_n = 10L) {
+  method <- match.arg(method)
+  prep <- switch(method,
+    default = prepare_raw_default(M),
+    cvxr    = prepare_raw_cvxr(M, min_n = min_n),
+    ggm     = prepare_raw_ggm(M, min_n = min_n))
 
   cut <- pa_cutoffs(prep$n_eff, ncol(M), n.iter = pa_iter,
                     quantile = pa_quantile)
