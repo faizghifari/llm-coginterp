@@ -114,7 +114,10 @@ efa_stats <- function(efa) {
 # contributes at least some pairwise information.
 prepare_raw_cor <- function(M) {
   R <- cor(M, use = "pairwise.complete.obs")
-  R[!is.finite(R)] <- 0; diag(R) <- 1
+  off_diag <- R[upper.tri(R)]
+  mu <- mean(off_diag[is.finite(off_diag)])
+  R[!is.finite(R)] <- mu
+  diag(R) <- 1
 
   n_eff <- nrow(M)
 
