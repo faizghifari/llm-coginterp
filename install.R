@@ -34,6 +34,7 @@ pkgs <- c(
   "foreach",     # parallel sensitivity seed-sweeps
   "boot",         # bootstrap CIs (reference code)
   "DBI",
+  "CVXR",
   "RSQLite"
   # "parallel" is part of base R — no install needed.
 )
@@ -41,7 +42,7 @@ pkgs <- c(
 # Bootstrap renv itself into the user library if absent.
 if (!requireNamespace("renv", quietly = TRUE)) {
   cat("Installing renv...\n")
-  install.packages("renv")
+  install.packages("renv", Ncpu=ncores)
 }
 
 if (file.exists(file.path(REPO, "renv.lock"))) {
@@ -50,6 +51,9 @@ if (file.exists(file.path(REPO, "renv.lock"))) {
   cat("renv.lock found -> renv::restore()\n")
   renv::restore(prompt = FALSE)
   missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager", Ncpu=ncores)
+  BiocManager::install("ggm")
   if (length(missing)) {
     cat("Installing newly-added packages:", paste(missing, collapse = ", "), "\n")
     renv::install(missing)

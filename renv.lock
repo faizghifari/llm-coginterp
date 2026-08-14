@@ -9,6 +9,71 @@
     ]
   },
   "Packages": {
+    "CVXR": {
+      "Package": "CVXR",
+      "Version": "1.9.1",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Disciplined Convex Optimization",
+      "Date": "2026-06-05",
+      "Authors@R": "c( person(\"Anqi\", \"Fu\", role = c(\"aut\", \"cre\"), email = \"anqif@alumni.stanford.edu\"), person(\"Balasubramanian\", \"Narasimhan\", role = c(\"aut\"), email = \"naras@stat.stanford.edu\"), person(\"Steven\", \"Diamond\", role = c(\"aut\")), person(\"John\", \"Miller\", role = c(\"aut\")), person(\"Stephen\", \"Boyd\", role = c(\"ctb\"), email = \"boyd@stanford.edu\") )",
+      "URL": "https://cvxr.rbind.io, https://www.cvxgrp.org/CVXR/",
+      "BugReports": "https://github.com/cvxgrp/CVXR/issues",
+      "Description": "An object-oriented modeling language for disciplined convex programming (DCP) as described in Fu, Narasimhan, and Boyd (2020, <doi:10.18637/jss.v094.i14>). It allows the user to formulate convex optimization problems in a natural way following mathematical convention and DCP rules. The system analyzes the problem, verifies its convexity, converts it into a canonical form, and hands it off to an appropriate solver to obtain the solution. This version uses the S7 object system for improved performance and maintainability.",
+      "Depends": [
+        "R (>= 4.3.0)"
+      ],
+      "Imports": [
+        "S7 (>= 0.2)",
+        "methods",
+        "Matrix (>= 1.7)",
+        "Rcpp (>= 1.1)",
+        "clarabel (>= 0.11)",
+        "cli (>= 3.6)",
+        "gmp (>= 0.7)",
+        "highs (>= 1.14)",
+        "osqp (>= 1.0)",
+        "scs (>= 3.2)",
+        "slam (>= 0.1)"
+      ],
+      "Suggests": [
+        "jsonlite (>= 1.9)",
+        "knitr",
+        "rmarkdown",
+        "testthat (>= 3.3)",
+        "rlang"
+      ],
+      "Enhances": [
+        "Rmosek",
+        "gurobi (>= 13.0)",
+        "Rglpk (>= 0.6)",
+        "ECOSolveR (>= 0.6)",
+        "Rcplex (>= 0.3)",
+        "cccp (>= 0.3)",
+        "piqp (>= 0.6)",
+        "scip",
+        "xpress",
+        "diffcp (>= 0.1)",
+        "ipopt",
+        "sparsediff",
+        "Uno"
+      ],
+      "Additional_repositories": "https://bnaras.r-universe.dev, https://bnaras.github.io/drat",
+      "LinkingTo": [
+        "Rcpp",
+        "RcppEigen"
+      ],
+      "License": "Apache License 2.0 | file LICENSE",
+      "LazyData": "true",
+      "Encoding": "UTF-8",
+      "VignetteBuilder": "knitr",
+      "Config/testthat/edition": "3",
+      "Config/roxygen2/version": "8.0.0",
+      "NeedsCompilation": "yes",
+      "Author": "Anqi Fu [aut, cre], Balasubramanian Narasimhan [aut], Steven Diamond [aut], John Miller [aut], Stephen Boyd [ctb]",
+      "Maintainer": "Anqi Fu <anqif@alumni.stanford.edu>",
+      "Repository": "CRAN"
+    },
     "DBI": {
       "Package": "DBI",
       "Version": "1.3.0",
@@ -1158,6 +1223,36 @@
       "Maintainer": "Michel Lang <michellang@gmail.com>",
       "Repository": "CRAN"
     },
+    "clarabel": {
+      "Package": "clarabel",
+      "Version": "0.11.2",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Interior Point Conic Optimization Solver",
+      "Authors@R": "c(person(\"Balasubramanian\", \"Narasimhan\", role = c(\"aut\", \"cre\"), email = \"naras@stanford.edu\"), person(\"Paul\", \"Goulart\", role = c(\"aut\", \"cph\")), person(\"Yuwen\", \"Chen\", role = c(\"aut\")), person(\"Hiroaki\", \"Yutani\", role = c(\"ctb\"), comment = \"For vendoring/Makefile hints/R scripts for generating crate authors/licenses\"), person(\"David\", \"Zimmermann-Kollenda\", role = c(\"ctb\"), comment = \"For configure scripts and tools/msvr.R lifted from rtiktoken package\"),  person(given = \"The authors of the dependency Rust crates\", role = c(\"ctb\"),\t comment = \"see inst/AUTHORS file for details\"))",
+      "Description": "A versatile interior point solver that solves linear programs (LPs), quadratic programs (QPs), second-order cone programs (SOCPs), semidefinite programs (SDPs), and problems with exponential and power cone constraints (<https://clarabel.org/stable/>). For quadratic objectives, unlike interior point solvers based on the standard homogeneous self-dual embedding (HSDE) model, Clarabel handles quadratic objective without requiring any epigraphical reformulation of its objective function. It can therefore be significantly faster than other HSDE-based solvers for problems with quadratic objective functions. Infeasible problems are detected using using a homogeneous embedding technique.",
+      "License": "Apache License (== 2.0)",
+      "Encoding": "UTF-8",
+      "RoxygenNote": "7.3.3",
+      "URL": "https://oxfordcontrol.github.io/clarabel-r/",
+      "BugReports": "https://github.com/oxfordcontrol/clarabel-r/issues",
+      "Suggests": [
+        "knitr",
+        "Matrix",
+        "rmarkdown",
+        "tinytest"
+      ],
+      "VignetteBuilder": "knitr",
+      "SystemRequirements": "Cargo (Rust's package manager), rustc (>= 1.70.0), and GNU Make",
+      "Imports": [
+        "cli",
+        "methods"
+      ],
+      "NeedsCompilation": "yes",
+      "Author": "Balasubramanian Narasimhan [aut, cre], Paul Goulart [aut, cph], Yuwen Chen [aut], Hiroaki Yutani [ctb] (For vendoring/Makefile hints/R scripts for generating crate authors/licenses), David Zimmermann-Kollenda [ctb] (For configure scripts and tools/msvr.R lifted from rtiktoken package), The authors of the dependency Rust crates [ctb] (see inst/AUTHORS file for details)",
+      "Maintainer": "Balasubramanian Narasimhan <naras@stanford.edu>",
+      "Repository": "CRAN"
+    },
     "class": {
       "Package": "class",
       "Version": "7.3-23",
@@ -2271,6 +2366,35 @@
       "Maintainer": "Jennifer Bryan <jenny@posit.co>",
       "Repository": "CRAN"
     },
+    "gmp": {
+      "Package": "gmp",
+      "Version": "0.7-5.1",
+      "Source": "Repository",
+      "Date": "2024-08-23",
+      "Title": "Multiple Precision Arithmetic",
+      "Authors@R": "c(person(\"Antoine\",\"Lucas\",role = c(\"aut\",\"cre\"), email = \"antoinelucas@gmail.com\", comment = c(ORCID=\"0000-0002-8059-9767\")), person(\"Immanuel\",\"Scholz\", role= \"aut\"), person(\"Rainer\",\"Boehme\", role = \"ctb\", email= \"rb-gmp@reflex-studio.de\"), person(\"Sylvain\",\"Jasson\", role = \"ctb\", email= \"Sylvain.Jasson@inrae.fr\"), person(\"Martin\", \"Maechler\", role = \"ctb\", email=\"maechler@stat.math.ethz.ch\"))",
+      "Maintainer": "Antoine Lucas <antoinelucas@gmail.com>",
+      "Description": "Multiple Precision Arithmetic (big integers and rationals, prime number tests, matrix computation), \"arithmetic without limitations\" using the C library GMP (GNU Multiple Precision Arithmetic).",
+      "Depends": [
+        "R (>= 3.5.0)"
+      ],
+      "Imports": [
+        "methods"
+      ],
+      "Suggests": [
+        "Rmpfr",
+        "MASS",
+        "round"
+      ],
+      "SystemRequirements": "gmp (>= 4.2.3)",
+      "License": "GPL (>= 2)",
+      "BuildResaveData": "no",
+      "LazyDataNote": "not available, as we use data/*.R *and* our classes",
+      "NeedsCompilation": "yes",
+      "URL": "https://forgemia.inra.fr/sylvain.jasson/gmp",
+      "Author": "Antoine Lucas [aut, cre] (ORCID: <https://orcid.org/0000-0002-8059-9767>), Immanuel Scholz [aut], Rainer Boehme [ctb], Sylvain Jasson [ctb], Martin Maechler [ctb]",
+      "Repository": "CRAN"
+    },
     "gtable": {
       "Package": "gtable",
       "Version": "0.3.6",
@@ -2358,6 +2482,43 @@
       "NeedsCompilation": "yes",
       "Author": "Hadley Wickham [aut, cre], Evan Miller [aut, cph] (Author of included ReadStat code), Danny Smith [aut], Posit Software, PBC [cph, fnd]",
       "Maintainer": "Hadley Wickham <hadley@posit.co>",
+      "Repository": "CRAN"
+    },
+    "highs": {
+      "Package": "highs",
+      "Version": "1.14.0-2",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "'HiGHS' Optimization Solver",
+      "Authors@R": "c(person(\"Florian\", \"Schwendinger\", email = \"FlorianSchwendinger@gmx.at\", role = c(\"aut\", \"cre\")), person(\"Balasubramanian\", \"Narasimhan\", role = c(\"aut\"), email = \"naras@stat.stanford.edu\"), person(\"Dirk\", \"Schumacher\", role = \"aut\"), person(\"Julian\", \"Hall\", role = \"cph\"), person(\"Ivet\", \"Galabova\", role = \"cph\"), person(\"Leona\", \"Gottwald\", role = \"cph\"), person(\"Michael\", \"Feldmeier\", role = \"cph\"))",
+      "Description": "R interface to 'HiGHS', an optimization solver for solving mixed integer optimization problems with quadratic or linear objective and linear constraints.",
+      "License": "GPL (>= 2)",
+      "Imports": [
+        "Rcpp (>= 1.0.7)",
+        "checkmate"
+      ],
+      "Depends": [
+        "R (>= 4.0.0)"
+      ],
+      "SystemRequirements": "Bash, PkgConfig, CMAKE (>=3.16), C++17",
+      "URL": "https://gitlab.com/roigrp/solver/highs",
+      "BugReports": "https://gitlab.com/roigrp/solver/highs/-/work_items/issues",
+      "Suggests": [
+        "tinytest",
+        "knitr",
+        "rmarkdown",
+        "Matrix"
+      ],
+      "VignetteBuilder": "knitr",
+      "Biarch": "FALSE",
+      "LinkingTo": [
+        "Rcpp"
+      ],
+      "Encoding": "UTF-8",
+      "RoxygenNote": "7.3.3",
+      "NeedsCompilation": "yes",
+      "Author": "Florian Schwendinger [aut, cre], Balasubramanian Narasimhan [aut], Dirk Schumacher [aut], Julian Hall [cph], Ivet Galabova [cph], Leona Gottwald [cph], Michael Feldmeier [cph]",
+      "Maintainer": "Florian Schwendinger <FlorianSchwendinger@gmx.at>",
       "Repository": "CRAN"
     },
     "hms": {
@@ -3799,6 +3960,44 @@
       "Maintainer": "Rune Haubo Bojesen Christensen <rune.haubo@gmail.com>",
       "Repository": "CRAN"
     },
+    "osqp": {
+      "Package": "osqp",
+      "Version": "1.0.0",
+      "Source": "Repository",
+      "Title": "Quadratic Programming Solver using the 'OSQP' Library",
+      "Date": "2026-02-27",
+      "Authors@R": "c( person(\"Bartolomeo\", \"Stellato\", role = c(\"aut\", \"ctb\", \"cph\"), email = \"bartolomeo.stellato@gmail.com\"), person(\"Goran\", \"Banjac\", role = c(\"aut\", \"ctb\", \"cph\")), person(\"Paul\", \"Goulart\", role = c(\"aut\", \"ctb\", \"cph\"), email = \"paul.goulart@eng.ox.ac.uk\"), person(\"Stephen\", \"Boyd\", role = c(\"aut\", \"ctb\", \"cph\")), person(\"Eric\", \"Anderson\", role = c(\"ctb\")), person(\"Vineet\", \"Bansal\", role = c(\"aut\", \"ctb\"), email = \"vineetb@princeton.edu\"), person(\"Balasubramanian\", \"Narasimhan\", role = c(\"cre\", \"aut\"), email = \"naras@stanford.edu\"))",
+      "Copyright": "file COPYRIGHT",
+      "Description": "Provides bindings to the 'OSQP' solver. The 'OSQP' solver is a numerical optimization package for solving convex quadratic programs written in 'C' and based on the alternating direction method of multipliers. See <doi:10.48550/arXiv.1711.08013> for details.",
+      "License": "Apache License 2.0 | file LICENSE",
+      "SystemRequirements": "C++17, GNU make",
+      "Imports": [
+        "Rcpp (>= 0.12.14)",
+        "methods",
+        "Matrix (>= 1.6.1)",
+        "S7",
+        "cli"
+      ],
+      "LinkingTo": [
+        "Rcpp"
+      ],
+      "RoxygenNote": "7.3.3",
+      "Collate": "'RcppExports.R' 'osqp-package.R' 'sparse.R' 'solve.R' 'osqp.R' 'params.R'",
+      "NeedsCompilation": "yes",
+      "VignetteBuilder": "knitr",
+      "Suggests": [
+        "knitr",
+        "rmarkdown",
+        "slam",
+        "testthat"
+      ],
+      "Encoding": "UTF-8",
+      "BugReports": "https://github.com/osqp/osqp-r/issues",
+      "URL": "https://osqp.org",
+      "Author": "Bartolomeo Stellato [aut, ctb, cph], Goran Banjac [aut, ctb, cph], Paul Goulart [aut, ctb, cph], Stephen Boyd [aut, ctb, cph], Eric Anderson [ctb], Vineet Bansal [aut, ctb], Balasubramanian Narasimhan [cre, aut]",
+      "Maintainer": "Balasubramanian Narasimhan <naras@stanford.edu>",
+      "Repository": "CRAN"
+    },
     "palmerpenguins": {
       "Package": "palmerpenguins",
       "Version": "0.1.1",
@@ -4688,6 +4887,31 @@
       "Maintainer": "Thomas Lin Pedersen <thomas.pedersen@posit.co>",
       "Repository": "CRAN"
     },
+    "scs": {
+      "Package": "scs",
+      "Version": "3.2.7",
+      "Source": "Repository",
+      "Title": "Splitting Conic Solver",
+      "Authors@R": "c( person(\"Florian\", \"Schwendinger\", role = c(\"aut\", \"cre\"), email = \"FlorianSchwendinger@gmx.at\"), person(\"Brendan\", \"O'Donoghue\", role = c(\"aut\", \"cph\")), person(\"Balasubramanian\", \"Narasimhan\", role = c(\"aut\")), person(\"Timothy A.\", \"Davis\", role = \"cph\"), person(\"Patrick R.\", \"Amestory\", role = \"cph\"), person(\"Iain S.\", \"Duff\", role = \"cph\"))",
+      "Description": "Solves convex cone programs via operator splitting. Can solve: linear programs ('LPs'), second-order cone programs ('SOCPs'), semidefinite programs ('SDPs'), exponential cone programs ('ECPs'), and power cone programs ('PCPs'), or problems with any combination of those cones. 'SCS' uses 'AMD' (a set of routines for permuting sparse matrices prior to factorization) and 'LDL' (a sparse 'LDL' factorization and solve package) from 'SuiteSparse' (<https://people.engr.tamu.edu/davis/suitesparse.html>).",
+      "Depends": [
+        "R (>= 3.5.0)"
+      ],
+      "SystemRequirements": "GNU Make",
+      "Suggests": [
+        "Matrix",
+        "slam",
+        "tinytest"
+      ],
+      "Encoding": "UTF-8",
+      "License": "GPL-3",
+      "URL": "https://github.com/FlorianSchwendinger/scs",
+      "RoxygenNote": "7.2.0",
+      "NeedsCompilation": "yes",
+      "Author": "Florian Schwendinger [aut, cre], Brendan O'Donoghue [aut, cph], Balasubramanian Narasimhan [aut], Timothy A. Davis [cph], Patrick R. Amestory [cph], Iain S. Duff [cph]",
+      "Maintainer": "Florian Schwendinger <FlorianSchwendinger@gmx.at>",
+      "Repository": "CRAN"
+    },
     "shape": {
       "Package": "shape",
       "Version": "1.4.6.1",
@@ -4706,6 +4930,30 @@
       "Description": "Functions for plotting graphical shapes such as ellipses, circles, cylinders, arrows, ...",
       "License": "GPL (>= 3)",
       "NeedsCompilation": "no",
+      "Repository": "CRAN"
+    },
+    "slam": {
+      "Package": "slam",
+      "Version": "0.1-56",
+      "Source": "Repository",
+      "Title": "Sparse Lightweight Arrays and Matrices",
+      "Authors@R": "c(person(\"Kurt\", \"Hornik\", role = c(\"aut\", \"cre\"), email = \"Kurt.Hornik@R-project.org\", comment = c(ORCID = \"0000-0003-4198-9911\")), person(\"David\", \"Meyer\", role = \"aut\", email = \"David.Meyer@R-project.org\", comment = c(ORCID = \"0000-0002-5196-3048\")), person(\"Christian\", \"Buchta\", role = \"aut\"))",
+      "Description": "Data structures and algorithms for sparse arrays and matrices, based on index arrays and simple triplet representations, respectively.",
+      "Depends": [
+        "R (>= 3.4.0)"
+      ],
+      "Imports": [
+        "stats"
+      ],
+      "Enhances": [
+        "Matrix",
+        "SparseM",
+        "spam"
+      ],
+      "License": "GPL-2",
+      "NeedsCompilation": "yes",
+      "Author": "Kurt Hornik [aut, cre] (ORCID: <https://orcid.org/0000-0003-4198-9911>), David Meyer [aut] (ORCID: <https://orcid.org/0000-0002-5196-3048>), Christian Buchta [aut]",
+      "Maintainer": "Kurt Hornik <Kurt.Hornik@R-project.org>",
       "Repository": "CRAN"
     },
     "softImpute": {

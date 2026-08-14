@@ -129,12 +129,30 @@ prepare_raw_default <- function(M) {
   list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
 }
 
+# Method "zeros": like "default" (pairwise-complete correlation) but fills
+# unobserved / non-finite off-diagonal pairs with 0 instead of the average
+# off-diagonal correlation. This treats absent co-observation as "no
+# association" rather than imputing the typical pairwise correlation.
+prepare_raw_zeros <- function(M) {
+  R <- cor(M, use = "pairwise.complete.obs")
+  R[!is.finite(R)] <- 0
+  diag(R) <- 1
+
+  n_eff <- nrow(M)
+
+  eig_raw <- sort(eigen(R, symmetric = TRUE, only.values = TRUE)$values,
+                  decreasing = TRUE)
+  R_smooth <- psych::cor.smooth(R)
+
+  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
+}
+
 # Shared by prepare_raw_cvxr / prepare_raw_ggm: pairwise-complete correlations,
 # plus a mask of which entries are "trustworthy" (co-observed row count >=
 # min_n) vs which should be left for the completion method to fill rather than
 # taken at face value. Untrusted/non-finite entries are zeroed as placeholders
 # only -- they're never read by the completion methods, only the mask is.
-partial_cor_mask <- function(M, min_n = 10L) {
+partial_cor_mask <- function(M, min_n = 4L) {
   present <- !is.na(M)
   n_pair <- crossprod(present)  # p x p co-observed-row counts, vectorized
   R <- suppressWarnings(cor(M, use = "pairwise.complete.obs"))
@@ -149,11 +167,17 @@ partial_cor_mask <- function(M, min_n = 10L) {
 }
 
 # Direct SDP completion (Vandenberghe/Boyd/Wu MAXDET): maximize log-det(Sigma)
-# subject to Sigma == R on `mask` entries and Sigma PSD. No decomposability
-# assumption, so it works regardless of whether the observed pattern is
-# chordal. Used directly by prepare_raw_cvxr, and as prepare_raw_ggm's
-# fallback when fitConGraph fails outright.
-cvxr_maxdet_complete <- function(R, mask) {
+# subject to Sigma PSD and Sigma matching R on `mask` entries within a
+# per-pair Fisher-z confidence band (diagonal matched exactly, since it must
+# stay 1). A single flat tolerance can't serve both a pair estimated from
+# n=10 and one from n=200 -- their sampling uncertainty differs by a lot --
+# so the band is scaled to each pair's actual n via the Fisher-z SE
+# (1/sqrt(n-3)). Even so, no PSD matrix may exist within band for badly
+# inconsistent pairs; that's a genuine infeasibility, not a bug. No
+# decomposability assumption, so this works regardless of whether the
+# observed pattern is chordal. Used by prepare_raw_cvxr only -- prepare_raw_ggm
+# has no fallback.
+cvxr_maxdet_complete <- function(R, mask, n_pair, ci_mult = 2) {
   p <- ncol(R)
   Sigma_var <- CVXR::Variable(c(p, p), symmetric = TRUE)
 
@@ -161,14 +185,24 @@ cvxr_maxdet_complete <- function(R, mask) {
   constraints <- list(Sigma_var %>>% 0)
   for (k in seq_len(nrow(obs))) {
     i <- obs[k, 1]; j <- obs[k, 2]
-    constraints[[length(constraints) + 1]] <- Sigma_var[i, j] == R[i, j]
+    if (i == j) {
+      constraints[[length(constraints) + 1]] <- Sigma_var[i, j] == R[i, j]
+      next
+    }
+    se <- 1 / sqrt(max(n_pair[i, j] - 3, 1))
+    z  <- atanh(min(max(R[i, j], -0.999), 0.999))
+    lo <- tanh(z - ci_mult * se)
+    hi <- tanh(z + ci_mult * se)
+    constraints[[length(constraints) + 1]] <- Sigma_var[i, j] >= lo
+    constraints[[length(constraints) + 1]] <- Sigma_var[i, j] <= hi
   }
 
   prob <- CVXR::Problem(CVXR::Maximize(CVXR::log_det(Sigma_var)), constraints)
   CVXR::psolve(prob, solver = "SCS")
   st <- CVXR::status(prob)
   if (!st %in% c("optimal", "optimal_inaccurate"))
-    stop("cvxr_maxdet_complete: solver status = ", st)
+    stop("cvxr_maxdet_complete: solver status = ", st,
+         " (raise ci_mult -- the trusted pairwise correlations may not be jointly PSD-consistent even at their sampling uncertainty)")
 
   out <- CVXR::value(Sigma_var)
   dimnames(out) <- dimnames(R)
@@ -180,9 +214,9 @@ cvxr_maxdet_complete <- function(R, mask) {
 # mean-imputation. cor.smooth is still applied as a cheap safety net against
 # solver numerical slack, not because the completion is expected to be
 # non-PSD.
-prepare_raw_cvxr <- function(M, min_n = 10L) {
+prepare_raw_cvxr <- function(M, min_n = 10L, ci_mult = 2) {
   pc <- partial_cor_mask(M, min_n = min_n)
-  R_complete <- cvxr_maxdet_complete(pc$R, pc$mask)
+  R_complete <- cvxr_maxdet_complete(pc$R, pc$mask, pc$n_pair, ci_mult = ci_mult)
 
   n_eff <- nrow(M)
   eig_raw <- sort(eigen(R_complete, symmetric = TRUE, only.values = TRUE)$values,
@@ -194,21 +228,15 @@ prepare_raw_cvxr <- function(M, min_n = 10L) {
 
 # Method "ggm": same trusted/untrusted split as prepare_raw_cvxr, but
 # completion via ggm::fitConGraph (graphical-model MLE, iterative conditional
-# fitting -- handles non-chordal patterns, not just decomposable ones). Falls
-# back to the CVXR completion if fitConGraph errors outright (e.g. a
-# degenerate/disconnected pattern).
+# fitting -- handles non-chordal patterns, not just decomposable ones). No
+# fallback -- if fitConGraph fails, this method fails, full stop.
 prepare_raw_ggm <- function(M, min_n = 10L) {
   pc <- partial_cor_mask(M, min_n = min_n)
   amat <- pc$mask
   diag(amat) <- FALSE
 
-  fit <- tryCatch(
-    ggm::fitConGraph(amat, pc$R, n = nrow(M)),
-    error = function(e) {
-      cat("  fitConGraph failed (", conditionMessage(e), "), falling back to CVXR completion\n")
-      NULL
-    })
-  R_complete <- if (!is.null(fit)) fit$Shat else cvxr_maxdet_complete(pc$R, pc$mask)
+  fit <- ggm::fitConGraph(amat, pc$R, n = nrow(M))
+  R_complete <- fit$Shat
 
   n_eff <- nrow(M)
   eig_raw <- sort(eigen(R_complete, symmetric = TRUE, only.values = TRUE)$values,
@@ -222,10 +250,11 @@ prepare_raw_ggm <- function(M, min_n = 10L) {
 # PA uses raw eigenvalues vs cutoffs at effective N. Returns the same shape
 # as factor_matrix plus R (smoothed correlation) and n_eff for downstream use.
 factor_raw <- function(M, pa_iter = 100L, pa_quantile = 0.95,
-                       method = c("default", "cvxr", "ggm"), min_n = 10L) {
+                       method = c("default", "zeros", "cvxr", "ggm"), min_n = 10L) {
   method <- match.arg(method)
   prep <- switch(method,
     default = prepare_raw_default(M),
+    zeros   = prepare_raw_zeros(M),
     cvxr    = prepare_raw_cvxr(M, min_n = min_n),
     ggm     = prepare_raw_ggm(M, min_n = min_n))
 

@@ -21,7 +21,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/factor.R [--method <name>] [--raw]
-#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | default | cvxr | ggm | all
+#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | default | zeros | cvxr | ggm | all
 #     --raw          run ONLY the "raw" densifier level (default: C,S,R)
 #     --data-root    input tree, relative to repo root (default data)
 #     --results-root output tree, relative to repo root (default results)
@@ -43,8 +43,8 @@ source(file.path(SRC, "factor", "db.R"))
 source(file.path(SRC, "impute", "common.R"))
 
 ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
-                 "knn", "missforest", "mice", "default", "cvxr", "ggm")
-RAW_METHODS <- c("default", "cvxr", "ggm")
+                 "knn", "missforest", "mice", "default", "zeros", "cvxr", "ggm")
+RAW_METHODS <- c("default", "zeros", "cvxr", "ggm")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE
   data_root <- "data"; results_root <- "results"
@@ -143,6 +143,7 @@ factor_and_report <- function(method, dz, st, M) {
     if (method %in% RAW_METHODS) {
       prep <- switch(method,
         default = prepare_raw_default(M),
+        zeros   = prepare_raw_zeros(M),
         cvxr    = prepare_raw_cvxr(M),
         ggm     = prepare_raw_ggm(M))
       R       <- prep$R
