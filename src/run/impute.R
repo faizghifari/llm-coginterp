@@ -12,7 +12,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/impute.R [--method <name>] [--raw] [--reimpute]
-#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | all
+#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | cvxr | ggm | all
 #     --raw          run ONLY the undensified "raw" level (default: C,S,R)
 #     --reimpute     force fresh imputation even if an imputed CSV exists
 #     --data-root    input tree, relative to repo root (default data)
@@ -36,7 +36,7 @@ source(file.path(SRC, "impute", "db.R"))
 
 ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "onesidedmc", "knn", "missforest", "mice",
-                 "optspace", "usvt")
+                 "optspace", "usvt", "cvxr", "ggm")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
   reimpute <- FALSE; no_balance <- FALSE
@@ -115,6 +115,14 @@ impute_R <- function(method, x) {
   } else if (method == "mice") {
     source(file.path(SRC, "impute", "mice", "method.R"))
     impute_mice(x)
+  } else if (method == "cvxr") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "cvxr", "method.R"))
+    impute_cvxr(x)
+  } else if (method == "ggm") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "ggm", "method.R"))
+    impute_ggm(x)
   } else stop("not an R imputer: ", method)
 }
 

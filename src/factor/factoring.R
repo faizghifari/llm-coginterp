@@ -16,7 +16,6 @@
 
 suppressMessages(library(psych))
 suppressMessages({ library(doParallel); library(foreach) })
-suppressMessages({ library(CVXR); library(ggm) })
 
 # Resolve this file's own directory so the sibling source + PA cache work from
 # any CWD, whether run via Rscript (--file=) or source()'d (ofile in a frame).
@@ -147,116 +146,15 @@ prepare_raw_zeros <- function(M) {
   list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
 }
 
-# Shared by prepare_raw_cvxr / prepare_raw_ggm: pairwise-complete correlations,
-# plus a mask of which entries are "trustworthy" (co-observed row count >=
-# min_n) vs which should be left for the completion method to fill rather than
-# taken at face value. Untrusted/non-finite entries are zeroed as placeholders
-# only -- they're never read by the completion methods, only the mask is.
-partial_cor_mask <- function(M, min_n = 4L) {
-  present <- !is.na(M)
-  n_pair <- crossprod(present)  # p x p co-observed-row counts, vectorized
-  R <- suppressWarnings(cor(M, use = "pairwise.complete.obs"))
-
-  mask <- (n_pair >= min_n) & is.finite(R)
-  diag(mask) <- TRUE
-
-  R[!is.finite(R)] <- 0
-  diag(R) <- 1
-
-  list(R = R, mask = mask, n_pair = n_pair)
-}
-
-# Direct SDP completion (Vandenberghe/Boyd/Wu MAXDET): maximize log-det(Sigma)
-# subject to Sigma PSD and Sigma matching R on `mask` entries within a
-# per-pair Fisher-z confidence band (diagonal matched exactly, since it must
-# stay 1). A single flat tolerance can't serve both a pair estimated from
-# n=10 and one from n=200 -- their sampling uncertainty differs by a lot --
-# so the band is scaled to each pair's actual n via the Fisher-z SE
-# (1/sqrt(n-3)). Even so, no PSD matrix may exist within band for badly
-# inconsistent pairs; that's a genuine infeasibility, not a bug. No
-# decomposability assumption, so this works regardless of whether the
-# observed pattern is chordal. Used by prepare_raw_cvxr only -- prepare_raw_ggm
-# has no fallback.
-cvxr_maxdet_complete <- function(R, mask, n_pair, ci_mult = 2) {
-  p <- ncol(R)
-  Sigma_var <- CVXR::Variable(c(p, p), symmetric = TRUE)
-
-  obs <- which(upper.tri(mask, diag = TRUE) & mask, arr.ind = TRUE)
-  constraints <- list(Sigma_var %>>% 0)
-  for (k in seq_len(nrow(obs))) {
-    i <- obs[k, 1]; j <- obs[k, 2]
-    if (i == j) {
-      constraints[[length(constraints) + 1]] <- Sigma_var[i, j] == R[i, j]
-      next
-    }
-    se <- 1 / sqrt(max(n_pair[i, j] - 3, 1))
-    z  <- atanh(min(max(R[i, j], -0.999), 0.999))
-    lo <- tanh(z - ci_mult * se)
-    hi <- tanh(z + ci_mult * se)
-    constraints[[length(constraints) + 1]] <- Sigma_var[i, j] >= lo
-    constraints[[length(constraints) + 1]] <- Sigma_var[i, j] <= hi
-  }
-
-  prob <- CVXR::Problem(CVXR::Maximize(CVXR::log_det(Sigma_var)), constraints)
-  CVXR::psolve(prob, solver = "SCS")
-  st <- CVXR::status(prob)
-  if (!st %in% c("optimal", "optimal_inaccurate"))
-    stop("cvxr_maxdet_complete: solver status = ", st,
-         " (raise ci_mult -- the trusted pairwise correlations may not be jointly PSD-consistent even at their sampling uncertainty)")
-
-  out <- CVXR::value(Sigma_var)
-  dimnames(out) <- dimnames(R)
-  out
-}
-
-# Method "cvxr": pairwise-complete correlations trusted where co-observed
-# n >= min_n; everything else filled via MAXDET completion instead of
-# mean-imputation. cor.smooth is still applied as a cheap safety net against
-# solver numerical slack, not because the completion is expected to be
-# non-PSD.
-prepare_raw_cvxr <- function(M, min_n = 10L, ci_mult = 2) {
-  pc <- partial_cor_mask(M, min_n = min_n)
-  R_complete <- cvxr_maxdet_complete(pc$R, pc$mask, pc$n_pair, ci_mult = ci_mult)
-
-  n_eff <- nrow(M)
-  eig_raw <- sort(eigen(R_complete, symmetric = TRUE, only.values = TRUE)$values,
-                  decreasing = TRUE)
-  R_smooth <- psych::cor.smooth(R_complete)
-
-  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
-}
-
-# Method "ggm": same trusted/untrusted split as prepare_raw_cvxr, but
-# completion via ggm::fitConGraph (graphical-model MLE, iterative conditional
-# fitting -- handles non-chordal patterns, not just decomposable ones). No
-# fallback -- if fitConGraph fails, this method fails, full stop.
-prepare_raw_ggm <- function(M, min_n = 10L) {
-  pc <- partial_cor_mask(M, min_n = min_n)
-  amat <- pc$mask
-  diag(amat) <- FALSE
-
-  fit <- ggm::fitConGraph(amat, pc$R, n = nrow(M))
-  R_complete <- fit$Shat
-
-  n_eff <- nrow(M)
-  eig_raw <- sort(eigen(R_complete, symmetric = TRUE, only.values = TRUE)$values,
-                  decreasing = TRUE)
-  R_smooth <- psych::cor.smooth(R_complete)
-
-  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
-}
-
 # Factoring of sparse data via pairwise-complete correlation + PSD smoothing.
 # PA uses raw eigenvalues vs cutoffs at effective N. Returns the same shape
 # as factor_matrix plus R (smoothed correlation) and n_eff for downstream use.
 factor_raw <- function(M, pa_iter = 100L, pa_quantile = 0.95,
-                       method = c("default", "zeros", "cvxr", "ggm"), min_n = 10L) {
+                       method = c("default", "zeros"), min_n = 10L) {
   method <- match.arg(method)
   prep <- switch(method,
     default = prepare_raw_default(M),
-    zeros   = prepare_raw_zeros(M),
-    cvxr    = prepare_raw_cvxr(M, min_n = min_n),
-    ggm     = prepare_raw_ggm(M, min_n = min_n))
+    zeros   = prepare_raw_zeros(M))
 
   cut <- pa_cutoffs(prep$n_eff, ncol(M), n.iter = pa_iter,
                     quantile = pa_quantile)

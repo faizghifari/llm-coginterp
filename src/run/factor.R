@@ -46,7 +46,7 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "onesidedmc", "knn", "missforest", "mice",
                  "optspace", "usvt",
                  "default", "zeros", "cvxr", "ggm")
-RAW_METHODS <- c("default", "zeros", "cvxr", "ggm")
+RAW_METHODS <- c("default", "zeros")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE
   data_root <- "data"; results_root <- "results"
@@ -145,9 +145,7 @@ factor_and_report <- function(method, dz, st, M) {
     if (method %in% RAW_METHODS) {
       prep <- switch(method,
         default = prepare_raw_default(M),
-        zeros   = prepare_raw_zeros(M),
-        cvxr    = prepare_raw_cvxr(M),
-        ggm     = prepare_raw_ggm(M))
+        zeros   = prepare_raw_zeros(M))
       R       <- prep$R
       n_obs   <- prep$n_eff
       cut     <- pa_cutoffs(n_obs, ncol(M))
