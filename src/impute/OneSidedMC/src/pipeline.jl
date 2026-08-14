@@ -129,6 +129,72 @@ function build_ragged(X, μ, σ)
     return obs
 end
 
+# Build ragged observations with raw (unstandardized) values. Used to create
+# the holdout split BEFORE computing train-only column moments, avoiding data
+# leakage from held-out cells into the standardization.
+function build_ragged_raw(X::AbstractMatrix{Union{Missing, Float64}})
+    n, p = size(X)
+    obs = RaggedObs()
+    for i in 1:n
+        cols = Int[]; vals = Float64[]
+        for j in 1:p
+            if !ismissing(X[i, j])
+                push!(cols, j)
+                push!(vals, X[i, j])
+            end
+        end
+        push!(obs, (cols, vals))
+    end
+    return obs
+end
+
+# Compute per-column mean and sd from raw ragged observations (train split
+# only). Uses the unbiased (n-1) variance, matching Julia's std() and R's sd().
+function train_column_moments(obs::RaggedObs, p::Int)
+    sums   = zeros(p)
+    sumsq  = zeros(p)
+    counts = zeros(Int, p)
+    for (cols, vals) in obs
+        for (c, v) in zip(cols, vals)
+            sums[c]   += v
+            sumsq[c]  += v * v
+            counts[c] += 1
+        end
+    end
+    μ = zeros(p); σ = ones(p)
+    for j in 1:p
+        if counts[j] > 0
+            μ[j] = sums[j] / counts[j]
+        end
+        if counts[j] > 1
+            var_j = (sumsq[j] - counts[j] * μ[j]^2) / (counts[j] - 1)
+            σ[j] = var_j > 0 ? sqrt(var_j) : 1.0
+        end
+    end
+    return μ, σ
+end
+
+# Convert raw ragged obs to standardized with the given moments.
+function standardize_ragged(obs::RaggedObs, μ, σ)
+    result = RaggedObs()
+    for (cols, vals) in obs
+        new_vals = Float64[(v - μ[c]) / σ[c] for (c, v) in zip(cols, vals)]
+        push!(result, (copy(cols), new_vals))
+    end
+    return result
+end
+
+# Convert raw test cells to standardized with the given moments.
+function standardize_test_cells(test_cells, μ, σ)
+    result = similar(test_cells)
+    for (idx, (kc, kv, hc, hv)) in enumerate(test_cells)
+        new_kv = Float64[(v - μ[c]) / σ[c] for (c, v) in zip(kc, kv)]
+        new_hv = (hv - μ[hc]) / σ[hc]
+        result[idx] = (kc, new_kv, hc, new_hv)
+    end
+    return result
+end
+
 # Hold out a fraction of observed cells (only from rows that keep >= 2 obs), for
 # pairwise-product RMSE scoring. Returns (train_obs, test_pairs) where each test
 # pair is (a, b, za*zb) for two held-out-or-observed cols in the same row.
@@ -342,14 +408,22 @@ Fit Theta-hat at each r on a held-out split and score the held-out cells with
 CELL-level RMSE + R^2 (conditional-Gaussian prediction via Theta-hat; comparable
 to softimpute). Returns the r minimising RMSE plus both full curves. The
 product-level scoring is retained as a dead branch (OSMC_CELL_METRIC = false).
+
+When `train` and `test_cells` are provided (pre-split, pre-standardized with
+train-only moments), those are used directly and the `obs` argument is ignored
+for holdout creation.
 """
 function select_rank(obs::RaggedObs, d::Int; r_grid = 1:10, seed::Int = 1,
-                     iters::Int = 1500, lr::Float64 = 0.05, frac::Float64 = 0.2)
+                     iters::Int = 1500, lr::Float64 = 0.05, frac::Float64 = 0.2,
+                     train::Union{Nothing, RaggedObs} = nothing,
+                     test_cells::Union{Nothing, Vector{Tuple{Vector{Int}, Vector{Float64}, Int, Float64}}} = nothing)
     rng = MersenneTwister(seed)
     rs = collect(r_grid)
 
     if OSMC_CELL_METRIC
-        train, test_cells = holdout_cells(obs; frac = frac, rng = rng)
+        if train === nothing || test_cells === nothing
+            train, test_cells = holdout_cells(obs; frac = frac, rng = rng)
+        end
         if isempty(test_cells)
             @warn "no held-out cells for rank selection; defaulting to r=1"
             return 1, rs, fill(NaN, length(rs)), fill(NaN, length(rs))
@@ -455,17 +529,27 @@ function run_onesided(in_path::AbstractString, out_dir::AbstractString,
     nobs = count(!ismissing, X)
     @info "onesided input" in_path n p density=round(100nobs/(n*p), digits=2)
 
-    μ, σ = column_moments(X)
-    obs = build_ragged(X, μ, σ)
+    # Build raw ragged obs, create holdout FIRST, then compute train-only
+    # column moments — avoids leaking held-out cell values into the
+    # standardization (which would inflate R² and distort the correlation
+    # matrix that the imputer sees).
+    raw_obs = build_ragged_raw(X)
+    rng_holdout = MersenneTwister(seed)
+    raw_train, raw_test = holdout_cells(raw_obs; frac = 0.2, rng = rng_holdout)
+    μ, σ = train_column_moments(raw_train, p)
+    obs_train = standardize_ragged(raw_train, μ, σ)
+    obs_full  = standardize_ragged(raw_obs, μ, σ)
+    test_cells = standardize_test_cells(raw_test, μ, σ)
 
-    best_r, rgrid, rmse, r2 = select_rank(obs, p; r_grid = r_grid, seed = seed,
-                                          iters = max(1000, iters ÷ 2), lr = lr)
+    best_r, rgrid, rmse, r2 = select_rank(obs_train, p; r_grid = r_grid, seed = seed,
+                                           iters = max(1000, iters ÷ 2), lr = lr,
+                                           train = obs_train, test_cells = test_cells)
     @info "rank selection" best_r rmse_by_r=collect(zip(rgrid, round.(rmse, digits=4)))
 
     mkpath(sweep_dir)
     # per-r surrogates for the dashboard's per-param factoring panels.
     for r in rgrid
-        Xr = surrogate_at(obs, p, r, n, μ, σ; seed = seed, iters = iters, lr = lr)
+        Xr = surrogate_at(obs_full, p, r, n, μ, σ; seed = seed, iters = iters, lr = lr)
         write_surrogate(joinpath(sweep_dir, "surrogate_r$(r).csv"), keys, bench, Xr)
     end
     # rank-selection curve (cell-level held-out RMSE + R^2 by default).
@@ -477,7 +561,7 @@ function run_onesided(in_path::AbstractString, out_dir::AbstractString,
     # best-r surrogate = the imputed output.
     mkpath(out_dir)
     out_csv = joinpath(out_dir, "imputed_model_benchmark_table.csv")
-    Xbest = surrogate_at(obs, p, best_r, n, μ, σ; seed = seed, iters = iters, lr = lr)
+    Xbest = surrogate_at(obs_full, p, best_r, n, μ, σ; seed = seed, iters = iters, lr = lr)
     write_surrogate(out_csv, keys, bench, Xbest)
 
     return (; best_r, rgrid, rmse, out_csv, sweep_dir, n, p)
@@ -502,8 +586,7 @@ function sensitivity_onesided(in_path::AbstractString, out_csv::AbstractString;
                               iters::Int = 1000, lr::Float64 = 0.05)
     X, _, _ = read_table(in_path)
     n, p = size(X)
-    μ, σ = column_moments(X)
-    obs = build_ragged(X, μ, σ)
+    raw_obs = build_ragged_raw(X)
     rs = collect(r_grid)
 
     @info "OSMC sensitivity seed-sweep" n_seeds nthreads = Threads.nthreads()
@@ -511,8 +594,15 @@ function sensitivity_onesided(in_path::AbstractString, out_csv::AbstractString;
     rmse_rows = Vector{Vector{Float64}}(undef, n_seeds)
     r2_rows   = Vector{Vector{Float64}}(undef, n_seeds)
     Threads.@threads for s in 1:n_seeds
-        best_r, _, rmse, r2 = select_rank(obs, p; r_grid = rs, seed = s,
-                                          iters = iters, lr = lr)
+        # Each seed gets its own holdout split with train-only moments.
+        rng = MersenneTwister(s)
+        raw_train, raw_test = holdout_cells(raw_obs; frac = 0.2, rng = rng)
+        μ_s, σ_s = train_column_moments(raw_train, p)
+        obs_train = standardize_ragged(raw_train, μ_s, σ_s)
+        test_cells = standardize_test_cells(raw_test, μ_s, σ_s)
+        best_r, _, rmse, r2 = select_rank(obs_train, p; r_grid = rs, seed = s,
+                                           iters = iters, lr = lr,
+                                           train = obs_train, test_cells = test_cells)
         chosen[s] = best_r
         rmse_rows[s] = rmse
         r2_rows[s]   = r2

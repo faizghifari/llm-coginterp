@@ -12,7 +12,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/impute.R [--method <name>] [--raw] [--reimpute]
-#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | all
+#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | all
 #     --raw          run ONLY the undensified "raw" level (default: C,S,R)
 #     --reimpute     force fresh imputation even if an imputed CSV exists
 #     --data-root    input tree, relative to repo root (default data)
@@ -34,8 +34,9 @@ if (file.exists(.renv_activate)) source(.renv_activate)
 source(file.path(SRC, "impute", "common.R"))
 source(file.path(SRC, "impute", "db.R"))
 
-ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
-                 "knn", "missforest", "mice")
+ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
+                 "onesidedmc", "knn", "missforest", "mice",
+                 "optspace", "usvt")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
   reimpute <- FALSE; no_balance <- FALSE
@@ -90,6 +91,18 @@ impute_R <- function(method, x) {
   if (method == "softimpute") {
     source(file.path(SRC, "impute", "softimpute", "method.R"))
     impute_softimpute(x, max_rank = MAX_RANK)
+  } else if (method == "softimpute_corr") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "softimpute_corr", "method.R"))
+    impute_softimpute_corr(x, max_rank = MAX_RANK)
+  } else if (method == "optspace") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "optspace", "method.R"))
+    impute_optspace(x)
+  } else if (method == "usvt") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "usvt", "method.R"))
+    impute_usvt(x)
   } else if (method == "iterativepca") {
     source(file.path(SRC, "impute", "iterativepca", "method.R"))
     impute_iterativepca(x, max_ncp = MAX_RANK)
@@ -113,7 +126,7 @@ run_osmc_subprocess <- function() {
              OSMC_RESULTS_ROOT = normalizePath(RESULTS_ROOT, mustWork = FALSE),
              OSMC_SENSITIVITY  = "",
              OSMC_BALANCE      = if (BALANCE_HOLDOUT) "1" else "0",
-             OSMC_ALLCOLHOLDOUT = "0")
+             OSMC_ALLCOLHOLDOUT = "1")
   osmc <- file.path(SRC, "impute", "OneSidedMC")
   status <- system2("julia",
     args = c("--threads=auto", paste0("--project=", osmc),

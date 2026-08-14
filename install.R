@@ -35,6 +35,7 @@ pkgs <- c(
   "boot",         # bootstrap CIs (reference code)
   "DBI",
   "CVXR",
+  "filling",
   "RSQLite"
   # "parallel" is part of base R — no install needed.
 )

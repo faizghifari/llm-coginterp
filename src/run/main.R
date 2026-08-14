@@ -19,7 +19,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/main.R [--method <name>] [--raw] [--smoke]
-#     --method       softimpute | iterativepca | onesidedmc | raw | all   (default all)
+#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | raw | all   (default all)
 #     --raw          run ONLY the slow undensified "raw" level (default: C,S,R)
 #     --smoke        use the data/smoke fixture instead of data/
 #     --data-root    input tree, relative to the repo root (default data; e.g.
@@ -53,8 +53,9 @@ source(file.path(SRC, "factor", "factoring.R"))
 source(file.path(SRC, "factor", "db.R"))
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
-ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
-                 "knn", "missforest", "mice", "raw")
+ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
+                 "onesidedmc", "knn", "missforest", "mice",
+                 "optspace", "usvt", "raw")
 parse_args <- function(args) {
   method <- "all"; smoke <- FALSE; raw <- FALSE
   reimpute <- FALSE; no_balance <- FALSE; loco <- FALSE
@@ -124,6 +125,18 @@ impute_R <- function(method, x) {
   if (method == "softimpute") {
     source(file.path(SRC, "impute", "softimpute", "method.R"))
     impute_softimpute(x, max_rank = MAX_RANK)
+  } else if (method == "softimpute_corr") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "softimpute_corr", "method.R"))
+    impute_softimpute_corr(x, max_rank = MAX_RANK)
+  } else if (method == "optspace") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "optspace", "method.R"))
+    impute_optspace(x)
+  } else if (method == "usvt") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "usvt", "method.R"))
+    impute_usvt(x)
   } else if (method == "iterativepca") {
     source(file.path(SRC, "impute", "iterativepca", "method.R"))
     impute_iterativepca(x, max_ncp = MAX_RANK)

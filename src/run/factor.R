@@ -21,7 +21,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/factor.R [--method <name>] [--raw]
-#     --method       softimpute | iterativepca | onesidedmc | knn | missforest | mice | default | zeros | cvxr | ggm | all
+#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | default | zeros | cvxr | ggm | all
 #     --raw          run ONLY the "raw" densifier level (default: C,S,R)
 #     --data-root    input tree, relative to repo root (default data)
 #     --results-root output tree, relative to repo root (default results)
@@ -42,8 +42,10 @@ source(file.path(SRC, "factor", "factoring.R"))
 source(file.path(SRC, "factor", "db.R"))
 source(file.path(SRC, "impute", "common.R"))
 
-ALL_METHODS <- c("softimpute", "iterativepca", "onesidedmc",
-                 "knn", "missforest", "mice", "default", "zeros", "cvxr", "ggm")
+ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
+                 "onesidedmc", "knn", "missforest", "mice",
+                 "optspace", "usvt",
+                 "default", "zeros", "cvxr", "ggm")
 RAW_METHODS <- c("default", "zeros", "cvxr", "ggm")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE
