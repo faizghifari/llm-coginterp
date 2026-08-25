@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
-"""Print bifactor factoring results from results/database.db, sorted by omega_h."""
+"""Print bifactor factoring results from a run's database.db (default results/, --results-root to override), sorted by omega_h."""
 
+import argparse
 import sqlite3
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = REPO_ROOT / "results" / "database.db"
+DEFAULT_RESULTS = REPO_ROOT / "results"
 
 
-def main():
-    if not DB_PATH.exists():
-        print(f"No database at {DB_PATH} — run factoring first.", file=sys.stderr)
+def parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--results-root", default=str(DEFAULT_RESULTS),
+                    help="results tree holding database.db (e.g. results/text_only)")
+    return ap.parse_args()
+
+
+def main(db_path):
+    if not db_path.exists():
+        print(f"No database at {db_path} — run factoring first.", file=sys.stderr)
         sys.exit(1)
 
-    con = sqlite3.connect(str(DB_PATH))
+    con = sqlite3.connect(str(db_path))
     con.row_factory = sqlite3.Row
     cur = con.execute("""
         SELECT dataset, method, run, nf, var_explained, var_factors, var_avg,
@@ -48,4 +56,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(Path(parse_args().results_root) / "database.db")

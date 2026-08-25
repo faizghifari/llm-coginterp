@@ -35,20 +35,37 @@ import polars as pl
 
 REPO = Path(__file__).resolve().parent.parent
 
-# Three kinds of loadings file, each compared only against its own kind:
+# Kinds of loadings file, each compared ONLY against its own kind.
+#
+# Current pipeline (src/run/factor.R writes two bifactor runs per cell):
+#   <m>_<dz>_<st>_bifactor_pa_loadings.csv -> bifactor at the PA factor count
+#   <m>_<dz>_<st>_bifactor_2f_loadings.csv -> bifactor forced to 2 factors
+# Legacy (pre-2026-08 outputs, kept readable so old runs still compare):
 #   <m>_<dz>_<st>_loadings.csv             -> first-order  (rows = benchmarks)
 #   <m>_<dz>_<st>_secondorder_loadings.csv -> secondorder (rows = first-order factors)
 #   <m>_<dz>_<st>_bifactor_loadings.csv    -> bifactor    (rows = benchmarks; g + groups)
+#
+# pa and 2f are DIFFERENT solutions of the same cell (different factor counts),
+# so they are separate kinds and never compared against each other.
+#
 # strategy may contain underscores (all_standard), so anchor densifier to the set
-# and the kind suffix explicitly.
+# and the kind suffix explicitly. Longer kind suffixes must precede their
+# prefixes in the alternation, or "bifactor" would match first and leave "_pa"
+# stranded in the strategy group -- which is exactly the bug this replaces:
+# `bifactor_pa_loadings.csv` used to fall through as kind=None, i.e. be treated
+# as FIRST-ORDER loadings, so the h2/u2/p2 diagnostic columns were never dropped
+# and went into the congruence computation as if they were factors.
 DENSIFIERS = ("raw", "C", "S", "R")
+KINDS = ("secondorder", "bifactor_pa", "bifactor_2f", "bifactor")
 # rowname column + non-loading columns to drop, per kind.
 KIND_KEY = {"first": "benchmark", "secondorder": "first_order_factor",
-            "bifactor": "benchmark"}
+            "bifactor": "benchmark", "bifactor_pa": "benchmark",
+            "bifactor_2f": "benchmark"}
+BIFACTOR_KINDS = {"bifactor", "bifactor_pa", "bifactor_2f"}
 BIFACTOR_DROP = ("h2", "u2", "p2")  # diagnostics in om$schmid$sl, not loadings
 FNAME_RE = re.compile(
     r"^(?P<method>.+?)_(?P<densifier>" + "|".join(DENSIFIERS) +
-    r")_(?P<strategy>.+?)(?:_(?P<kind>secondorder|bifactor))?_loadings\.csv$"
+    r")_(?P<strategy>.+?)(?:_(?P<kind>" + "|".join(KINDS) + r"))?_loadings\.csv$"
 )
 
 
@@ -72,7 +89,7 @@ def load_loadings(path: Path, kind: str):
     if key not in df.columns:
         return None
     drop = {key}
-    if kind == "bifactor":
+    if kind in BIFACTOR_KINDS:
         drop |= {c for c in df.columns if c in BIFACTOR_DROP}
     factor_cols = [c for c in df.columns if c not in drop]
     if not factor_cols:

@@ -7,7 +7,7 @@ options. All commands that can write data default to a dry run; pass
 
 Commands:
   verify             Run all data integrity checks (FK, orphans,
-                     exhaustion, pending-benchmark completeness). Same
+                     exhaustion). Same
                      checks as verify_data.py, available from one place.
   dupes              Report duplicate result rows (redundant vs.
                      conflicting) without modifying any files.

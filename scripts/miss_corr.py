@@ -36,6 +36,7 @@ from scipy.stats import gaussian_kde
 
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "data"
+RESULTS = REPO / "results"
 STRATEGIES = ["all_standard", "all_aggressive"]
 KEY = "collapse_key"
 SOURCES = [
@@ -205,6 +206,7 @@ def plot_grid(values_by_cell, title, xlabel, out_path):
         axes[row_idx, 0].set_ylabel(f"{label}\n\nDensity", fontsize=10)
     fig.suptitle(title, fontsize=13, fontweight="bold", y=1.01)
     fig.tight_layout()
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {out_path}")
@@ -281,21 +283,38 @@ def main():
         n_computable_cells,
         "Computable pairwise Pearson correlations per benchmark",
         "# other benchmarks with computable r",
-        "results/density_corr_count.png",
+        RESULTS / "density_corr_count.png",
     )
     plot_grid(
         avg_n_cells,
         "Average n underlying each benchmark's computable correlations",
         "Average pairwise n",
-        "results/density_corr_n.png",
+        RESULTS / "density_corr_n.png",
     )
     plot_grid(
         pair_n_cells,
         "n per computable benchmark pair",
         "n (shared non-missing observations)",
-        "results/density_pair_n.png",
+        RESULTS / "density_pair_n.png",
     )
 
 
+def parse_args():
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--data-root", default="data",
+                    help="input tree, relative to the repo root "
+                         "(e.g. data/text_only for the derived text-only copy)")
+    ap.add_argument("--results-root", default="results",
+                    help="output tree, relative to the repo root")
+    return ap.parse_args()
+
+
 if __name__ == "__main__":
+    _a = parse_args()
+    # Paths are anchored to the repo root, not the CWD, so this runs from
+    # anywhere (matching densify.py / collapse_results.py).
+    DATA = Path(_a.data_root) if Path(_a.data_root).is_absolute() else REPO / _a.data_root
+    RESULTS = (Path(_a.results_root) if Path(_a.results_root).is_absolute()
+               else REPO / _a.results_root)
     main()

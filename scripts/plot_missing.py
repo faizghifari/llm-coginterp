@@ -13,6 +13,7 @@ import polars as pl
 from scipy.stats import gaussian_kde
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "data"
+RESULTS = REPO / "results"
 STRATEGIES = ["all_standard", "all_aggressive"]
 KEY = "collapse_key"
 SOURCES = [
@@ -86,7 +87,8 @@ def main():
         axes[row_idx, 0].set_ylabel(f"{label}\n\nDensity", fontsize=10)
     fig.suptitle("Benchmark observation count distributions", fontsize=13, fontweight="bold", y=1.01)
     fig.tight_layout()
-    out_path = "results/density_data.png"
+    out_path = RESULTS / "density_data.png"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {out_path}")
@@ -102,5 +104,22 @@ def main():
             print("  Bottom 10 least observed:")
             for c, n in pairs[:40]:
                 print(f"    {c:50s} {n:4d}")
+def parse_args():
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--data-root", default="data",
+                    help="input tree, relative to the repo root "
+                         "(e.g. data/text_only for the derived text-only copy)")
+    ap.add_argument("--results-root", default="results",
+                    help="output tree, relative to the repo root")
+    return ap.parse_args()
+
+
 if __name__ == "__main__":
+    _a = parse_args()
+    # Paths are anchored to the repo root, not the CWD, so this runs from
+    # anywhere (matching densify.py / collapse_results.py).
+    DATA = Path(_a.data_root) if Path(_a.data_root).is_absolute() else REPO / _a.data_root
+    RESULTS = (Path(_a.results_root) if Path(_a.results_root).is_absolute()
+               else REPO / _a.results_root)
     main()

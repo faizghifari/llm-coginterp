@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
-"""Correlate omega_h (factoring) with R² (imputation) from results/database.db."""
+"""Correlate omega_h (factoring) with R² (imputation) from a run's database.db (default results/, --results-root to override)."""
 
+import argparse
 import sqlite3
 import sys
 import math
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = REPO_ROOT / "results" / "database.db"
+DEFAULT_RESULTS = REPO_ROOT / "results"
 
 
-def main():
-    if not DB_PATH.exists():
-        print(f"No database at {DB_PATH} — run the pipeline first.", file=sys.stderr)
+def parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--results-root", default=str(DEFAULT_RESULTS),
+                    help="results tree holding database.db (e.g. results/text_only)")
+    return ap.parse_args()
+
+
+def main(db_path):
+    if not db_path.exists():
+        print(f"No database at {db_path} — run the pipeline first.", file=sys.stderr)
         sys.exit(1)
 
-    con = sqlite3.connect(str(DB_PATH))
+    con = sqlite3.connect(str(db_path))
     con.row_factory = sqlite3.Row
 
     cur = con.execute("""
@@ -78,4 +86,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(Path(parse_args().results_root) / "database.db")

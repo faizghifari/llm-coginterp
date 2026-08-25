@@ -1,12 +1,11 @@
 """Data integrity checks: foreign keys, orphans, exhaustion, and
-pending-benchmark completeness.
+and duplicate detection.
 
 This is the engine behind both `verify_data.py` and
 `manage_data.py verify`. Add new checks here as functions that return
 plain data (sets / DataFrames / dicts) — keep printing/formatting in
 `format_report()` so the checks stay usable from other tooling too.
 """
-import re
 
 from . import config
 
@@ -41,38 +40,12 @@ def check_exhaustion(results, threshold=5):
     return counts[counts < threshold]
 
 
-def check_pending_completeness(benchmarks, pending_file=None):
-    """Cross-check notes/pending_benchmarks.md against benchmarks.csv to
-    see which previously-pending benchmarks have since been added."""
-    pending_file = pending_file or config.PENDING_BENCHMARKS_MD
-    pending_names = []
-    if pending_file.exists():
-        with open(pending_file) as f:
-            for line in f:
-                match = re.match(r"^\*\*(.*?)\*\*", line)
-                if match:
-                    pending_names.append(match.group(1).split("(")[0].strip())
-
-    existing_names = benchmarks["benchmark_name"].fillna("").str.lower().tolist()
-    existing_ids = benchmarks["benchmark_id"].fillna("").str.lower().tolist()
-
-    found, missing = [], []
-    for expected in pending_names:
-        exp_lower = expected.lower()
-        if any(exp_lower in n for n in existing_names) or any(exp_lower in i for i in existing_ids):
-            found.append(expected)
-        else:
-            missing.append(expected)
-    return {"total": len(pending_names), "found": found, "missing": missing}
-
-
 def run_all(benchmarks, models, results, exhaustion_threshold=5):
     """Run every check and return one structured report dict."""
     return {
         "foreign_keys": check_foreign_keys(benchmarks, models, results),
         "orphans": check_orphans(benchmarks, models, results),
         "exhaustion": check_exhaustion(results, exhaustion_threshold),
-        "pending": check_pending_completeness(benchmarks),
     }
 
 
@@ -106,17 +79,6 @@ def format_report(report, max_examples=10):
     else:
         for b_id, count in exhaustion.items():
             lines.append(f"   - {b_id}: {count} rows")
-    lines.append("")
-
-    pending = report["pending"]
-    lines.append("4. Pending benchmarks completeness (notes/pending_benchmarks.md):")
-    lines.append(f"   Found ~{len(pending['found'])}/{pending['total']}")
-    if pending["missing"]:
-        lines.append("   Still missing:")
-        for m in pending["missing"][:max_examples]:
-            lines.append(f"   - {m}")
-        if len(pending["missing"]) > max_examples:
-            lines.append(f"   ... and {len(pending['missing']) - max_examples} more.")
     lines.append("")
 
     return "\n".join(lines)
