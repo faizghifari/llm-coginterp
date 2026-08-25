@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print held-out imputation results from a run's database.db (default results/, --results-root to override), sorted by R²."""
+"""Print held-out imputation results from a run's database.db (default results/text_only, --results-root for the multimodal run), sorted by R²."""
 
 import argparse
 import sqlite3
@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_RESULTS = REPO_ROOT / "results"
+DEFAULT_RESULTS = REPO_ROOT / "results" / "text_only"
 
 
 def parse_args():

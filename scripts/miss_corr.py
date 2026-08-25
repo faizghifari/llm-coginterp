@@ -20,13 +20,16 @@ loops over benchmark pairs):
     sum_xy  = X0^T X0
 where M is the observed-mask and X0 is the data with missing set to 0.
 
+Defaults to the TEXT-ONLY analysis view; pass `--data-root data` for the
+multimodal-inclusive corpus.
+
 Reads:
-  data/combinations/<strategy>/model_benchmark_table.csv
-  data/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv
+  <data-root>/combinations/<strategy>/model_benchmark_table.csv
+  <data-root>/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv
 Writes:
-  results/density_corr_count.png   (# computable correlations per benchmark)
-  results/density_corr_n.png       (avg n per computable correlation, per benchmark)
-  results/density_pair_n.png       (n per computable benchmark pair)
+  <results-root>/density_corr_count.png   (# computable correlations per benchmark)
+  <results-root>/density_corr_n.png       (avg n per computable correlation)
+  <results-root>/density_pair_n.png       (n per computable benchmark pair)
 """
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -35,8 +38,8 @@ import polars as pl
 from scipy.stats import gaussian_kde
 
 REPO = Path(__file__).resolve().parent.parent
-DATA = REPO / "data"
-RESULTS = REPO / "results"
+DATA = REPO / "data" / "text_only"      # text-only is the analysis default
+RESULTS = REPO / "results" / "text_only"
 STRATEGIES = ["all_standard", "all_aggressive"]
 KEY = "collapse_key"
 SOURCES = [
@@ -302,10 +305,10 @@ def main():
 def parse_args():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--data-root", default="data",
+    ap.add_argument("--data-root", default="data/text_only",
                     help="input tree, relative to the repo root "
                          "(e.g. data/text_only for the derived text-only copy)")
-    ap.add_argument("--results-root", default="results",
+    ap.add_argument("--results-root", default="results/text_only",
                     help="output tree, relative to the repo root")
     return ap.parse_args()
 

@@ -15,8 +15,11 @@
 #     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | cvxr | ggm | all
 #     --raw          run ONLY the undensified "raw" level (default: C,S,R)
 #     --reimpute     force fresh imputation even if an imputed CSV exists
-#     --data-root    input tree, relative to repo root (default data)
-#     --results-root output tree, relative to repo root (default results)
+#     --data-root    input tree, relative to repo root
+#                    (default data/text_only -- the analysis corpus; pass
+#                     `--data-root data` for the multimodal-inclusive one)
+#     --results-root output tree, relative to repo root
+#                    (default results/text_only)
 #     --smoke        use data/smoke fixture
 #     --no-balance   revert to cell-weighted holdout scores
 # ─────────────────────────────────────────────────────────────────────────────
@@ -40,7 +43,7 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
   reimpute <- FALSE; no_balance <- FALSE
-  data_root <- "data"; results_root <- "results"
+  data_root <- "data/text_only"; results_root <- "results/text_only"
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]

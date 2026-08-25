@@ -19,10 +19,19 @@ Density is the only target (imputer-agnostic). Pairwise-overlap / PD-ness are
 SoftImpute-specific notions of "well-posed" and are deliberately NOT optimized
 here, so the densifier stays neutral across imputation methods.
 
-Reads:  data/combinations/<strategy>/model_benchmark_table.csv
-Writes: data/combinations_<densifier>/<strategy>/model_benchmark_table.csv
-        data/combinations_<densifier>/<strategy>/summary.csv
-        data/combinations_<densifier>/summary.csv   (rollup per densifier)
+Defaults to the TEXT-ONLY analysis view, which is the corpus the analysis is run
+on. The multimodal-inclusive corpus is retained and reachable with an explicit
+root:
+
+    python3 scripts/densify.py                       # text-only (default)
+    python3 scripts/densify.py --data-root data      # multimodal-inclusive
+
+Reads:  <root>/combinations/<strategy>/model_benchmark_table.csv
+Writes: <root>/combinations_<densifier>/<strategy>/model_benchmark_table.csv
+        <root>/combinations_<densifier>/<strategy>/summary.csv
+        <root>/combinations_<densifier>/summary.csv   (rollup per densifier)
+        <root>/densify_summary.csv                    (rollup across all)
+where <root> defaults to data/text_only.
 """
 
 from pathlib import Path
@@ -32,8 +41,9 @@ import polars as pl
 
 # Anchor to the repo root (parent of src/) so paths resolve from any CWD.
 REPO = Path(__file__).resolve().parent.parent
-SRC = REPO / "data" / "combinations"
-DST_ROOT = REPO / "data"
+DATA_ROOT = REPO / "data" / "text_only"   # text-only is the analysis default
+SRC = DATA_ROOT / "combinations"
+DST_ROOT = DATA_ROOT
 TARGET = 0.10  # target density (fraction)
 MIN_OBS = 3  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
 # Needed so all downstream methods are well-posed: prep_matrix drops <2-obs cols,

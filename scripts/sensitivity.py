@@ -22,8 +22,8 @@ from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA_ROOT = REPO_ROOT / "data"
-RESULTS_ROOT = REPO_ROOT / "results"
+DATA_ROOT = REPO_ROOT / "data" / "text_only"
+RESULTS_ROOT = REPO_ROOT / "results" / "text_only"
 
 
 def parse_dataset(dataset: str) -> tuple[str, str]:

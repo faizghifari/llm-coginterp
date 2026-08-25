@@ -1,10 +1,13 @@
 """Plot KDE density of benchmark observation counts (non-missing scores per
 benchmark column) across the raw table and each densifier, for both strategies.
+Defaults to the TEXT-ONLY analysis view; pass `--data-root data` for the
+multimodal-inclusive corpus.
+
 Reads:
-  data/combinations/<strategy>/model_benchmark_table.csv
-  data/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv
+  <data-root>/combinations/<strategy>/model_benchmark_table.csv
+  <data-root>/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv
 Writes:
-  data/density.png   (4 rows x 2 columns, KDE bell curves + histograms)
+  <results-root>/density_data.png   (4 rows x 2 columns, KDE + histograms)
 """
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -12,8 +15,8 @@ import numpy as np
 import polars as pl
 from scipy.stats import gaussian_kde
 REPO = Path(__file__).resolve().parent.parent
-DATA = REPO / "data"
-RESULTS = REPO / "results"
+DATA = REPO / "data" / "text_only"      # text-only is the analysis default
+RESULTS = REPO / "results" / "text_only"
 STRATEGIES = ["all_standard", "all_aggressive"]
 KEY = "collapse_key"
 SOURCES = [
@@ -107,10 +110,10 @@ def main():
 def parse_args():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--data-root", default="data",
+    ap.add_argument("--data-root", default="data/text_only",
                     help="input tree, relative to the repo root "
                          "(e.g. data/text_only for the derived text-only copy)")
-    ap.add_argument("--results-root", default="results",
+    ap.add_argument("--results-root", default="results/text_only",
                     help="output tree, relative to the repo root")
     return ap.parse_args()
 

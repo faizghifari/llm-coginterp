@@ -118,7 +118,7 @@ def factor_congruence(La, Lb):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--results", default=str(REPO / "results"))
+    ap.add_argument("--results", default=str(REPO / "results" / "text_only"))
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     results_dir = Path(args.results)

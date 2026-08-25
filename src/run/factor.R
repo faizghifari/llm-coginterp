@@ -23,8 +23,11 @@
 #   Rscript src/run/factor.R [--method <name>] [--raw]
 #     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | default | zeros | cvxr | ggm | all
 #     --raw          run ONLY the "raw" densifier level (default: C,S,R)
-#     --data-root    input tree, relative to repo root (default data)
-#     --results-root output tree, relative to repo root (default results)
+#     --data-root    input tree, relative to repo root
+#                    (default data/text_only -- the analysis corpus; pass
+#                     `--data-root data` for the multimodal-inclusive one)
+#     --results-root output tree, relative to repo root
+#                    (default results/text_only)
 #     --smoke        use data/smoke fixture
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -49,7 +52,7 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
 RAW_METHODS <- c("default", "zeros")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE
-  data_root <- "data"; results_root <- "results"
+  data_root <- "data/text_only"; results_root <- "results/text_only"
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]

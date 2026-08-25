@@ -1,12 +1,26 @@
 #!/usr/bin/env python3
-"""Clean and collapse benchmark results into standard and aggressive combinations."""
+"""Clean and collapse benchmark results into standard and aggressive combinations.
+
+Defaults to the TEXT-ONLY analysis view (`data/text_only/`), which is the corpus
+the analysis is run on. The multimodal-inclusive corpus is retained and reachable
+with an explicit root:
+
+    python3 scripts/collapse_results.py                       # text-only (default)
+    python3 scripts/collapse_results.py --data-root data      # multimodal-inclusive
+
+Input and output must name the SAME root. They previously did not: the input
+defaulted to `data/text_only/results.csv` while the output defaulted to
+`data/combinations/`, so a bare run wrote text-only-derived tables into the
+multimodal tree's path and silently corrupted it.
+"""
 import re
 from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_PATH = ROOT / "data" / "text_only"/ "results.csv"
-OUT_DIR = ROOT / "data" / "combinations"
+DATA_ROOT = ROOT / "data" / "text_only"
+DATA_PATH = DATA_ROOT / "results.csv"
+OUT_DIR = DATA_ROOT / "combinations"
 
 # normalize tokens
 STRIP_TOKENS = {

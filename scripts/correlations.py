@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Correlate omega_h (factoring) with R² (imputation) from a run's database.db (default results/, --results-root to override)."""
+"""Correlate omega_h (factoring) with R² (imputation) from a run's database.db (default results/text_only, --results-root for the multimodal run)."""
 
 import argparse
 import sqlite3
@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_RESULTS = REPO_ROOT / "results"
+DEFAULT_RESULTS = REPO_ROOT / "results" / "text_only"
 
 
 def parse_args():
