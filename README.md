@@ -1,34 +1,73 @@
-# LLM Cognitive Interpretability Benchmarks
+# Understanding the Structure of Language Model Abilities
 
-A curated, verified dataset of LLM benchmark evaluations across diverse cognitive domains — built for research into how language models interpret, reason, and generalize across tasks.
+*Working title of the research; the repo itself is organized around two related pieces of work — see below.*
+
+This project borrows an idea from human intelligence research, where people who do well on
+one kind of mental test also tend to do well on very different ones, pointing to one broad
+general ability layered with narrower specific ones. It asks whether that same structure
+shows up in large language models when a large number of them are compared across many
+different kinds of tasks — from math and coding to safety behavior, multiple languages, and
+medical knowledge — or whether it does not hold up the way it does for people.
+
+For the current findings, written for a general audience, see
+**[docs/RESEARCH_OVERVIEW.md](docs/RESEARCH_OVERVIEW.md)**.
+
+The repo is two related but distinct pieces of work:
+
+1. **A curated dataset** (`data/benchmarks.csv`, `data/models.csv`, `data/results.csv`) of
+   LLM benchmark evaluations across cognitive domains, assembled and cleaned via `scripts/`
+   — documented below.
+2. **MachineG2** — an R/Julia pipeline (`src/`) that recovers the latent factor structure of
+   LLM capabilities from that dataset, treated as a super-sparse, MNAR (missing-not-at-random)
+   model × benchmark score matrix — see [MachineG2 Pipeline](#machineg2-pipeline) below and
+   [src/README.md](src/README.md) for the full statistical detail.
+
+`scripts/` (Python) builds and maintains the dataset; `src/` (R + Julia) consumes it. They are
+independently runnable.
 
 ## Running
 
 ```bash
-# install python, R, julia
-make deps
-# install language-specific deps
-make env
-# preprocess dataset
-make preproc
-# run everything
-make runall
+# One-time environment setup (Python via uv, R via renv, Julia via Project.toml)
+make deps    # apt install r-base, install julia + uv
+make env     # env-py (uv sync) + env-r (Rscript install.R) + env-jl (Pkg.instantiate)
 
-# optionally run individual runs
-# use --reimpute to do actual imputation even if first time
-# use --raw to run on the supersparse data (not actually the raw dataset)
-# use --sensitivity to run random-seed sensitivity (slow)
-#   Rscript src/run/main.R --method softimpute --reimpute --sensitivity
-#   Rscript src/run/main.R --method softimpute --reimpute --sensitivity --raw
+# Dataset maintenance (Python, from repo root or anywhere — scripts anchor to repo root)
+python3 scripts/verify_data.py                 # integrity checks; run after every data edit
+python3 scripts/manage_data.py --help           # dupes, dedup, find-aliases, apply-aliases,
+                                                 #   standardize-ids, categorize-models, recompute-stats
+
+# MachineG2 pipeline (R, from repo root or anywhere)
+python3 scripts/collapse_results.py             # preproc stage 0a
+python3 scripts/densify.py                      # preproc stage 1 (or: make preproc runs both)
+Rscript src/run/main.R                          # run everything (all methods x C/S/R x both strategies)
+Rscript src/run/main.R --method softimpute      # one method: softimpute|knn|missforest|mice|onesidedmc
+python3 scripts/compare_loadings.py             # cross-method factor congruence -> results/loadings_congruence.md
+make runall                                     # canned sequence of the above across all methods
+
+# optionally, per run:
+# --reimpute      force fresh imputation (default reuses an existing imputed CSV)
+# --raw           run the slow undensified level instead of the C/S/R densifiers
+# --smoke         fast synthetic-fixture smoke run
+# --sensitivity   add the slow seed-sweep sensitivity grid (very slow)
 ```
+
+See `src/README.md` for the full command reference, output paths, and pipeline architecture.
 
 ## Dataset Overview
 
 | Table | Rows | Description |
 |-------|------|-------------|
-| `benchmarks.csv` | 842 | Benchmark metadata: name, venue, category, source URLs |
-| `models.csv` | 4,262 | Model metadata: family, developer, size, type |
-| `results.csv` | 27,070 | Evaluation results: scores, metrics, setup parameters |
+| `benchmarks.csv` | 637 | Benchmark metadata: name, venue, category, source URLs |
+| `models.csv` | 2,028 | Model metadata: family, developer, size, type |
+| `results.csv` | 19,078 | Evaluation results: scores, metrics, setup parameters |
+
+Even after cleanup, the table of models × benchmarks is extremely sparse — under 2% of all
+possible (model, benchmark) pairs have a recorded score, since well-known models get tested
+repeatedly while lesser-known benchmarks barely get touched. This is *why* the MachineG2
+pipeline exists: it's the reason recovering a factor structure needs densifying + imputing
+before it can be run at all. See [docs/RESEARCH_OVERVIEW.md](docs/RESEARCH_OVERVIEW.md) §1 for
+the current density numbers per trimming strategy.
 
 ## Data Schema
 
@@ -107,14 +146,12 @@ instead of writing one-off scripts against the CSVs directly.
 
 ## Categories Covered
 
-The dataset spans 12 benchmark categories:
-- Multilingual, Crosslingual, Cultural
-- Alignment & Safety, Cognitive Science
-- Coding, Math, Reasoning
-- General Knowledge, Music
-- Multimodal, Medical, Audio/Speech
-- Machine Translation, Morality/Ethics
-- Humor/Creativity, History/Culture/Time
+Benchmarks span a broad set of cognitive domains, including multilingual/crosslingual/cultural
+understanding, alignment & safety, general reasoning, coding, math, general knowledge, medical
+knowledge, machine translation, multimodal (vision/audio) tasks, and more — `benchmarks.csv`'s
+`category`/`subcategory` columns hold the fine-grained (and sometimes messy, multi-batch)
+labels. A `data/text_only/` copy of the dataset, with image- and audio-based benchmarks set
+aside, is also maintained for the MachineG2 pipeline (see below).
 
 See `notes/` for per-category research notes.
 
@@ -149,6 +186,44 @@ one-off script. Past one-off cleanup scripts are kept for audit-trail
 purposes in `scripts/archive/` (see `scripts/archive/README.md`). Each
 script also works if run from anywhere, not just the repo root.
 
+## MachineG2 Pipeline
+
+```
+data collection → aggregation → DENSIFY → IMPUTE → FACTOR
+                                (this pipeline's three stages)
+```
+
+The pipeline runs the cross-product `{densifier: raw, C, S, R} × {strategy: all_standard,
+all_aggressive} × {imputer: softimpute, knn, missforest, mice, onesidedmc}` (`iterativepca` is
+implemented but deferred/untested):
+
+- **Densify** (`scripts/densify.py`) — three greedy-peel strategies that each produce a
+  different bias profile, not one "best" table: **C** drops the sparsest benchmarks (favors
+  keeping famous benchmarks and most models), **R** drops the sparsest models (favors keeping
+  famous models and most benchmarks), **S** balances both.
+- **Impute** (`src/impute/`) — each method fills in the missing cells of the sparse matrix and
+  reports a held-out cell-level RMSE/R² sweep. `onesidedmc` is the odd one out — Julia,
+  recovering benchmark-space singular vectors and synthesizing a covariance-equivalent
+  surrogate rather than imputing individual cells.
+- **Factor** (`src/factor/`) — method-agnostic: principal-axis factoring + promax rotation,
+  factor count from Horn's parallel analysis, plus higher-order (second-order) and
+  bifactor/Schmid-Leiman (general-ability-vs-group-factor) decompositions.
+- **Compare** (`scripts/compare_loadings.py`) — cross-method factor congruence, i.e. whether
+  different imputation methods agree on the factor structure they recover.
+
+Outputs: `data/imputed/<method>/<densifier>/<strategy>/` holds the imputed CSV;
+`results/<method>/` holds everything else (dashboards, loadings, sensitivity grids); a parallel
+`results/text_only/` tree holds the same pipeline run against the image/audio-stripped dataset
+copy. `src/README.md` is the authoritative reference for pipeline internals, output formats,
+and how to add a new imputation method — this section only summarizes it.
+
+## Current Findings
+
+See [docs/RESEARCH_OVERVIEW.md](docs/RESEARCH_OVERVIEW.md) for the up-to-date, plain-language
+writeup of what the pipeline has found so far — how well each method predicts held-out scores,
+how many distinct ability groupings the data supports (and why the methods disagree on that
+number), and the open questions the project is currently working through.
+
 ## Methodology
 
 See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for:
@@ -171,13 +246,21 @@ Research notes per category are in `notes/`. The backlog is tracked in `notes/TO
 
 MIT — see [LICENSE](LICENSE).
 
+## Authors / Contact
+
+If you are interested in the work, anything from a simple feedback to any forms of
+collaboration, feel free to reach us:
+- Faiz Ghifari Haznitrama ([haznitrama@kaist.ac.kr](mailto:haznitrama@kaist.ac.kr))
+- Afrizal Hasbi Azizy ([letter.afrizal@gmail.com](mailto:letter.afrizal@gmail.com))
+- Faeyza Rishad Ardi ([faeyza.rishad@gmail.com](mailto:faeyza.rishad@gmail.com))
+
 ## Citation
 
-If you use this dataset in your research, please cite:
+If you use this dataset or pipeline in your research, please cite:
 ```
 @misc{llm-coginterp-2026,
-  title={LLM Cognitive Interpretability Benchmarks Dataset},
-  author={Haznitrama, Faiz Ghifari},
+  title={Understanding the Structure of Language Model Abilities},
+  author={Haznitrama, Faiz Ghifari and Azizy, Afrizal Hasbi and Ardi, Faeyza Rishad},
   year={2026},
   url={https://github.com/faizghifari/llm-coginterp}
 }

@@ -1,5 +1,13 @@
 # LLM Benchmark Dataset: Methodology
 
+> **This is the operational reference for the dataset and pipeline** — how to run
+> things, what the invariants are, what to check after an edit. The **paper-facing
+> methodology** (main text + methodological appendix) lives in the separate paper
+> repository, `llm-coginterp-paper` (`Methodology.md` and `Appendix-Methods.md`),
+> and is derived from this document. Keep the two in sync when the pipeline
+> changes; when they disagree, the code is authoritative and this file should be
+> fixed first.
+
 ## General Data Collection Methodology
 
 The core philosophy of this data collection effort is **"Strict Source Verification"**. To prevent the hallucination or fabrication of evaluation parameters, no data was inferred using generalized heuristics (e.g., assuming all open models use HuggingFace Transformers). If a detail was not explicitly documented by the benchmark's authors or the evaluator, the field was intentionally left blank.
