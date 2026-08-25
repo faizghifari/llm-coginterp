@@ -9,4 +9,10 @@ dependencies = [
     "pandas>=3.0.3",
     "polars>=1.41.2",
     "pyarrow>=24.0.0",
+    # Analysis/diagnostic scripts: miss_corr.py, plot_missing.py, sensitivity.py.
+    # These were imported but undeclared, so a fresh `uv sync` produced an
+    # environment in which those three scripts could not run.
+    "matplotlib>=3.9",
+    "scipy>=1.14",
+    "statsmodels>=0.14",
 ]
