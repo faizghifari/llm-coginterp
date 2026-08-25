@@ -11,7 +11,32 @@
   - `mmar` (1 group): MMAR is an **audio-reasoning** benchmark (arXiv 2505.13032), not multilingual/MT. "Gemini 1.5 Pro" does not appear in the paper at all → its row was dropped. The other 3 stored scores didn't match paper Table 2 either and were corrected to the Avg column (GPT-4o Audio 54.3→63.5, Qwen2-Audio 52.1→30.4, SALMONN-13B 38.2→33.2). Benchmark recategorized multilingual→audio/speech, subcategory/task_type→audio-reasoning.
   - `opencompass` (3 groups): the CompassAcademic leaderboard's 7 capability dimensions were imported all mislabeled `accuracy`; pass 5 had kept only the first (the overall/average — confirmed ≈ mean of the other 6 per model) and dropped the rest. Relabeled metric_name accuracy→overall and recorded in `notes` that the 6 per-dimension scores are unrecoverable (live API still returns only the SPA shell). No row change.
   - `eifbench` (2 groups): EIFBench (arXiv 2506.08375, EMNLP 2025) reports ILA/CLA sub-scores (0–1) per scenario; our single `accuracy` values can't be verified against any paper table, so the 15 result rows were left untouched. Benchmark recategorized alignment/safety→instruction-following, paper_url + year added.
-- [ ] `scripts/manage_data.py categorize-models` flags 46 models as `REMOVE`-candidates (fine-tuned name, no `model_family`/`base_model` set) and 38 as `FLAG` (unclear origin) — **none have zero results**, so none were deleted. These need metadata enrichment (fill in `model_family`/`base_model`), not removal; run `scripts/manage_data.py categorize-models --output data/models_categorized.csv` to get the full list.
+- [ ] **ON HOLD — release-date enrichment, all models AND benchmarks (decided 2026-08-25).**
+  Supersedes the narrower "enrich the FLAG models' metadata" item below: the intent is
+  to fill release dates (month + year minimum) holistically across both tables rather
+  than patching one flagged subset. To be delegated to the hermes agent, which can fan
+  out per-row lookups; **held until hermes finishes migrating to its new model.**
+
+  Current coverage, measured 2026-08-25 — the job is larger than the `FLAG` count suggests:
+
+  | table | field | filled | notes |
+  |---|---|---:|---|
+  | models.csv (2,027) | `release_date` | 8 (0.4 %) | only values present are `2023.0`, `2024.0`, and `128.0` |
+  | models.csv | `year_evaluated` | 11 (0.5 %) | `2023.0`/`2024.0`/`2025.0` |
+  | benchmarks.csv (627) | `year` | 366 (58.4 %) | the one field with usable coverage |
+  | benchmarks.csv | `release_date` | 34 (5.4 %) | mixed granularity: `2023-08`, `2023-10-15`, and one bare `1` |
+
+  Two defects to fix as part of the pass, not after it:
+  - `models.release_date` contains `128.0` — a context-window value leaked into the
+    date column, the same class of parsing bug as the earlier `distilgpt2` developer leak.
+  - `benchmarks.release_date` mixes `YYYY-MM` and `YYYY-MM-DD` granularity and holds one
+    bare `1`. Agree a granularity convention (month precision is the stated floor) before
+    bulk-filling, or the column will need a second pass.
+
+  Note `benchmarks.year` at 58 % is the best existing signal and should seed the work
+  rather than be re-derived.
+
+- [ ] ~~`scripts/manage_data.py categorize-models` flags 46 models as `REMOVE`-candidates~~ **(superseded by the holistic pass above; counts also stale — the current split is 0 REMOVE / 492 FLAG)** (fine-tuned name, no `model_family`/`base_model` set) and 38 as `FLAG` (unclear origin) — **none have zero results**, so none were deleted. These need metadata enrichment (fill in `model_family`/`base_model`), not removal; run `scripts/manage_data.py categorize-models --output data/models_categorized.csv` to get the full list.
 - [x] Fixed `models.csv`'s stale aggregate columns (`benchmark_count`, `total_results`, `avg_score`) — they hadn't been recomputed in a long time (e.g. GPT-4's row said 55/75/42.91, actual was 76/122/88.29). Added `scripts/lib/stats.py` + `scripts/manage_data.py recompute-stats` and ran it for all 1096 models. Re-run this after any batch of changes to results.csv (it's not automatic). Caveat documented in the module docstring: `avg_score` is a plain mean across every row regardless of metric scale (most are 0-100, but Elo ratings like Chatbot Arena's are ~1000-1500), so for models evaluated on mixed scales it isn't a meaningful "typical score" — that's how the column was already defined, just now correctly computed.
 - [x] Verified the "~4,985 HF Open LLM Leaderboard results pending Official-Providers-only filter" item from old session memory — checked all 448 unique v2-sourced model_ids in our results.csv against the live `open-llm-leaderboard/contents` dataset's `Official Providers` column: **100% are already official-provider models.** v1/"old" leaderboard rows (1865 of them) predate the Official-Providers concept entirely, so it doesn't apply there. This was a non-issue, already correctly filtered at extraction time — no fix needed.
 - [x] Run scripts/verify_data.py after any data changes to ensure FK integrity — now also the documented step in docs/METHODOLOGY.md's "Adding New Data" checklist.
@@ -21,10 +46,22 @@
 
 ## Data expansion — large extraction tasks
 
+> **CLOSED 2026-08-25.** Benchmark collection is finished; the corpus is frozen
+> for the analysis. Items below are kept as a record of what was done and what
+> was left, not as planned work. `[~]` marks deliberately-not-planned items.
+
 ### Stanford HELM
 - [x] **Staging extraction complete (2026-06-18).** `scripts/extract_helm_staging.py` fetches all 13 HELM sub-projects from their public GCS APIs and writes properly schema-aligned staging CSVs. Results: **188 benchmarks, 302 models, 6,158 result rows** across Classic, Lite, Safety, MedHELM, ThaiExam, TORR, EWoK, Finance, SEA-HELM, Arabic, Audio, Image2Struct, Reasoning. Validated: correct schema, 0-100 score scale (BPB kept absolute), no special-char model names, 0 null scores.
 - [x] **Merge staging data into main files (2026-06-18).** `scripts/merge_helm_staging.py --write` applied cleanly: +182 benchmarks (6 skipped as already in main), +237 models (58-entry alias map collapsed HELM-style names to existing model_ids; 8 exact collisions skipped), +6158 results (1266 rows remapped via alias). `verify_data.py` clean (0 FK violations), aggregate stats recomputed for all 1333 models. Totals: **397 benchmarks / 1333 models / 13981 results**.
-- [ ] Extract HELM Long-Context, MMLU-Winogrande-Afr, air-bench-2024 sub-projects — not yet accessible via the standard GCS API; revisit when they appear at the standard `crfm-helm-public/{project}/benchmark_output/` path
+- [~] **NOT PLANNED — benchmark collection closed 2026-08-25.** Recorded because
+  the blocker that made this a "revisit later" item is gone, so if collection ever
+  reopens the groundwork is here. Verified 2026-08-25: all three previously-inaccessible sub-projects are now live at the standard `crfm-helm-public/{project}/benchmark_output/runs/` path, with data present:
+  - `long-context` — v1.0.0
+  - `mmlu-winogrande-afr` — v1.0.0, v1.1.0
+  - `air-bench` — 20 versions, latest v1.9.0 (the TODO's "air-bench-2024" is this project)
+
+  Extraction is now a normal data-collection job rather than a blocker. Note `scripts/extract_helm_staging.py` was archived after the 2026-06-18 sweep and would need restoring from `scripts/archive/` (or git history) first.
+- [~] **NOT PLANNED (collection closed).** Six further HELM projects exist in the bucket that the corpus does not cover (found by the same 2026-08-25 sweep): `capabilities`, `cleva`, `efficient_helm`, `instruct`, `robo-reward-bench`, `arabic-enterprise`. All are text-relevant and would be in scope. (`heim` and `vhelm` are image/vision suites — out of scope for the text-only analysis.)
 
 ### Kaggle Benchmarks
 - [x] **Extraction complete (2026-06-19).** Research filter = `type IN (INDIVIDUAL, SUITE)` → exactly 104 benchmarks. `scripts/extract_kaggle_staging.py` used the gRPC-gateway 3-step flow (ListBenchmarks → GetBenchmark → GetBenchmarkLeaderboard). Staging: 104 benchmarks, 79 models, 4,082 results. Key fix: task version ID ≠ benchmark version ID; versionIdSelector must use the inner benchmark version ID from GetBenchmark.

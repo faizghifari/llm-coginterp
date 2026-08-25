@@ -8,6 +8,43 @@
 > changes; when they disagree, the code is authoritative and this file should be
 > fixed first.
 
+## Two tables, two jobs: the archive and the analysis view
+
+The repository holds the dataset twice, and the split is deliberate — it is the
+single most important thing to understand before editing anything.
+
+**`data/*.csv` is the archive.** It records what sources actually published. A
+row leaves it only if it should never have been in the dataset at all: a model
+that fails the Model Inclusion Criteria (not a generative LLM), a benchmark with
+zero in-scope results, a verified mis-extraction. Nothing is removed from the
+archive because it is *inconvenient for the analysis* — deleting a published
+result there destroys information that cannot be recovered.
+
+**`data/text_only/` is the analysis view**, derived from the archive by
+`scripts/make_text_only_copy.py`. This is where *modelling* decisions live:
+dropping non-text benchmarks, collapsing score-redundant columns, removing
+translations of an in-corpus original, choosing one canonical metric per
+benchmark, resolving source-level scale conflicts, and excluding individual
+anomalous values. Every one of those is a judgement about how to measure, not a
+claim that the source data is wrong, so it belongs in a view rather than in the
+record.
+
+Three consequences follow, and each has bitten before:
+
+1. **A reader will find benchmarks in `data/` that the paper says were removed.**
+   That is correct and expected, not an oversight.
+2. **The derived copy is tracked in git but is NOT hand-maintained.** It is
+   regenerated wholesale from the archive plus the knowledge bases in
+   `scripts/lib/config.py`. Hand-editing it is silently undone by the next run.
+   The decision must be encoded in `config.py` instead —
+   `python3 scripts/make_text_only_copy.py --check` regenerates into a temp
+   directory and asserts byte-identity against the committed copy, which is what
+   makes regeneration safe. Run it after any change to either side.
+3. **Which side a fix belongs on is decided by kind, not by convenience.** Ask
+   whether the row should exist in a faithful record of published evaluations. If
+   no, fix the archive (via `scripts/standardise.py`). If yes, but it should not
+   enter *this* analysis, encode it in `config.py` and regenerate.
+
 ## General Data Collection Methodology
 
 The core philosophy of this data collection effort is **"Strict Source Verification"**. To prevent the hallucination or fabrication of evaluation parameters, no data was inferred using generalized heuristics (e.g., assuming all open models use HuggingFace Transformers). If a detail was not explicitly documented by the benchmark's authors or the evaluator, the field was intentionally left blank.
@@ -102,7 +139,10 @@ We enforce strict criteria for which models are tracked in this dataset. The cor
 
 ### Benchmark Normalization
 - `benchmark_id` is always lowercase, used as the primary key.
-- 22 zero-result benchmark stubs were removed from `benchmarks.csv`. Two (`CRUX`, `VerifyQA`) were confirmed duplicates of existing entries (`cruxeval`, `simpleqa`); the remaining 20 were genuine empty stubs with no associated results. All 20 were added to `notes/pending_benchmarks.md` for future data collection.
+- 22 zero-result benchmark stubs were removed from `benchmarks.csv`. Two (`CRUX`, `VerifyQA`) were confirmed duplicates of existing entries (`cruxeval`, `simpleqa`); the remaining 20 were genuine empty stubs with no associated results. All 20 were logged to a collection backlog, now at `notes/archive/pending_benchmarks.md`.
+- **Benchmark collection is closed (2026-08-25).** The corpus is frozen for the
+  analysis, so the backlog is archived for the record only and the automated
+  cross-check that consumed it has been removed from `scripts/lib/integrity.py`.
 - Benchmarks with zero result rows must not exist in benchmarks.csv.
 
 ### Model Normalization

@@ -2,7 +2,123 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals:** 627 benchmarks, 2,028 models, 19,078 result entries.
+**Current totals (archive, `data/*.csv`):** 627 benchmarks, 2,027 models,
+19,072 result entries.
+**Analysis view (`data/text_only/`):** 457 benchmarks, 1,625 models,
+13,256 result entries — derived, see the 2026-08-25 entry below.
+
+---
+
+## Derived-Copy Pipeline: reproducible pruning, canonical metrics, scale fixes (2026-08-25)
+
+The largest structural change since the analysis began, and the one that most
+affects what the paper can claim. Two problems drove it.
+
+**First, the derived copy was not reproducible.** `data/text_only/` is generated
+by `scripts/make_text_only_copy.py` from the archive, but seven commits on
+2026-08-10 had hand-edited its output to prune score-redundant benchmark splits.
+Those edits existed *only* in the generated files, with the reasoning only in
+commit messages — so re-running the generator, which its own docstring and
+README told the reader to do, would have silently reverted all of it. The
+directory's README even claimed it was gitignored and disposable; it is tracked
+and was, at that point, hand-maintained.
+
+**Second, a matrix cell did not measure one thing.** The aggregation step averages
+every result row for a (model, benchmark) pair regardless of `metric_name`. 92
+benchmarks were reported under more than one metric, so cells mixed
+incommensurable quantities — `truthfulqa` averaged a "% informative" rate with a
+BLEU *difference* score, which is why 10 rows in that column were negative. Worse,
+*which* metric a model received is largely decided by which leaderboard scored it
+(325 models by `accuracy`, mean 46.9; 67 by `em`, mean 27.5; populations
+essentially disjoint), so part of each mixed column's variance was a function of
+its source rather than of capability — precisely the artifact a factor analysis
+would report as capability structure.
+
+### Everything is now encoded in `scripts/lib/config.py` and regenerated
+
+Eight knowledge bases were added, each carrying the evidence for every entry so
+the decisions live in code rather than in commit history:
+
+- `SCORE_REDUNDANT_BENCHMARKS` (47 ids) — near-duplicate columns, each decided
+  from full pairwise Pearson correlation over the models evaluated on both.
+- `KEPT_DESPITE_CORRELATION` — families audited and deliberately **kept**, so a
+  future extension does not "helpfully" remove them (SciCode's four split
+  variants at r=0.71–0.96; ThaiExam TGAT/TPAT1, whose 35–45-point gap from the
+  knowledge cluster was verified as systematic).
+- `TRANSLATION_DUPLICATE_BENCHMARKS` (`humaneval_xl`) — kept separate from score
+  redundancy because the basis is the construct, not correlation.
+- `DEFECTIVE_BENCHMARKS` (`elephant`) — `metric_name` held model configurations,
+  not metrics.
+- `METRIC_NAME_ALIASES`, `CANONICAL_METRIC_OVERRIDES`, `KNOWN_METRIC_COLUMN_DEFECTS`.
+- `SOURCE_SCALE_CONFLICTS` (`gpqa`), `ANOMALOUS_RESULT_ROWS` (one row).
+
+`--check` regenerates into a temp directory and asserts byte-identity against the
+committed copy. It passed on the pre-existing files before any new filtering was
+added, which is what proved the 47 pruning decisions had been faithfully
+transcribed rather than approximated.
+
+### Canonical metric selection
+
+Order: normalise (case/whitespace) → alias → override → widest model coverage.
+Normalisation alone resolves `gsm8k`, `fever`, `humaneval`, `winogrande`, whose
+only conflict was `Accuracy` vs `accuracy` — skipping it would have discarded 149
+`gsm8k` rows. Net: 92 contested benchmarks, 1,416 rows dropped, 706 model-cells
+lost, roughly half resolved losing no model.
+
+`accuracy` vs `em` was investigated and **settled: not aliases.** The names are
+effectively source labels (`em` is HELM's on 13 of the 16 benchmarks carrying
+both), the two regimes score near-disjoint populations, and no model in the
+corpus is scored both ways — so the offset cannot be calibrated. Pinning
+`accuracy` globally was also rejected: it would cost 449 further model-cells
+(`openbookqa` 120→22, `legalbench` 90→5) and systematically evict the most
+methodologically controlled source. Reasoning recorded in `config.py`.
+
+### Defects below the metric name
+
+- **`gpqa`** — one metric name, two conventions: 447 of 454 rows are Open LLM
+  Leaderboard v2 *normalised* accuracy (chance mapped to 0, range 0.00–24.94),
+  the other 7 raw accuracy (39.0–94.1). Kept the 447. Correlations are invariant
+  under linear rescaling, so a normalised column is fine provided every row
+  shares the convention; back-transforming would assume the formula and not undo
+  the clamp. 13 % sit exactly at the clamp — documented.
+- **`vectara`** (complementary metrics) and **`pwc_lambada`** (accuracy mixed with
+  perplexity) were resolved by the metric filter itself.
+- **`kaggle_jonlipovetz_game_arena`** — DeepSeek V3.2 at 3114.0 against a 2.97–363.72
+  column. Unrepairable (Kaggle serves no data without auth; 3114 is equally
+  consistent with 311.4 or 31.14). Dropped from the view, retained in the archive.
+
+### Archive changes
+
+`BigBird-Pegasus` removed (−1 model, −6 rows) via `scripts/standardise.py`: Pegasus
+is pretrained with gap-sentence generation *for* summarisation and cannot take an
+arbitrary instruction, unlike T5/FLAN-T5 which are deliberately kept. Both its
+benchmarks were summarisation tasks. `pegasus` added to `NARROW_TASK_PATTERNS` —
+`bigbird` was never in the pattern set, which is how the seq2seq variant slipped
+past the 2026-07-16 non-LLM pass.
+
+### Case-by-case calls closed
+
+`mgsm` and `belebele` **kept**: both are cross-language aggregates that duplicate
+no column we hold (`mgsm` shares *zero* models with `gsm8k`; `belebele` has no
+in-corpus original), consistent with keeping `multiloko`'s aggregate.
+`humaneval_xl` **removed** as a translation of the in-corpus `humaneval`.
+
+### Also
+
+- Benchmark collection **closed**; `notes/pending_benchmarks.md` archived to
+  `notes/archive/` and its integrity check removed.
+- Verified all three previously-inaccessible HELM sub-projects (`long-context`,
+  `mmlu-winogrande-afr`, `air-bench`) are now live, plus six uncovered projects —
+  recorded but not planned, since collection is closed.
+- `matplotlib`/`scipy`/`statsmodels` added to `pyproject.toml`: imported by three
+  scripts but undeclared, so a fresh `uv sync` could not run them.
+- `compare_loadings.py` fixed — it classified `bifactor_pa_loadings.csv` as
+  first-order, feeding `h2`/`u2`/`p2` diagnostics into congruence as if they were
+  loadings, silently.
+- `--data-root`/`--results-root` added to five scripts that hardcoded paths.
+
+Archive: 2,028 → 2,027 models, 19,078 → 19,072 results.
+Analysis view: 457 benchmarks, 1,625 models, 13,256 results.
 
 ---
 
