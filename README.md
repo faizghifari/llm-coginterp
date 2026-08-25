@@ -37,30 +37,51 @@ python3 scripts/verify_data.py                 # integrity checks; run after eve
 python3 scripts/manage_data.py --help           # dupes, dedup, find-aliases, apply-aliases,
                                                  #   standardize-ids, categorize-models, recompute-stats
 
-# MachineG2 pipeline (R, from repo root or anywhere)
+# Derive the analysis view from the archive (after ANY change to data/*.csv
+# or to the knowledge bases in scripts/lib/config.py)
+python3 scripts/make_text_only_copy.py          # regenerate data/text_only/
+python3 scripts/make_text_only_copy.py --check  # assert it is reproducible; changes nothing
+
+# MachineG2 pipeline. Everything below defaults to the TEXT-ONLY analysis view.
 python3 scripts/collapse_results.py             # preproc stage 0a
 python3 scripts/densify.py                      # preproc stage 1 (or: make preproc runs both)
-Rscript src/run/main.R                          # run everything (all methods x C/S/R x both strategies)
-Rscript src/run/main.R --method softimpute      # one method: softimpute|knn|missforest|mice|onesidedmc
-python3 scripts/compare_loadings.py             # cross-method factor congruence -> results/loadings_congruence.md
-make runall                                     # canned sequence of the above across all methods
+Rscript src/run/impute.R --method softimpute    # impute + held-out sweep
+Rscript src/run/factor.R --method softimpute    # factor the completed matrix
+python3 scripts/compare_loadings.py             # cross-method factor congruence
+make runall                                     # canned sequence across all methods
 
+# The multimodal-inclusive corpus is retained; reach it by naming both roots:
+make runall DATA_ROOT=data RESULTS_ROOT=results
+Rscript src/run/impute.R --method softimpute --data-root data --results-root results
+
+# methods: softimpute | softimpute_corr | knn | missforest | mice | onesidedmc
+#          | optspace | usvt | cvxr | ggm      (factor.R also: default | zeros)
 # optionally, per run:
 # --reimpute      force fresh imputation (default reuses an existing imputed CSV)
 # --raw           run the slow undensified level instead of the C/S/R densifiers
 # --smoke         fast synthetic-fixture smoke run
-# --sensitivity   add the slow seed-sweep sensitivity grid (very slow)
+# --loco          (factor.R) leave-one-benchmark-out delta omega_h
 ```
 
 See `src/README.md` for the full command reference, output paths, and pipeline architecture.
 
 ## Dataset Overview
 
-| Table | Rows | Description |
-|-------|------|-------------|
-| `benchmarks.csv` | 637 | Benchmark metadata: name, venue, category, source URLs |
-| `models.csv` | 2,028 | Model metadata: family, developer, size, type |
-| `results.csv` | 19,078 | Evaluation results: scores, metrics, setup parameters |
+The dataset exists twice: **`data/*.csv` is the archive**, recording what sources
+published, and **`data/text_only/` is the analysis view**, generated from it and the
+corpus the MachineG2 pipeline actually runs on.
+
+| Table | Archive (`data/`) | Analysis view (`data/text_only/`) | Description |
+|-------|------:|------:|-------------|
+| `benchmarks.csv` | 627 | 457 | Benchmark metadata: name, venue, category, source URLs |
+| `models.csv` | 2,027 | 1,625 | Model metadata: family, developer, size, type |
+| `results.csv` | 19,072 | 13,256 | Evaluation results: scores, metrics, setup parameters |
+
+The view drops image- and audio-based benchmarks, score-redundant duplicate columns,
+translations of an in-corpus original, and all but one metric per benchmark. Every one of
+those decisions is encoded in `scripts/lib/config.py` and applied by
+`scripts/make_text_only_copy.py` — the view is regenerated, never hand-edited, and
+`--check` asserts it reproduces byte-for-byte. See `docs/METHODOLOGY.md` for the full policy.
 
 Even after cleanup, the table of models × benchmarks is extremely sparse — under 2% of all
 possible (model, benchmark) pairs have a recorded score, since well-known models get tested
@@ -150,8 +171,10 @@ Benchmarks span a broad set of cognitive domains, including multilingual/crossli
 understanding, alignment & safety, general reasoning, coding, math, general knowledge, medical
 knowledge, machine translation, multimodal (vision/audio) tasks, and more — `benchmarks.csv`'s
 `category`/`subcategory` columns hold the fine-grained (and sometimes messy, multi-batch)
-labels. A `data/text_only/` copy of the dataset, with image- and audio-based benchmarks set
-aside, is also maintained for the MachineG2 pipeline (see below).
+labels. The multimodal (vision/audio) benchmarks are retained in the archive but set aside in
+the analysis view, since such a benchmark measures a model's perceptual front-end at least as
+much as its language ability; the pipeline can still be pointed at the full corpus to check
+what that exclusion changed (see below).
 
 See `notes/` for per-category research notes.
 
@@ -205,17 +228,21 @@ implemented but deferred/untested):
   reports a held-out cell-level RMSE/R² sweep. `onesidedmc` is the odd one out — Julia,
   recovering benchmark-space singular vectors and synthesizing a covariance-equivalent
   surrogate rather than imputing individual cells.
-- **Factor** (`src/factor/`) — method-agnostic: principal-axis factoring + promax rotation,
-  factor count from Horn's parallel analysis, plus higher-order (second-order) and
-  bifactor/Schmid-Leiman (general-ability-vs-group-factor) decompositions.
+- **Factor** (`src/factor/`) — method-agnostic: minimum-residual factoring + promax rotation,
+  factor count from Horn's parallel analysis (capped at 20), and a bifactor/Schmid-Leiman
+  (general-ability-vs-group-factor) decomposition run twice per cell — once at the
+  parallel-analysis count, once forced to two factors.
 - **Compare** (`scripts/compare_loadings.py`) — cross-method factor congruence, i.e. whether
   different imputation methods agree on the factor structure they recover.
 
-Outputs: `data/imputed/<method>/<densifier>/<strategy>/` holds the imputed CSV;
-`results/<method>/` holds everything else (dashboards, loadings, sensitivity grids); a parallel
-`results/text_only/` tree holds the same pipeline run against the image/audio-stripped dataset
-copy. `src/README.md` is the authoritative reference for pipeline internals, output formats,
-and how to add a new imputation method — this section only summarizes it.
+Outputs, under whichever root is active (`data/text_only` + `results/text_only` by default):
+`<data-root>/imputed/<method>/<densifier>/<strategy>/` holds the imputed CSV;
+`<results-root>/<method>/` holds the bifactor loadings and scalars; numeric results also land in
+a SQLite store at `<results-root>/database.db`, which `scripts/impute_summary.py`,
+`factor_summary.py` and `correlations.py` read.
+
+Note `src/README.md` is currently **out of date** on several points (it documents `src/run/main.R`,
+a `--sensitivity` flag, dashboards and principal-axis factoring, none of which are live).
 
 ## Current Findings
 
