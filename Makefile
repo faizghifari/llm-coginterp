@@ -83,7 +83,8 @@ runall-impute:
 	Rscript src/run/impute.R --method knn --reimpute --raw $(ROOTS)
 
 runall-factor:
-	Rscript src/run/factor.R --method raw $(ROOTS)
+	Rscript src/run/factor.R --method default $(ROOTS)
+	Rscript src/run/factor.R --method zeros $(ROOTS)
 
 	Rscript src/run/factor.R --method softimpute $(ROOTS)
 	Rscript src/run/factor.R --method softimpute --raw $(ROOTS)

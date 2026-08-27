@@ -29,6 +29,8 @@
 #     --results-root output tree, relative to repo root
 #                    (default results/text_only)
 #     --smoke        use data/smoke fixture
+#     --loco         run leave-one-covariate-out delta omega_h instead of the
+#                    standard bifactor outputs (writes database.db table `loco`)
 # ─────────────────────────────────────────────────────────────────────────────
 
 .script_path <- sub("^--file=", "",

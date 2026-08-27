@@ -25,7 +25,7 @@ pkgs <- c(
   "psych",       # factor analysis (PAF) + parallel analysis
   "softImpute",  # softimpute matrix completion
   "missMDA",     # iterative PCA imputation (deferred method)
-  "VIM",         # KNN imputation
+  #"VIM",         # KNN imputation
   "missForest",  # random-forest iterative imputation
   "mice",        # multiple imputation by chained equations
   "jsonlite",    # parallel-analysis cache (JSON)
