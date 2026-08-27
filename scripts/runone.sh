@@ -17,7 +17,17 @@ shift
 mkdir -p "$logdir"
 log="$logdir/$name.log"
 
-if "$@" >"$log" 2>&1; then
+# Run the job in the background so an interrupt (Ctrl-C / SIGTERM from the
+# parent make tree) can be forwarded to it, otherwise Rscript would survive as
+# an orphan. Without this, killing the wrapper leaves the real job running.
+"$@" >"$log" 2>&1 &
+child=$!
+
+kill_child() { kill -TERM -- "$child" 2>/dev/null; sleep 0.2; kill -INT -- "$child" 2>/dev/null; }
+trap 'kill_child; exit 130' INT
+trap 'kill_child; exit 143' TERM
+
+if wait "$child"; then
     printf '[ok]    %s\n' "$name" | tee -a "$logdir/summary.txt"
     exit 0
 fi

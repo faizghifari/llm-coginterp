@@ -72,19 +72,22 @@ preproc:
 
 # --- ad hoc jobs ---------------------------------------------------------------
 impute:
-	make preproc
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) impute -- $(EXTRA) -- $(ROOTS)
 
 factor:
-	make preproc
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor -- $(EXTRA) -- $(ROOTS)
 
 loco:
-	make preproc
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor loco -- $(EXTRA) -- $(ROOTS)
+
+# The method words after the target (e.g. "usvt" in "make factor usvt") arrive as
+# goals make wants to build; they're consumed by runmulti via $(EXTRA) above, so
+# give them an empty recipe here so make doesn't error "No rule to make target".
+.PHONY: $(EXTRA)
+$(EXTRA):
 
 # --- aggregates ---------------------------------------------------------------
 runall-impute:

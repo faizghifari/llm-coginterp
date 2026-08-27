@@ -14,7 +14,7 @@
 #   Rscript src/run/factor.R --method knn --raw --loco <roots>
 #   Rscript src/run/factor.R --method missforest --raw --loco <roots>
 set -u
-JOBS=${JOBS:-4}
+JOBS=${JOBS:-8}
 
 logdir=$1; shift
 kind=$1; shift
@@ -52,6 +52,12 @@ for m in "${methods[@]}"; do
         ((--running))
     fi
 done
+
+# Forward SIGINT/SIGTERM to every worker (each forwards it on to its Rscript),
+# so an interrupt doesn't leave orphaned R processes running.
+kill_children() { kill -TERM "${pids[@]}" 2>/dev/null; }
+trap 'kill_children; exit 130' INT
+trap 'kill_children; exit 143' TERM
 
 rc=0
 for p in "${pids[@]}"; do wait "$p" || rc=1; done
