@@ -204,6 +204,15 @@ factor_matrix <- function(M, pa_iter = 100L, pa_quantile = 0.95,
        nf = ncol(unclass(efa$loadings)))
 }
 
+# Persist the smoothed correlation matrix that raw factoring ran on, so
+# downstream scorers (scripts/latent_scores.py) can reuse the exact fill+PSD
+# recipe instead of reimplementing it: first column `benchmark`, then R.
+write_correlation_csv <- function(R, path) {
+  write.csv(data.frame(benchmark = rownames(R), R, check.names = FALSE),
+            path, row.names = FALSE)
+  cat("  wrote", path, "\n")
+}
+
 # Higher-order factor analysis on a completed matrix M with `nf` first-order
 # factors. Schmid-Leiman bifactor via psych::omega: every benchmark loads
 # directly on a general factor g + its group factor; yields omega_h (proportion

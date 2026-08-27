@@ -8,8 +8,8 @@ about the *paths and the hand-offs*.
 ## Big picture
 
 ```
- source CSVs ──► densify ──► impute ──► factor ──► results (CSV/MD) + SQLite
- (data/)   (scripts/)  (src/impute/ + Julia)  (src/factor/)     (results/)
+ source CSVs ──► densify ──► impute ──► factor ──► results (CSV/MD) + SQLite ──► latent scores
+ (data/)   (scripts/)  (src/impute/ + Julia)  (src/factor/)     (results/)      (scripts/)
 ```
 
 The pipeline is a **cross-product** of `{densifier C,S,R} × {strategy
@@ -160,13 +160,48 @@ benchmarks, rows are models, first column `collapse_key`. This is the only thing
 | output | path |
 |---|---|
 | bifactor loadings | `results/<method>/<method>_<dz>_<st>_bifactor_<pa\|2f>_loadings.csv` + `.md` |
+| smoothed correlation (raw methods only) | `results/<method>/<method>_<dz>_<st>_correlation.csv` |
 | omega scalars | `results/<method>/..._bifactor_<pa\|2f>_scalars.csv` |
 | per-group ω_hs | `results/<method>/..._bifactor_<pa\|2f>_omega_group.csv` |
 | factoring row | `results/<...>/database.db` table `factoring` (PK `dataset,method,run`) |
 
 `write_higher_order` (CSV + MD) and `db_insert_factoring` (SQLite) are the only
 writers here. `matrix_to_markdown` bolds |loading| ≥ 0.4 and sorts rows by
-primary-factor assignment.
+primary-factor assignment. For raw methods (`default`/`zeros`),
+`write_correlation_csv` additionally persists the PSD-smoothed pairwise-complete
+correlation the factoring ran on, so downstream scoring does not have to
+reimplement the fill/smoothing recipe.
+
+## Stage 3 — latent scores (`scripts/latent_scores.py`)
+
+Python, reads factoring outputs and writes per-model factor scores next to the
+loadings they came from. No SQLite involvement.
+
+For every discovered `*_loadings.csv` (parsed into `(method, dz, st, tag)`,
+tag ∈ {pa, 2f}), it locates the matching data, z-scores benchmark columns, and
+applies regression (Thomson) scoring `F = Z R⁻¹Λ` — loadings turned into beta
+weights via the correlation matrix, pseudoinverse fallback for low-rank R:
+
+| cell type | data read | R used | writes |
+|---|---|---|---|
+| imputed methods (incl. onesidedmc) | `data/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` | `cor(Z)` of the scored columns | `results/<method>/<method>_<dz>_<st>_bifactor_<tag>_scores.csv` |
+| raw methods (default/zeros) | sparse `data/combinations[_<dz>]/<st>/model_benchmark_table.csv` + the persisted `..._correlation.csv` | the persisted smoothed pairwise-complete R | `..._bifactor_<tag>_scores_conditional.csv` + `..._scores_prorated.csv` |
+
+Raw cells get **two** estimators for triangulation (both use Λ; they differ
+only in how they handle missing cells):
+
+- **conditional** (`_scores_conditional.csv`): per model, the posterior-mean
+  score given its observed benchmarks, `F̂ᵢ = Λ_Oᵢᵀ R_OᵢOᵢ⁻¹ zᵢ,Oᵢ` — i.e.
+  implicit regression-imputation of the missing benchmarks, in closed form;
+- **prorated** (`_scores_prorated.csv`): one global `W = pinv(R)Λ`, missing
+  cells treated as z = 0, renormalized by observed weight mass.
+
+Both raw outputs carry an `n_obs` column (observed benchmark count per model).
+Every output has an `all_sum` column = rowwise sum of g + all group-factor
+scores (the Schmid–Leiman group factors are orthogonal, so the sum is a valid
+aggregate index in SD units). `h2`/`u2`/`uq2`/`p2`/`com` columns of the
+loadings CSV are diagnostics and are never scored. Full methodology lives in
+the comment block at the top of `scripts/latent_scores.py`.
 
 ## The SQLite database
 
@@ -192,6 +227,10 @@ densify.py            ──CSV──►  impute_<method>            ──M─�
                                                └─► database.db: imputation
                                                   database.db: factoring
                                                   (read by factor for the R² gate)
+
+factor.R              ──loadings + R──►  latent_scores.py
+(raw methods persist                     (reads imputed CSVs / sparse tables +
+ <...>_correlation.csv)                   the persisted R, writes *_scores*.csv)
 ```
 
 The one hard invariant: **imputers never factor; the orchestrator owns
@@ -212,3 +251,8 @@ factoring and all I/O.** A method just returns the contract above, and
   paper core; `realdata.jl` is additive and exported through the module.
 - **Completed CSVs are the only artifact `factor.R` reads from imputation**;
   everything else (sweep, DB) is recomputed or stored alongside.
+- **Latent-score naming:** bare `..._scores.csv` is reserved for
+  complete-data (imputed) cells; raw-method cells always emit
+  `..._scores_conditional.csv` / `..._scores_prorated.csv`. Raw scoring also
+  requires the `..._correlation.csv` persisted by factoring — re-run factoring
+  for a raw cell if that file is missing (the scorer skips with a notice).

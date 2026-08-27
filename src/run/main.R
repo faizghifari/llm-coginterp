@@ -261,6 +261,7 @@ factor_and_report <- function(method, dz, st, M) {
   if (method == "raw") {
     cat(sprintf("  raw factoring — pairwise-complete correlation (no imputation R² gate)\n"))
     fr <- factor_raw(M, pa_iter = 100L)
+    write_correlation_csv(fr$R, res_path(method, dz, st, "correlation.csv"))
     pa_nf <- fr$nf
     var_explained <- extract_variance(fr$efa)
     st_pa <- efa_stats(fr$efa)
