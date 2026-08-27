@@ -74,15 +74,27 @@ impute_softimpute_corr <- function(x, max_rank = 10L, seed = 1L) {
   nrow_x <- nrow(x)
   ranks <- 1:min(max_rank, ncol(x) - 1L)
 
-  rmse_v <- numeric(length(ranks)); r2_v <- numeric(length(ranks))
-  fits <- vector("list", length(ranks))
+  ok_ranks <- integer(0); rmse_v <- numeric(0); r2_v <- numeric(0)
+  fits <- list()
   for (k in seq_along(ranks)) {
-    fr <- fit_at_rank_corr(R_train, R_full, test_cells, holdout, zt, nrow_x,
-                           ranks[k])
-    fits[[k]] <- fr; rmse_v[k] <- fr$rmse; r2_v[k] <- fr$r2
+    fr <- tryCatch(
+      fit_at_rank_corr(R_train, R_full, test_cells, holdout, zt, nrow_x,
+                       ranks[k]),
+      error = function(e) {
+        cat(sprintf("  rank %2d | FAILED (%s) - skipping\n",
+                    ranks[k], conditionMessage(e)))
+        NULL
+      })
+    if (is.null(fr)) next
+    ok_ranks <- c(ok_ranks, ranks[k]); fits[[length(fits) + 1L]] <- fr
+    rmse_v <- c(rmse_v, fr$rmse); r2_v <- c(r2_v, fr$r2)
     cat(sprintf("  rank %2d | RMSE %.4f | R2 %.3f\n", ranks[k], fr$rmse, fr$r2))
   }
-  best_k <- which.min(rmse_v); best_r <- ranks[best_k]
+  if (!length(ok_ranks))
+    stop(sprintf("softimpute_corr: every rank failed (%s), no valid imputation;",
+                 paste(ranks, collapse = ",")),
+         " try other methods for this cell")
+  best_k <- which.min(rmse_v); best_r <- ok_ranks[best_k]
   cat(sprintf("  >> CV-best imputation rank = %d (RMSE %.4f, R2 %.3f)\n",
               best_r, rmse_v[best_k], r2_v[best_k]))
 
@@ -93,6 +105,6 @@ impute_softimpute_corr <- function(x, max_rank = 10L, seed = 1L) {
                           seed = seed)
 
   list(M = M,
-       best_param = best_r, params = ranks, curve = rmse_v, curve_r2 = r2_v,
+       best_param = best_r, params = ok_ranks, curve = rmse_v, curve_r2 = r2_v,
        param_name = "rank", metric_name = "Held-out RMSE")
 }
