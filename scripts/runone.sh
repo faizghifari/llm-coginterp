@@ -20,10 +20,23 @@ log="$logdir/$name.log"
 # Run the job in the background so an interrupt (Ctrl-C / SIGTERM from the
 # parent make tree) can be forwarded to it, otherwise Rscript would survive as
 # an orphan. Without this, killing the wrapper leaves the real job running.
+#
+# `set -m` gives the background job its own process group, so killing "-$child"
+# (negative pid = process group) also takes out grandchildren the wrapper knows
+# nothing about -- e.g. the PSOCK workers R's makeCluster() spawns. Killing the
+# Rscript pid alone would leave those workers orphaned forever, since R's
+# on.exit(stopCluster(...)) never runs when R dies from a signal.
+set -m
 "$@" >"$log" 2>&1 &
 child=$!
 
-kill_child() { kill -TERM -- "$child" 2>/dev/null; sleep 0.2; kill -INT -- "$child" 2>/dev/null; }
+kill_child() {
+    kill -TERM -- -"$child" 2>/dev/null
+    sleep "${KILL_GRACE:-5}"
+    # Escalate in case anything ignored or survived the TERM.
+    kill -KILL -- -"$child" 2>/dev/null
+    kill -KILL -- "$child" 2>/dev/null
+}
 trap 'kill_child; exit 130' INT
 trap 'kill_child; exit 143' TERM
 

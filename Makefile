@@ -74,14 +74,17 @@ preproc:
 impute:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) impute -- $(EXTRA) -- $(ROOTS)
+	./scripts/runmulti.sh $(LOGS) impute raw -- $(EXTRA) -- $(ROOTS)
 
 factor:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor -- $(EXTRA) -- $(ROOTS)
+	./scripts/runmulti.sh $(LOGS) factor raw -- $(EXTRA) -- $(ROOTS)
 
 loco:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor loco -- $(EXTRA) -- $(ROOTS)
+	./scripts/runmulti.sh $(LOGS) factor raw loco -- $(EXTRA) -- $(ROOTS)
 
 # The method words after the target (e.g. "usvt" in "make factor usvt") arrive as
 # goals make wants to build; they're consumed by runmulti via $(EXTRA) above, so

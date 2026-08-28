@@ -223,7 +223,10 @@ factor_and_report <- function(method, dz, st, M) {
 
   if (LOCO) {
     if (method == "raw") {
-      prep    <- prepare_raw_cor(M)
+      # LOCO loads the correlation matrix persisted by the non-LOCO factoring
+      # run (correlation.csv) instead of recomputing it from the sparse table.
+      prep    <- prepare_raw_default(M, use_cache = TRUE,
+                                     cache_path = res_path(method, dz, st, "correlation.csv"))
       R       <- prep$R
       n_obs   <- prep$n_eff
       cut     <- pa_cutoffs(n_obs, ncol(M))

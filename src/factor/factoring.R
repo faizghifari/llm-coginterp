@@ -101,6 +101,20 @@ efa_stats <- function(efa) {
   list(phi_avg = phi_avg, phi = phi, var_factors = pv, var_avg = var_avg)
 }
 
+# Load a correlation matrix written by write_correlation_csv: first column
+# `benchmark`, remaining columns the matrix; benchmarks become row/col names.
+read_correlation_csv <- function(path) {
+  if (!file.exists(path))
+    stop("cached correlation matrix not found: ", path,
+         " — run the non-LOCO factoring first to generate it")
+  df <- read.csv(path, check.names = FALSE, row.names = 1)
+  R <- as.matrix(df)
+  storage.mode(R) <- "double"
+  if (!is.matrix(R) || nrow(R) != ncol(R) || !identical(rownames(R), colnames(R)))
+    stop("cached correlation matrix is malformed: ", path)
+  R
+}
+
 # Pairwise-complete correlation from a sparse matrix (NAs allowed), PSD-smoothed.
 # Returns the smoothed correlation R, the raw dataset's row count as the effective
 # sample size (N), and eigenvalues of the RAW correlation (unsmoothed).
@@ -112,7 +126,19 @@ efa_stats <- function(efa) {
 # stable, conservative estimate that avoids this singularity and is appropriate
 # for no-imputation pairwise-complete correlation analysis where every row
 # contributes at least some pairwise information.
-prepare_raw_default <- function(M) {
+#
+# use_cache = TRUE skips the pairwise cor() + smoothing entirely and loads the
+# correlation matrix previously written by write_correlation_csv from cache_path
+# (eigenvalues then come from the cached smoothed matrix). Used by the LOCO run,
+# which would otherwise redo the (expensive) full-matrix correlation for no gain.
+prepare_raw_default <- function(M, use_cache = FALSE, cache_path = NULL) {
+  if (use_cache) {
+    R <- read_correlation_csv(cache_path)
+    return(list(R = R, n_eff = as.integer(nrow(M)),
+                eig_raw = sort(eigen(R, symmetric = TRUE,
+                                     only.values = TRUE)$values,
+                                decreasing = TRUE)))
+  }
   R <- cor(M, use = "pairwise.complete.obs")
   off_diag <- R[upper.tri(R)]
   mu <- mean(off_diag[is.finite(off_diag)])
@@ -132,7 +158,14 @@ prepare_raw_default <- function(M) {
 # unobserved / non-finite off-diagonal pairs with 0 instead of the average
 # off-diagonal correlation. This treats absent co-observation as "no
 # association" rather than imputing the typical pairwise correlation.
-prepare_raw_zeros <- function(M) {
+prepare_raw_zeros <- function(M, use_cache = FALSE, cache_path = NULL) {
+  if (use_cache) {
+    R <- read_correlation_csv(cache_path)
+    return(list(R = R, n_eff = as.integer(nrow(M)),
+                eig_raw = sort(eigen(R, symmetric = TRUE,
+                                     only.values = TRUE)$values,
+                                decreasing = TRUE)))
+  }
   R <- cor(M, use = "pairwise.complete.obs")
   R[!is.finite(R)] <- 0
   diag(R) <- 1

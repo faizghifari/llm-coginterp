@@ -3,7 +3,7 @@
 # Factor-analysis-only orchestrator.
 #
 # Reads COMPLETED matrices (from data/imputed/) written by the imputation stage,
-# gates on imputation R² >= 0.4 (SQLite), then runs two bifactor analyses per
+# gates on imputation R² >= 0.3 (SQLite), then runs two bifactor analyses per
 # cell: one at the PA-based factor count (min 2) and one forced to 2 factors.
 #
 # Output (per cell):
@@ -148,9 +148,14 @@ factor_and_report <- function(method, dz, st, M) {
 
   if (LOCO) {
     if (method %in% RAW_METHODS) {
+      # LOCO never re-derives the correlation matrix: it loads the one the
+      # non-LOCO factoring run persisted (correlation.csv) and peels
+      # row/column i per covariate inside loco_delta.
       prep <- switch(method,
-        default = prepare_raw_default(M),
-        zeros   = prepare_raw_zeros(M))
+        default = prepare_raw_default(M, use_cache = TRUE,
+                                      cache_path = res_path(method, dz, st, "correlation.csv")),
+        zeros   = prepare_raw_zeros(M, use_cache = TRUE,
+                                    cache_path = res_path(method, dz, st, "correlation.csv")))
       R       <- prep$R
       n_obs   <- prep$n_eff
       cut     <- pa_cutoffs(n_obs, ncol(M))
@@ -161,12 +166,12 @@ factor_and_report <- function(method, dz, st, M) {
     } else {
       r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
                      error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
-      if (is.na(r2) || r2 < 0.4) {
-        cat(sprintf("  skipping LOCO (%s) — imputation R² = %s < 0.4\n", tag,
+      if (is.na(r2) || r2 < 0.3) {
+        cat(sprintf("  skipping LOCO (%s) — imputation R² = %s < 0.3\n", tag,
                     if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
         return(invisible())
       }
-      cat(sprintf("  R² = %.3f >= 0.4, proceeding\n", r2))
+      cat(sprintf("  R² = %.3f >= 0.3, proceeding\n", r2))
       R     <- cor(M)
       n_obs <- nrow(M)
       pa    <- choose_nfactors(M)
@@ -221,12 +226,12 @@ factor_and_report <- function(method, dz, st, M) {
 
   r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
                  error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
-  if (is.na(r2) || r2 < 0.4) {
-    cat(sprintf("  skipping (%s) — imputation R² = %s < 0.4\n", tag,
+  if (is.na(r2) || r2 < 0.3) {
+    cat(sprintf("  skipping (%s) — imputation R² = %s < 0.3\n", tag,
                 if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
     return(invisible())
   }
-  cat(sprintf("  R² = %.3f >= 0.4, proceeding\n", r2))
+  cat(sprintf("  R² = %.3f >= 0.3, proceeding\n", r2))
 
   fr <- factor_matrix(M, pa_iter = 100L)
   pa_nf <- fr$nf

@@ -43,6 +43,21 @@ fi
 
 pids=()
 running=0
+
+# Traps must be armed BEFORE any job is launched, otherwise an interrupt that
+# arrives during the spawn loop is unhandled and leaves every already-started
+# job running as an orphan.
+kill_children() {
+    # Each pid is a runone.sh wrapper; its own trap forwards the TERM to the
+    # job's whole process group (Rscript + any workers it spawned). Escalate
+    # to KILL in case a wrapper is stuck or already gone.
+    kill -TERM "${pids[@]}" 2>/dev/null
+    sleep "${KILL_GRACE:-5}"
+    kill -KILL "${pids[@]}" 2>/dev/null
+}
+trap 'kill_children; exit 130' INT
+trap 'kill_children; exit 143' TERM
+
 for m in "${methods[@]}"; do
     ./scripts/runone.sh "${namebase}-${m}" "$logdir" \
         Rscript "src/run/${kind}.R" --method "$m" "${flags[@]}" "${roots[@]}" &
@@ -52,12 +67,6 @@ for m in "${methods[@]}"; do
         ((--running))
     fi
 done
-
-# Forward SIGINT/SIGTERM to every worker (each forwards it on to its Rscript),
-# so an interrupt doesn't leave orphaned R processes running.
-kill_children() { kill -TERM "${pids[@]}" 2>/dev/null; }
-trap 'kill_children; exit 130' INT
-trap 'kill_children; exit 143' TERM
 
 rc=0
 for p in "${pids[@]}"; do wait "$p" || rc=1; done
