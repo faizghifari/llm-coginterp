@@ -165,6 +165,78 @@ We enforce strict criteria for which models are tracked in this dataset. The cor
 
 ---
 
+## Release Dates (`release_date`, `release_date_source`)
+
+Both tables carry a `release_date` and, next to it, a `release_date_source`
+recording how that value was obtained. The second column is not decoration: the
+tiers differ enormously in reliability, and a date decoded from an arXiv
+identifier and a date recalled by a language model must stay distinguishable
+after the fact.
+
+**Granularity.** Month (`YYYY-MM`) is the floor, because a bare year cannot order
+releases within a year, which is the point of having the field. Where a full
+`YYYY-MM-DD` was already recorded it is kept — precision is never discarded.
+A bare `YYYY` is a legitimate but *coarse* value, emitted when corroboration
+reached the year and no further; it is preserved, never silently deleted.
+
+**Coverage** (2026-09-01): models 2007/2014 dated, 1765 (88%) at month precision;
+benchmarks 623/624 dated, 457 (73%) at month precision.
+
+**Tiers, most to least trustworthy:**
+
+| source | what it means |
+|---|---|
+| `arxiv_id` | decoded from an arXiv identifier (`YYMM.NNNNN` → `20YY-MM`). Exact, not heuristic. |
+| `hf_createdat` | the HuggingFace API's `createdAt` for a repo belonging to the model's **publisher**. An API fact, not a recollection. |
+| `verified_arxiv`, `web_verified`, `sourced_evidence`, `web_cited` | researched externally and backed by a citation that was checked. |
+| `corroborated_month` / `corroborated_year` | two independent passes agreed, to the month or only to the year. Agreement is not proof — both passes can share a model and be wrong together — but disagreement is strong evidence of unreliability. |
+| `single_hermes` / `single_haiku` | one model-generated answer, uncorroborated. **Weakest tier; treat as an estimate.** |
+| `name_stamp` | decoded from a date stamp inside the identifier (`claude-3-5-sonnet-20240620`). Requires a 4-digit year — `gpt-4-0613` is deliberately *not* matched, since guessing its year would be inventing data. |
+| `base_model_date` | the row is a method/eval variant, not a released model, so it carries its **base model's** date. See below. |
+| `existing` | already present and valid before this work, with no recorded provenance. |
+
+**Two traps, both hit in practice and both defended against in code:**
+
+- *The Hub-migration sentinel.* Repos predating the HuggingFace Hub migration
+  return `createdAt` of exactly `2022-03-02T23:29:0X`. It is a migration
+  artifact, not an upload date — `bert-base-uncased` (2018) and `gpt2` (2019)
+  both return it. Any such timestamp is rejected.
+- *Family attribution.* Any matcher that normalises a model name before
+  comparing it throws away, at the normalisation step, precisely the tokens that
+  separate a model from its family — so `GPT-3.5 (text-davinci-002)` collapses
+  onto plain `GPT-3.5`, and a variant inherits its family's date. A source is
+  only safe here when identity is *given* rather than inferred.
+
+**Method and eval variants.** A row like `LLaVA-1.5-13B (+CSR)`,
+`STaR (on GPT-J)` or `PaLM (540B, Few-shot)` is not a released model — it is one
+paper's evaluation of a released model under some method or setup, and it has no
+release date of its own. These take the **base model's** date, tagged
+`base_model_date`.
+
+The rule is applied with a guard, because applied blindly it degrades data: the
+variant is sometimes the better-sourced row of the pair. `PaLM (540B, Few-shot)`
+carried the correct 2022-04 while the `PaLM` base row carried 2023-05 — PaLM
+*2*'s date — so inheriting would have propagated an error to three rows instead
+of fixing one. A variant therefore inherits **only when the base is
+better-evidenced than the variant is**, ranked on the ladder above with month
+precision outranking year-only at the same tier. The general point: base rows are
+not automatically more trustworthy, and an error in a base propagates to
+everything downstream of it.
+
+**Known bias.** Model-generated dates run systematically **early** for models
+released after the generating model's training cutoff. Measured on models whose
+true date is 2025: 61% too early, median 9 months early, 0% too late. The 2024+
+region has since been repaired and is largely evidence-backed; the pre-2024
+region is the weaker half. Full detail in `docs/CHANGELOG.md`.
+
+**Maintenance.** `scripts/enrich_release_dates.py` fills everything derivable
+from data already in the tables (arXiv ids, embedded date stamps) at zero lookup
+cost, and `--todo DIR` emits the residual as a work list so external research
+never re-does what is already held. It is idempotent: re-running it changes no
+value and no provenance.
+
+---
+
 ## Inference Environment Collection
 
 We mapped the `inference_platform` and `inference_engine` used for each evaluation row.
@@ -200,6 +272,35 @@ Before finalizing the dataset, a multi-threaded URL validator was run across bot
 - Validated HTTP status codes (ignoring false-positive 403s from anti-bot protections on ArXiv/Cloudflare).
 - Hunted down and replaced dead links (404s), such as resolving moved GitHub repositories (e.g., `HiTZ/BasqueGLUE` → `orai-nlp/BasqueGLUE`) or finding mirrors for dead DOI links.
 - Filled in 53 entirely blank benchmark source links by cross-referencing benchmark names with active ArXiv/GitHub links.
+
+**What that validation does not catch, and did not.** It checks that a URL
+*resolves*, not that it points at the right thing. A link can be perfectly live
+and still be wrong, and a name-based backfill is exactly the process that
+produces live-but-wrong links. Found and corrected 2026-09-01:
+
+- Six `hf_url` values were HuggingFace *search queries*
+  (`huggingface.co/papers?q=MILU`) rather than paper pages — a resolving URL
+  carrying no information. Cleared.
+- Two `github_url` values were name-collision hits on unrelated projects:
+  `longshot` (an LLM long-video benchmark) pointed at a long-read *sequencing*
+  toolkit, and `triangulating` (an LLM cognitive-test paper) at a 3D geometry
+  *triangulation* toolbox. Both cleared.
+- `hagendorff_biases_2023` carried a LangChain GitHub **issue** as its
+  `github_url` and no `paper_url` at all; `helm` pointed at a single issue rather
+  than the repo.
+- `akata_games_2023`'s `paper_url` was the neighbouring row's paper
+  (arXiv 2502.14359, *Triangulating*) instead of its own (arXiv 2305.16867,
+  *Playing repeated games with LLMs*). Its stored `release_date` of 2023-05
+  matched the **correct** paper, which is how the URL was identified as the error.
+
+Corrections of this kind are verified mis-extractions and so belong in the
+archive; they are applied through `scripts/standardise.py`'s
+`set_benchmark_field` operation rather than by hand, so they leave an audit
+trail. One case was left **unfixed** on purpose: `mexa` is recorded as
+`multilingual` / `mexican-languages` (2024) but its `paper_url` is a 2025
+*multimodal reasoning* MEXA and its `github_url` a *cross-lingual alignment*
+MEXA — three different benchmarks share the name, and picking one without
+sourcing it would be a guess.
 
 ---
 
@@ -349,32 +450,51 @@ Higher-order outputs are written per cell as `*_secondorder_loadings.{csv,md}`,
 `*_bifactor_loadings.{csv,md}`, `*_bifactor_scalars.csv` (ω_h, ω_total), and
 `*_bifactor_omega_group.csv` (per-group ω_hs).
 
-### Orchestration (`src/run/main.R`)
+### Orchestration (`src/run/impute.R`, `src/run/factor.R`)
 
-Runs the cross-product `{densifier} × {strategy} × {imputer}`. For each cell:
-impute → factor → higher-order → a single **9-panel dashboard** (predictive
-curve+R², marginal gain, cumulative variance, scree, SS loadings, PA-count;
-panels 7–9 = second-order loadings, bifactor g loadings, omega coefficients).
-Imputed matrices go to `data/imputed/<method>/<densifier>/<strategy>/` (CSV
-only); everything else (loadings, dashboards, sensitivity grids) lands under
-`results/<method>/` with flat `<method>_<densifier>_<strategy>_<suffix>` names.
+The pipeline is driven by **two** scripts, deliberately split so that an imputer
+can never quietly factor:
 
-Flags:
-- `--method <name>` — one of softimpute / iterativepca / onesidedmc / knn /
-  missforest / mice; omit to run all.
+- `src/run/impute.R` — imputes and runs the held-out RMSE/R² sweep, writing the
+  completed matrix to `<data-root>/imputed/<method>/<densifier>/<strategy>/`.
+- `src/run/factor.R` — reads that back, **gates on imputation R² ≥ 0.3** (read
+  from SQLite), and factors. Each cell is factored twice: at the parallel-analysis
+  factor count and forced to 2 factors. Output is bifactor / Schmid-Leiman
+  (`psych::omega`) only, landing under `<results-root>/<method>/` with flat
+  `<method>_<densifier>_<strategy>_bifactor_{pa,2f}_<suffix>` names. Numeric
+  results also go to `<results-root>/database.db` (tables `imputation`,
+  `factoring`, `loco`).
+
+Both default to the **text-only analysis view**; reach the multimodal-inclusive
+corpus with an explicit `--data-root data --results-root results`.
+
+Flags — `impute.R`: `--method`, `--data-root`, `--results-root`, `--raw`,
+`--reimpute`, `--smoke`, `--no-balance`. `factor.R`: `--method`, `--data-root`,
+`--results-root`, `--raw`, `--smoke`, `--loco`.
+
+- `--method <name>` — softimpute / softimpute_corr / knn / missforest / mice /
+  onesidedmc / optspace / usvt / cvxr / ggm; `factor.R` also takes `default` and
+  `zeros`, the no-imputation variants factored straight from a pairwise-complete
+  correlation matrix (no R² gate applies to those).
 - `--raw` — run ONLY the undensified `raw` level (slow); default runs C/S/R.
-- `--smoke` — use the tiny synthetic fixture (`scripts/make_smoke.py` →
-  `data/smoke/`).
-- `--reimpute` — force fresh imputation; **default reuses** an existing imputed
-  CSV (factor + re-plot only), so higher-order can be retrofitted cheaply.
-- `--sensitivity` — opt-in seed-sweep (parallelized: R `doParallel`, Julia
-  threads). Per densifier: RMSE box, R² box, best-param stability, ω_h
-  distribution.
-- `--no-balance` — cell-weighted instead of column-balanced held-out metric.
+- `--reimpute` — force fresh imputation; **default reuses** an existing imputed CSV.
+- `--loco` (`factor.R`) — leave-one-benchmark-out Δω_h.
+- `--smoke` — the tiny synthetic fixture (`scripts/make_smoke.py` → `data/smoke/`).
+- `--no-balance` (`impute.R`) — cell-weighted instead of column-balanced held-out metric.
 
-Paths are anchored to the repo root via each script's own location, so the
-orchestrator runs from any working directory. Run all three environments via
-`make install` (uv for Python, renv for R, the Julia project for OSMC).
+Paths are anchored to the repo root via each script's own location, so everything
+runs from any working directory. Set the three environments up with
+`make deps` then `make env`.
+
+> **Removed features — do not expect them.** Earlier revisions of this document
+> described a `--sensitivity` seed sweep, a second-order factor analysis, and a
+> single 9-panel dashboard per cell. All three are gone: the output is bifactor
+> only, and the `sensitivity_*` functions still present in each
+> `src/impute/*/method.R` are unreachable because no orchestrator exposes the
+> flag. `src/run/main.R` is a third, older entry point that is not wired into the
+> Makefile and is not the documented path; use the split scripts above.
+> `src/README.md` still describes the removed dashboard/second-order design and
+> is stale on that point.
 
 ### Cross-method agreement (`scripts/compare_loadings.py`)
 

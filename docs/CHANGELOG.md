@@ -244,6 +244,147 @@ self-confirming: `OLMo-2-0325-32B-Instruct` encodes 2025-03 in its own name, and
 The other 364 keep their `single_*` guesses, which for this set are the better
 estimate.
 
+### Pre-2024 repair: two more automated sources tried, one kept
+
+The repair passes above fixed the 2024+ region, so the residual error is
+concentrated in rows dated before 2024. Three zero-cost deterministic sources
+were tried against that residual alongside the agent search. Only one survived.
+
+**Kept — HF lookup by the repo the dataset already names.** 215 of the 910
+residual rows carry an explicit `org/repo` path in `model_name`
+(`lmsys/vicuna-7b-delta-v1.1`, `EleutherAI/pythia-2.8b`). For these there is no
+identity guessing to get wrong: the archive itself names the repo, so its
+`createdAt` is the right timestamp by construction, and none of the publisher-org
+whitelisting the name-search sweep needed applies. 187 resolved. Note the earlier
+name-search pass had silently missed every one of them — it compared the
+normalised full path against the normalised repo name, so `lmsysvicuna7bdeltav11`
+never equalled `vicuna7bdeltav11`.
+
+**Rejected — arXiv title matching.** Relevance search returns papers *about* a
+model as readily as the paper announcing it. Three of its first five outputs were
+false positives: `text-davinci-003` → "Davinci the Dualist", `Claude 2` → a
+multiple-choice comparison study, `Gemini Pro` → "An In-depth Look at Gemini's
+Language Abilities". It is also the wrong instrument for the question — many
+models ship by blog months before any paper (Vicuna, Alpaca, StarCoder), so a
+paper date is systematically late for exactly the open models this residual is
+full of.
+
+**Rejected — Wikidata publication/inception date.** Restricting to month
+precision looked like it worked (`GPT-2` → 2019-02 correct, year-only `mT5` →
+2021 correctly suppressed), but the identity rule was the defect. Matching a
+label requires stripping the parenthetical, and the parenthetical is what
+distinguishes a variant from its family: `GPT-3.5`, `GPT-3.5 (text-davinci-002)`
+and `GPT-3.5 (text-davinci-003)` all collapsed onto one Codex item and took its
+2021-08 date, when the three correct answers are 2022-11, 2022-03 and 2022-11.
+`GPT-4 (0613)` lost the checkpoint stamp that *was* its date and took the family
+date of 2023-03 instead of 2023-06. Roughly half its output was wrong, in the
+plausible-looking way that survives a spot check. Output kept unapplied at
+`REJECTED_wikidata_out.csv`.
+
+The general lesson is the same one the family-page failure taught earlier, and it
+is worth stating as a rule: **any matcher that has to normalise a model name
+before comparing it will, at the normalisation step, throw away precisely the
+tokens that separate a model from its family.** A source is only safe here when
+identity is given rather than inferred — which is why the repo-path lookup is
+trustworthy and the two search-based sources are not.
+
+### Method/eval variants now take their base model's date (2026-09-01)
+
+92 model rows are not released models but evaluations of one: `LLaVA-1.5-13B
+(+CSR)`, `STaR (on GPT-J)`, `PaLM (540B, Few-shot)`, `Vicuna (SYRELM)`. They have
+no release date of their own, so they take the base model's, tagged
+`base_model_date`.
+
+Most already did — the convention was already in the data, just unstated. Of the
+92, 43 already matched their base or were the better-evidenced row, 41 have no
+resolvable or dated base, and **8 changed**: four `LLaVA-1.5-*` variants moved
+from year-only `corroborated_year` to 2023-10 from `hf_createdat`, plus
+`Mini-Gemini (+MoCa)`, `Qwen-VL-Chat (+SFT…)`, `LLaMA 3 8B + MoSLoRA` and
+`GPT-2-Medium 355M (fine-tuned, BS=5)`.
+
+**The guard matters more than the rule.** Applied blindly this degrades data,
+because a variant is sometimes better sourced than its base. `PaLM (540B,
+Few-shot)` carried the correct 2022-04 while the `PaLM` base row carried 2023-05
+— which is PaLM *2*'s date (arXiv 2305.10403, against PaLM's own 2204.02311).
+Inheriting would have overwritten three correct rows with a wrong one. Likewise
+`Flan-PaLM` sat at 2023-05 from a weak `single_hermes` guess while its variants
+correctly held 2022-10 (arXiv 2210.11416). So inheritance is conditioned on the
+base being better-evidenced than the variant, ranked on the provenance ladder
+with month precision outranking year-only at the same tier.
+
+Both base rows were corrected as part of this: `PaLM` → 2022-04 and `Flan-PaLM`
+→ 2022-10, both `arxiv_id`. An error in a base row is worse than it looks,
+precisely because everything that inherits from it inherits the error too.
+
+**Tooling.** Added `set_model_field` to `scripts/lib/standardise.py`, the
+model-side counterpart of `set_benchmark_field`, so single-cell corrections to
+`models.csv` also go through the tool and leave an audit trail.
+
+### Archive metadata corrections (2026-09-01)
+
+Found while checking whether `notes/` still described the corpus accurately — the
+notes were in good shape, but cross-referencing them against the tables surfaced
+live-but-wrong URLs that the original URL validation could not have caught,
+because it checked that links *resolve*, not that they point at the right thing.
+
+- `akata_games_2023.paper_url` → arXiv 2305.16867 (*Playing repeated games with
+  Large Language Models*). It had held arXiv 2502.14359, which is the
+  neighbouring `triangulating` row's paper. Its stored `release_date` of 2023-05
+  matches the correct paper (2305 → 2023-05), which is what identified the URL
+  rather than the date as the error.
+- `hagendorff_biases_2023` → `paper_url` set to arXiv 2306.07622 (*Human-Like
+  Intuitive Behavior and Reasoning Biases Emerged in Language Models*), which it
+  had lacked entirely; `release_date` sharpened 2023 → 2023-06 from that
+  identifier (`corroborated_year` → `arxiv_id`). Its `github_url` had been a
+  LangChain issue and its `hf_url` a search for "Krippendorff alpha"; both cleared.
+- `helm.github_url` → the repository root instead of a single issue.
+- Six `hf_url` values cleared (`hagendorff_biases_2023`, `longshot`, `mexa`,
+  `milu`, `mmar`, `triangulating`): all were `huggingface.co/papers?q=…` search
+  queries, not paper pages.
+- Two `github_url` values cleared as name-collision hits: `longshot` had pointed
+  at a long-read *sequencing* toolkit, `triangulating` at a 3D geometry
+  *triangulation* toolbox.
+
+Left deliberately unfixed: `mexa` is recorded as `multilingual` /
+`mexican-languages` (2024) while its `paper_url` is a 2025 *multimodal reasoning*
+MEXA and its `github_url` a *cross-lingual alignment* MEXA. Three benchmarks
+share the name; choosing one without sourcing it would be a guess.
+
+**Tooling.** These are field-level corrections, and every existing benchmark
+operation changed a row's *identity* (merge, delete, relabel) — so such fixes had
+been made by hand, outside the tool, leaving no audit trail. Added
+`set_benchmark_field` to `scripts/lib/standardise.py` (rules key
+`"set_benchmark_field": {benchmark_id: {column: value}}`): it refuses unknown
+columns loudly rather than silently no-op'ing, and prints the previous value so
+the diff is reviewable. Use it only for *verified* mis-extractions; merely
+disputed values belong in `scripts/lib/config.py` and the analysis view.
+
+### Release-date tooling: a latent data-loss bug
+
+`scripts/enrich_release_dates.py --write` would have **silently deleted 408
+dates** — 242 model and 166 benchmark rows at year precision. `enrich_*` cleared
+any value failing `is_valid_release_date()`, which tests for month precision.
+When that test was written the only non-`YYYY-MM` values in the column were junk
+(a `128.0` context-window leak, float-formatted `2023.0`), so "not month
+precision" and "not a date" were the same question. The corroboration ladder then
+began writing bare years *on purpose* (`corroborated_year`), and the single
+shared test made every one of them a deletion candidate.
+
+Split into two predicates: `is_valid_release_date` keeps its month-precision
+meaning, and a new `is_preservable_release_date` accepts month precision **or** a
+bare year, and is what the keep-or-clear decision now uses. A bare year is
+coarse, not wrong.
+
+A second defect in the same branch: on keeping a row the code wrote
+`sources.append("existing")` unconditionally, overwriting the real tier on all
+1,765 dated model rows and erasing exactly the distinguishability
+`release_date_source` exists to record. It now preserves the recorded tier and
+falls back to `existing` only where none is stored.
+
+The enrich is now verifiably idempotent — re-running changes 0 values and 0
+provenance labels on both tables — and its summary separates month precision from
+year-only rather than reporting one "filled" number.
+
 ### Archive changes
 
 - **12 non-models removed** (−42 result rows). These were leaderboard-scraping
