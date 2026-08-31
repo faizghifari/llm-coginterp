@@ -1,6 +1,6 @@
 # Text-only derived copy
 
-Generated 2026-08-25 by `scripts/make_text_only_copy.py` from `data/*.csv`.
+Generated 2026-09-01 by `scripts/make_text_only_copy.py` from `data/*.csv`.
 
 **This directory is tracked in git, but it is NOT hand-maintained.** It is fully reproducible from the canonical tables plus the knowledge bases in `scripts/lib/config.py`; `python3 scripts/make_text_only_copy.py --check` asserts exactly that. Never hand-edit these CSVs -- encode the decision in `config.py` and regenerate, or the edit is silently lost on the next run.
 
@@ -10,11 +10,11 @@ Three orthogonal removals are applied, then cascades (benchmark -> its `results.
 2. **Score redundancy** -- every benchmark id in `config.SCORE_REDUNDANT_BENCHMARKS`: near-duplicate columns whose variance is already carried by a kept benchmark, decided from pairwise-correlation audits rather than from names.
 3. **Canonical metric** -- one metric per benchmark (`scripts.lib.metrics`), so a matrix cell measures one thing. Without this the aggregation averages incommensurable metrics, and because which metric a model received is largely decided by which leaderboard scored it, part of each column's variance would be a function of its source rather than of capability.
 
-Totals: benchmarks 627 -> 457, models 2027 -> 1625, results 19072 -> 13256.
+Totals: benchmarks 624 -> 456, models 2014 -> 1618, results 19030 -> 13251.
 
 ## Removed benchmarks by category
 
-- Visual Question Answering (VQA): 29
+- Visual Question Answering (VQA): 27
 - Multimodal: 13
 - vision/multimodal: 12
 - multimodal: 7
@@ -133,9 +133,9 @@ Families whose columns correlate highly but *not uniformly* -- the spread is rea
 - `multiloko`: The canonical paper-sourced aggregate is KEPT; only the 31 Kaggle per-language splits were removed.
 - `flores_*, lindsea, arabicmmlu, pwc wmt/conll language pairs`: Natively multilingual or genuinely distinct per-language content, not parallel translations -- see notes/multilingual_duplication_audit.md.
 
-## Canonical metric selection (92 contested benchmarks)
+## Canonical metric selection (91 contested benchmarks)
 
-1416 result rows dropped, 706 model-cells lost. Selection order: normalise (case/whitespace) -> alias (`config.METRIC_NAME_ALIASES`) -> override (`config.CANONICAL_METRIC_OVERRIDES`) -> most models covered.
+1408 result rows dropped, 705 model-cells lost. Selection order: normalise (case/whitespace) -> alias (`config.METRIC_NAME_ALIASES`) -> override (`config.CANONICAL_METRIC_OVERRIDES`) -> most models covered.
 
 | benchmark | chosen | why | models kept | models lost | candidates |
 |---|---|---|---:|---:|---|
@@ -162,9 +162,9 @@ Families whose columns correlate highly but *not uniformly* -- the spread is rea
 | `mmlu_prox` | score | coverage | 47 | 9 | score(47), accuracy(9) |
 | `multiloko` | score | coverage | 50 | 8 | score(50), accuracy(8) |
 | `arabicmmlu` | em | coverage | 38 | 7 | em(38), accuracy(7) |
-| `imdb` | em | coverage | 67 | 6 | em(67), accuracy(6) |
 | `medmcqa` | em | coverage | 13 | 6 | em(13), accuracy(6) |
 | `the_pile` | bpb | coverage | 55 | 6 | bpb(55), test perplexity(6) |
+| `imdb` | em | coverage | 67 | 5 | em(67), accuracy(5) |
 | `legalbench` | em | coverage | 90 | 5 | em(90), accuracy(5) |
 | `xcopa` | em | coverage | 21 | 5 | em(21), accuracy(5) |
 | `mtrag` | rb_agg | coverage | 10 | 4 | rb_agg(10), rb_llm(9), rl_f(9), accuracy(8) |
@@ -205,7 +205,6 @@ Families whose columns correlate highly but *not uniformly* -- the spread is rea
 | `pwc_conala` | bleu | coverage | 3 | 0 | bleu(3), exact match accuracy(2) |
 | `pwc_django` | accuracy | coverage | 2 | 0 | accuracy(2), bleu score(2) |
 | `pwc_gigaword` | rouge-1 | coverage | 4 | 0 | rouge-1(4), rouge-2(4), rouge-l(4) |
-| `pwc_hotpotqa` | ans-em | coverage | 1 | 0 | ans-em(1), ans-f1(1), joint-em(1), joint-f1(1), sup-em(1), sup-f1(1) |
 | `pwc_kilt_eli5` | f1 | coverage | 1 | 0 | f1(1), kilt-f1(1), kilt-rl(1), r-prec(1), recall@5(1), rouge-l(1) |
 | `pwc_kvret` | entity f1 | coverage | 2 | 0 | entity f1(2), bleu(1) |
 | `pwc_lambada` | accuracy | coverage | 26 | 0 | accuracy(26), perplexity(9) |
@@ -224,7 +223,7 @@ Families whose columns correlate highly but *not uniformly* -- the spread is rea
 | `pwc_samsum` | rouge-l | coverage | 3 | 0 | rouge-l(3), rouge-1(2), rouge-2(1) |
 | `pwc_squad1_1_dev` | em | coverage | 2 | 0 | em(2), f1(2) |
 | `pwc_tasd` | f1 (r16) | coverage | 3 | 0 | f1 (r16)(3), f1 (r15)(1) |
-| `pwc_vietnews` | rouge-1 | coverage | 2 | 0 | rouge-1(2), rouge-2(2), rouge-l(2) |
+| `pwc_vietnews` | rouge-1 | coverage | 1 | 0 | rouge-1(1), rouge-2(1), rouge-l(1) |
 | `pwc_wikitext_2` | test perplexity | coverage | 9 | 0 | test perplexity(9), validation perplexity(1) |
 | `pwc_wits` | bertscore | coverage | 1 | 0 | bertscore(1), rouge-1(1), rouge-2(1), rouge-l(1) |
 | `sibench` | cause | coverage | 6 | 0 | cause(6), communicative strategy(6), emotional attitude(6), motivation(6), reply cot(6), reply direct(6), social intention(6), win rate(6) |
