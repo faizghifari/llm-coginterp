@@ -11,30 +11,32 @@
   - `mmar` (1 group): MMAR is an **audio-reasoning** benchmark (arXiv 2505.13032), not multilingual/MT. "Gemini 1.5 Pro" does not appear in the paper at all → its row was dropped. The other 3 stored scores didn't match paper Table 2 either and were corrected to the Avg column (GPT-4o Audio 54.3→63.5, Qwen2-Audio 52.1→30.4, SALMONN-13B 38.2→33.2). Benchmark recategorized multilingual→audio/speech, subcategory/task_type→audio-reasoning.
   - `opencompass` (3 groups): the CompassAcademic leaderboard's 7 capability dimensions were imported all mislabeled `accuracy`; pass 5 had kept only the first (the overall/average — confirmed ≈ mean of the other 6 per model) and dropped the rest. Relabeled metric_name accuracy→overall and recorded in `notes` that the 6 per-dimension scores are unrecoverable (live API still returns only the SPA shell). No row change.
   - `eifbench` (2 groups): EIFBench (arXiv 2506.08375, EMNLP 2025) reports ILA/CLA sub-scores (0–1) per scenario; our single `accuracy` values can't be verified against any paper table, so the 15 result rows were left untouched. Benchmark recategorized alignment/safety→instruction-following, paper_url + year added.
-- [ ] **ON HOLD — release-date enrichment, all models AND benchmarks (decided 2026-08-25).**
-  Supersedes the narrower "enrich the FLAG models' metadata" item below: the intent is
-  to fill release dates (month + year minimum) holistically across both tables rather
-  than patching one flagged subset. To be delegated to the hermes agent, which can fan
-  out per-row lookups; **held until hermes finishes migrating to its new model.**
+- [x] **Release-date enrichment, models AND benchmarks (done 2026-09-01).** Both tables are
+  now effectively fully dated: **models 2007/2014 (100%), of which 1765 (88%) reach month
+  precision**; **benchmarks 623/624 (100%), of which 457 (73%) reach month precision**. The
+  remainder carry year precision, which the corroboration ladder emits on purpose when two
+  passes agree on the year but not the month. Provenance is per row in `release_date_source`
+  (`hf_createdat` 691, `sourced_evidence` 378, `corroborated_year` 223, `single_haiku` 218,
+  `web_verified` 199, `corroborated_month` 135, `single_hermes` 86, `web_cited` 45,
+  `existing` 27, `verified_arxiv` 5). See docs/CHANGELOG.md for method and measured error.
 
-  Current coverage, measured 2026-08-25 — the job is larger than the `FLAG` count suggests:
+  Both defects listed when this item was opened are fixed: the `128.0` context-window leak
+  and the bare `1` in `benchmarks.release_date` are gone, and granularity is settled — month
+  is the floor, existing `YYYY-MM-DD` values keep their precision (19 benchmark rows).
 
-  | table | field | filled | notes |
-  |---|---|---:|---|
-  | models.csv (2,027) | `release_date` | 8 (0.4 %) | only values present are `2023.0`, `2024.0`, and `128.0` |
-  | models.csv | `year_evaluated` | 11 (0.5 %) | `2023.0`/`2024.0`/`2025.0` |
-  | benchmarks.csv (627) | `year` | 366 (58.4 %) | the one field with usable coverage |
-  | benchmarks.csv | `release_date` | 34 (5.4 %) | mixed granularity: `2023-08`, `2023-10-15`, and one bare `1` |
+  **Do not read the column as uniformly reliable.** The tiers differ a lot, and the known
+  bias is documented in docs/CHANGELOG.md: LLM-guessed dates run systematically EARLY for
+  models released after the guessing model's training cutoff. The 2024+ region was repaired
+  and is largely evidence-backed; the pre-2024 region is the weaker half.
 
-  Two defects to fix as part of the pass, not after it:
-  - `models.release_date` contains `128.0` — a context-window value leaked into the
-    date column, the same class of parsing bug as the earlier `distilgpt2` developer leak.
-  - `benchmarks.release_date` mixes `YYYY-MM` and `YYYY-MM-DD` granularity and holds one
-    bare `1`. Agree a granularity convention (month precision is the stated floor) before
-    bulk-filling, or the column will need a second pass.
-
-  Note `benchmarks.year` at 58 % is the best existing signal and should seed the work
-  rather than be re-derived.
+- [ ] **Residual release-date work.** Small and well-defined:
+  - 7 models and 1 benchmark are still undated.
+  - 242 models and 166 benchmarks sit at year precision and could be sharpened to month.
+  - A meaningful minority of the undated/weak models are not released models at all but
+    eval/method variants (`LLaVA-1.5-13B (+CSR)`, `STaR (on GPT-J)`, `Flan-PaLM (540B,
+    Few-shot)`, `Vicuna (SYRELM)`). These have no public release date by construction.
+    **Open decision:** whether they should inherit the base model's date, take their method
+    paper's date, or stay empty. Left empty rather than guessed.
 
 - [ ] ~~`scripts/manage_data.py categorize-models` flags 46 models as `REMOVE`-candidates~~ **(superseded by the holistic pass above; counts also stale — the current split is 0 REMOVE / 492 FLAG)** (fine-tuned name, no `model_family`/`base_model` set) and 38 as `FLAG` (unclear origin) — **none have zero results**, so none were deleted. These need metadata enrichment (fill in `model_family`/`base_model`), not removal; run `scripts/manage_data.py categorize-models --output data/models_categorized.csv` to get the full list.
 - [x] Fixed `models.csv`'s stale aggregate columns (`benchmark_count`, `total_results`, `avg_score`) — they hadn't been recomputed in a long time (e.g. GPT-4's row said 55/75/42.91, actual was 76/122/88.29). Added `scripts/lib/stats.py` + `scripts/manage_data.py recompute-stats` and ran it for all 1096 models. Re-run this after any batch of changes to results.csv (it's not automatic). Caveat documented in the module docstring: `avg_score` is a plain mean across every row regardless of metric scale (most are 0-100, but Elo ratings like Chatbot Arena's are ~1000-1500), so for models evaluated on mixed scales it isn't a meaningful "typical score" — that's how the column was already defined, just now correctly computed.
@@ -42,6 +44,39 @@
 - [x] Run scripts/verify_data.py after any data changes to ensure FK integrity — now also the documented step in docs/METHODOLOGY.md's "Adding New Data" checklist.
 - [x] **Non-LLM removal + multilingual benchmark de-duplication (2026-07-16)** — see docs/CHANGELOG.md "Non-LLM Removal & Multilingual Benchmark De-duplication" and notes/multilingual_duplication_audit.md for full detail/sourcing. Added a second, orthogonal `classify_scope` axis to `scripts/lib/categorize.py` (modality/inclusion-scope vs. the existing fine-tune-provenance axis) surfaced via `scripts/manage_data.py audit-model-scope`; removed 10 non-LLM models (CLIP/PMC-CLIP/ST5-XXL/monoT5-3B/Knowledge Review/NLLB/SeamlessM4T/m2ugen/mullama/musilingo) + the 1 benchmark (`pwc_vsr`) it orphaned. Added `remove_benchmark` and a `merge_benchmark` language-backfill mode to `scripts/lib/standardise.py`, plus a `find-language-clusters` discovery command (`scripts/lib/benchmark_clusters.py`); researched each candidate cluster against its source paper and removed 28 literal-translation benchmark_ids (MGSM/Global-MMLU-Lite non-English Kaggle variants, MBZUAI's translated Arabic MMLU) while consolidating 8 more (XCOPA/XNLI/XQuAD HELM per-language sub-pages, no data lost) into their parent id with `language` backfilled. MultiLoKo, FLORES direction pairs, LINDSEA, Thai sub-exams, ArabicMMLU, and PwC WMT/CoNLL-2002 pairs were investigated and confirmed as genuinely distinct content — left untouched. `verify_data.py` clean throughout. benchmarks.csv: 679 → 642; models.csv: 2053 → 2043; results.csv: 20234 → 19226.
 - [x] **Residual cleanup after validation sweep (2026-07-16)** — see docs/CHANGELOG.md "Residual Cleanup" entry. Removed 5 non-suffixed translated benchmarks (`mmmlu`, `global_mmlu`, `kaggle_nanliao7_global_mmlu_lite_{ca,cs}`, `indicxnli` — 126 rows; originals `mmlu`/`xnli` kept) and 12 narrow-task/encoder-only models found by sweeping for models confined to MT/NER leaderboards (BioMegatron, LUKE（Large）, Pooled Flair, Straková et al. 2019, LS-unLLaMA, HeadMask, PartialFormer, Variational Attention, Caglayan, BigBird, BigBird-etc, YiSi-1 — 22 rows), plus the 10 pure-NER/MT PwC benchmarks and 3 mmmlu-only models they orphaned. Fixed `distilgpt2` metadata (`model_name`/`developer` had the HF repo path/namespace) — `audit-model-scope` is now 100% KEEP. Totals: 642 → 627 benchmarks, 2043 → 2028 models, 19226 → 19078 results.
+- [ ] **`GPT-2-Medium 355M` is dated wrong, and so is its variant.** The base row
+  says 2019-10 (`sourced_evidence`) and the variant said 2019-02; GPT-2 shipped in
+  stages (124M 2019-02, 355M 2019-05, 774M 2019-08, 1.5B 2019-11), so 355M should
+  be ~2019-05 and both values are wrong. The variant now inherits 2019-10, which
+  swaps one wrong date for another — fix the base and the variant follows.
+  Worth checking whether the other staged GPT-2 sizes have the same problem.
+
+- [ ] **`mexa` has three candidate identities.** The row is recorded as
+  `multilingual` / `mexican-languages` (year 2024), but its `paper_url` was a 2025
+  *multimodal reasoning* MEXA (arXiv 2506.17113) and its `github_url` is
+  `cisnlp/MEXA`, a *cross-lingual alignment* benchmark. Three different benchmarks
+  share the name. The bad `hf_url` was cleared; the paper/github links were left
+  as-is rather than guessed. Needs one sourcing pass against the 7 result rows to
+  decide which MEXA was actually evaluated.
+
+- [ ] **Docs findings from the 2026-09-01 consistency pass** (see
+  docs/CHANGELOG.md "Archive metadata corrections"):
+  - `src/README.md` is stale in the same way `docs/METHODOLOGY.md` was: it still
+    documents `main.R`, `dashboard.R`, the 9-panel dashboard and second-order FA,
+    all of which are gone. METHODOLOGY has been corrected; src/README has not, and
+    CLAUDE.md points at it as authoritative for anything statistical.
+  - **`src/run/main.R`'s status is unresolved.** CLAUDE.md says it is dead because
+    it calls `prepare_raw_cor()`, which exists nowhere — but `prepare_raw_cor`
+    appears nowhere in `main.R` either, so that reason is wrong. main.R parses,
+    every file it sources exists, and the functions it calls resolve (transitively,
+    via `factoring.R` → `parallel_analysis.R`). It is simply not wired into the
+    Makefile. Settle it with an actual `--smoke` run before either reviving or
+    deleting it.
+  - **CLAUDE.md states the factoring R² gate as 0.4; the code uses 0.3** in all
+    four places in `src/run/factor.R`. METHODOLOGY now says 0.3.
+  - `notes/cleanup_passes/` is empty (git does not track empty directories, so it
+    exists only locally) — remove it or put something in it.
+
 - [ ] **Case-by-case calls left open from the residual sweep**: `mgsm` (llm-stats "avg langs" aggregate over translated GSM8K; `gsm8k` has 460 rows), `belebele` ("avg 122 langs", parallel translated content, no per-language rows), `humaneval_xl` ("avg 23 NLs" rows), `BigBird-Pegasus` (summarization-only seq2seq — fails the "arbitrary instructions" test T5 passes?), and the 10 PwC `truthfulqa` rows with negative log-prob-style scores mixed into a 0-100 column.
 
 ## Data expansion — large extraction tasks

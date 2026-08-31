@@ -1,5 +1,10 @@
 # Cognitive Science
 
+> **Relationship to `05_cognitive.md`.** Companions, not duplicates. This file is
+> the flat index of cognitive benchmarks in the corpus, one entry each; the other
+> holds deep per-paper research on a partly disjoint set. Ids here are the real
+> `benchmark_id` values.
+
 This document categorizes benchmarks related to cognitive science.
 
 ## Cognitive-Science Benchmarks
@@ -16,10 +21,18 @@ No description available.
 
 ### Binz & Schulz 2023 (`binz_schulz_2023`) [Link](https://arxiv.org/abs/2306.03917)
 **Subcategory:** cognitive-modeling
+> **Not in the dataset.** Candidate id proposed here, never merged into
+> `benchmarks.csv`. Not planned work -- benchmark collection closed
+> 2026-08-25 and the corpus is frozen (see notes/archive/pending_benchmarks.md).
+> Recorded so the id is not mistaken for a live reference.
 
 No description available.
 
-### CogBench (`cogbench`) [Link](https://arxiv.org/abs/2508.03360)
+### CogBench (`cogbench`) [Link](https://arxiv.org/abs/2402.18225)
+> Link corrected 2026-09-01: arXiv 2508.03360 is a different CogBench
+> (multilingual speech-based cognitive impairment assessment, 2025-08).
+> This corpus entry is "CogBench: a large language model walks into a
+> psychology lab" (2024-02), which is what `benchmarks.csv` records.
 **Subcategory:** cognitive-modeling
 
 No description available.

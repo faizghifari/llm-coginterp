@@ -14,11 +14,6 @@ No description available.
 
 No description available.
 
-### Artificial Analysis Intel (`artificial_analysis_intel`)
-**Subcategory:** multi-task
-
-No description available.
-
 ### FreshQA (`freshqa`) [Link](https://github.com/NVIDIA-AI-Blueprints/aiq/blob/develop/frontends/benchmarks/freshqa/README.md)
 **Subcategory:** qa
 

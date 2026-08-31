@@ -2,9 +2,17 @@
 
 Benchmarks designed to evaluate LLM cognitive abilities from a cognitive science perspective — theory of mind, working memory, executive function, metacognition, abstract reasoning, and other capacities studied in cognitive psychology and neuroscience.
 
+> **Relationship to `05_cognitive_science.md`.** The two files are companions, not
+> duplicates: this one holds the deep per-paper research (methodology, results,
+> caveats), that one is the flat index of every cognitive benchmark in the corpus
+> with a one-line description. They cover disjoint benchmark sets today. Entries
+> here originally used ad-hoc ids invented before the corpus assigned real ones;
+> those have been mapped to the actual `benchmark_id` values, and the few papers
+> never merged into `benchmarks.csv` are marked inline as such.
+
 ---
 
-## ToMBench — Theory of Mind Benchmark (`ToMBench`) — 2024
+## ToMBench — Theory of Mind Benchmark (`tombench`) — 2024
 
 **Paper:** [ToMBench: Benchmarking Theory of Mind in Large Language Models](https://aclanthology.org/2024.acl-long.847/)  
 **Venue:** ACL 2024  
@@ -48,7 +56,7 @@ Key theoretical connections:
 
 ---
 
-## Triangulating LLM Progress through Benchmarks, Games & Cognitive Tests (`TriLLM-Cog`) — 2025
+## Triangulating LLM Progress through Benchmarks, Games & Cognitive Tests (`triangulating`) — 2025
 
 **Paper:** [Triangulating LLM Progress through Benchmarks, Games, and Cognitive Tests](https://arxiv.org/abs/2502.14359)  
 **Venue:** EMNLP 2025 Findings  
@@ -77,6 +85,8 @@ Methodologically fundamental for the entire field: this paper demonstrates that 
 ---
 
 ## Neuropsychologically Grounded Evaluation of LLM Cognitive Abilities (`NeuroCognition`) — 2026
+
+> **Not in the dataset.** arXiv 2603.02540. Not in `benchmarks.csv` -- no `benchmark_id` assigned yet. Not in the corpus, which is frozen. Noted because it is directly relevant to this repo's own question: it factor-analyses cognitive measures over 156 models.
 
 **Paper:** [A Neuropsychologically Grounded Evaluation of LLM Cognitive Abilities](https://arxiv.org/abs/2603.02540)  
 **Year:** 2026  
@@ -156,7 +166,7 @@ Across all ToM benchmarks (ToMBench, XToM, Multi-ToM), no current LLM reaches hu
 
 ---
 
-## CogBench: A Large Language Model Walks into a Psychology Lab (`CogBench`) — 2024
+## CogBench: A Large Language Model Walks into a Psychology Lab (`cogbench`) — 2024
 
 **Paper:** [CogBench: a large language model walks into a psychology lab](https://arxiv.org/abs/2402.18225)  
 **Venue:** ICML 2024  
@@ -237,6 +247,8 @@ The RLHF finding is particularly important: RLHF training substantially increase
 
 ## Using Cognitive Psychology to Understand GPT-3 (`CogPsych-GPT3`) — 2022/2023
 
+> **Not in the dataset.** arXiv 2206.14576. Not in `benchmarks.csv`. Distinct from `binz_schulz_2023` (arXiv 2306.03917, 'Turning large language models into cognitive models') in `05_cognitive_science.md` -- a different Binz & Schulz paper, also not in the corpus. Both are absent from the frozen corpus; recorded here only, and they are two distinct papers -- do not merge them.
+
 **Paper:** [Using cognitive psychology to understand GPT-3](https://arxiv.org/abs/2206.14576)  
 **Venue:** PNAS 2023  
 **Authors:** Marcel Binz, Eric Schulz  
@@ -261,7 +273,7 @@ First systematic application of cognitive psychology methods to LLMs. Establishe
 
 ---
 
-## Human-Like Reasoning Biases in LLMs (`ReasoningBiases`) — 2023
+## Human-Like Reasoning Biases in LLMs (`hagendorff_biases_2023`) — 2023
 
 **Paper:** [Human-Like Intuitive Behavior and Reasoning Biases Emerged in Language Models -- and Disappeared in GPT-4](https://arxiv.org/abs/2306.07622)  
 **Venue:** Nature Computational Science 2023  
@@ -284,7 +296,7 @@ Directly tests **Dual Process Theory** (Kahneman's System 1/2) in LLMs. The find
 
 ---
 
-## Large Language Models Fail on Trivial ToM Alterations (`ToM-Brittleness`) — 2023
+## Large Language Models Fail on Trivial ToM Alterations (`ullman_tom_2023`) — 2023
 
 **Paper:** [Large Language Models Fail on Trivial Alterations to Theory-of-Mind Tasks](https://arxiv.org/abs/2302.08399)  
 **Venue:** arXiv 2023  
@@ -305,7 +317,7 @@ Key connection to cognitive science: Competence in cognitive tasks should genera
 
 ---
 
-## Playing Repeated Games with LLMs (`RepeatedGames`) — 2023
+## Playing Repeated Games with LLMs (`akata_games_2023`) — 2023
 
 **Paper:** [Playing repeated games with Large Language Models](https://arxiv.org/abs/2305.16867)  
 **Venue:** Nature Human Behaviour 2025  

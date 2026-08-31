@@ -80,6 +80,9 @@ No description available.
 Aligned with Philippine NLP research priorities from 223 papers (2006-2023)
 
 ### Global MMLU (`global_mmlu`) [Link](https://huggingface.co/datasets/CohereForAI/Global-MMLU)
+> **Removed from the dataset (2026-07-16).** A non-suffixed literal translation
+> of an in-corpus original; `mmlu` is kept. See docs/CHANGELOG.md "Residual
+> Cleanup". Retained here as a record of what was considered.
 **Subcategory:** knowledge
 
 No description available.
@@ -145,6 +148,9 @@ No description available.
 No description available.
 
 ### Multilingual Massive Multitask Language Understanding (`mmmlu`) [Link](https://openai.com/research/)
+> **Removed from the dataset (2026-07-16).** A non-suffixed literal translation
+> of an in-corpus original; `mmlu` is kept. See docs/CHANGELOG.md "Residual
+> Cleanup". Retained here as a record of what was considered.
 **Subcategory:** knowledge
 
 Released by OpenAI in 2024; covers all 57 MMLU subjects
