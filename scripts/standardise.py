@@ -9,6 +9,8 @@ rules file, so the same code applies any pass:
     {
       "merge_benchmark":  { "merged_id":  "canonical_id", ... },
       "remove_benchmark": { "benchmark_id": "reason", ... },
+      "set_benchmark_field": { "benchmark_id": {"column": "value"}, ... },
+      "set_model_field":     { "model_id":     {"column": "value"}, ... },
       "remove":           { "model_id":   "reason", ... },
       "rename":           { "old_id":     "new_canonical_id", ... },
       "remap":            { "old_id":     "existing_canonical_id", ... },
@@ -33,6 +35,10 @@ Operation meanings (see scripts/lib/standardise.py for the exact logic):
   merge_benchmark  relabel a duplicate/variant benchmark to its canonical
                    id, porting metadata (and optionally backfilling
                    results.language), then drop the duplicate row.
+  set_benchmark_field
+                   correct individual metadata cells on a benchmark row that
+                   is otherwise fine -- for a verified mis-extraction, where
+                   the published source disagrees with what we recorded.
   remove_benchmark cascade-delete a benchmark row + all its results (a
                    benchmark variant, e.g. a literal-translation
                    duplicate or a zero-result stub, that should be
@@ -61,7 +67,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.lib import config, io, standardise, stats
 
-KNOWN_KEYS = {"merge_benchmark", "remove_benchmark", "remove", "rename", "remap", "setup_extract"}
+KNOWN_KEYS = {"merge_benchmark", "remove_benchmark", "set_benchmark_field",
+              "set_model_field", "remove", "rename", "remap", "setup_extract"}
 
 
 def load_rules(path):
@@ -99,6 +106,11 @@ def main(argv=None):
     if rules.get("remove_benchmark"):
         benchmarks, results, _ = standardise.apply_remove_benchmark(
             benchmarks, results, rules["remove_benchmark"])
+    if rules.get("set_benchmark_field"):
+        benchmarks, _ = standardise.set_benchmark_field(
+            benchmarks, rules["set_benchmark_field"])
+    if rules.get("set_model_field"):
+        models, _ = standardise.set_model_field(models, rules["set_model_field"])
     if rules.get("remove"):
         models, results, _ = standardise.apply_remove(models, results, rules["remove"])
     if rules.get("rename"):

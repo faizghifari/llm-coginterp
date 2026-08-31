@@ -150,6 +150,44 @@ def apply_setup_extract(models, results, setup_map):
     return models.reset_index(drop=True), results, report
 
 
+def set_model_field(models, field_map):
+    """Correct individual metadata cells on models.csv.
+
+    Model-side counterpart of `set_benchmark_field`; same contract and same
+    caution. `field_map` is {model_id: {column: new_value}}. Only existing
+    columns are written, unknown ones warn rather than silently no-op, and the
+    previous value is printed so the change is reviewable.
+
+    The case this was added for: `PaLM` carried 2023-05, which is PaLM *2*'s
+    date (arXiv 2305.10403) rather than PaLM's (arXiv 2204.02311, 2022-04).
+    Errors in a base row are worse than they look, because anything that
+    inherits from a base propagates them.
+    Returns (models, report)."""
+    report = {"updated": 0, "unchanged": 0, "missing": [], "bad_columns": []}
+    idx = {k: i for i, k in enumerate(models["model_id"])}
+
+    for mid, fields in field_map.items():
+        if mid not in idx:
+            report["missing"].append(mid)
+            print(f"  WARN  SET_MODEL_FIELD target missing: {mid!r}")
+            continue
+        row = models.index[idx[mid]]
+        for col, val in fields.items():
+            if col not in models.columns:
+                report["bad_columns"].append((mid, col))
+                print(f"  WARN  SET_MODEL_FIELD unknown column {col!r} on {mid!r}")
+                continue
+            old = models.at[row, col]
+            if str(old).strip() == str(val).strip():
+                report["unchanged"] += 1
+                continue
+            print(f"  SET_MODEL_FIELD  {mid!r}.{col}: {str(old)!r} -> {str(val)!r}")
+            models.at[row, col] = val
+            report["updated"] += 1
+
+    return models, report
+
+
 # ── benchmark operations ────────────────────────────────────────────────────
 
 def merge_benchmarks(benchmarks, results, merge_map):
@@ -244,6 +282,49 @@ def apply_remove_benchmark(benchmarks, results, remove_map):
         report["removed_results"] += n
 
     return benchmarks.reset_index(drop=True), results.reset_index(drop=True), report
+
+
+def set_benchmark_field(benchmarks, field_map):
+    """Correct individual metadata cells on benchmarks.csv.
+
+    The other benchmark operations all change a row's *identity* -- merge it
+    away, delete it, relabel it. Correcting a single mis-extracted cell is a
+    different thing: the row belongs in the archive, one of its fields is just
+    wrong, and there was no operation for that, so such fixes were being made
+    by hand outside the tool and left no audit trail.
+
+    `field_map` is {benchmark_id: {column: new_value}}. Only columns that
+    already exist are written -- a typo in a column name is a silent no-op
+    otherwise, and silence is exactly what you do not want from a correction
+    pass. The previous value is printed so the diff is reviewable.
+
+    Use this only for a *verified* mis-extraction (the published source says
+    something different from what we recorded). Values that are merely
+    disputed belong in the analysis view via scripts/lib/config.py, not here.
+    Returns (benchmarks, report)."""
+    report = {"updated": 0, "unchanged": 0, "missing": [], "bad_columns": []}
+    idx = {b: i for i, b in enumerate(benchmarks["benchmark_id"])}
+
+    for bid, fields in field_map.items():
+        if bid not in idx:
+            report["missing"].append(bid)
+            print(f"  WARN  SET_FIELD target missing: {bid!r}")
+            continue
+        i = idx[bid]
+        for col, val in fields.items():
+            if col not in benchmarks.columns:
+                report["bad_columns"].append((bid, col))
+                print(f"  WARN  SET_FIELD unknown column {col!r} on {bid!r}")
+                continue
+            old = benchmarks.at[benchmarks.index[i], col]
+            if str(old).strip() == str(val).strip():
+                report["unchanged"] += 1
+                continue
+            print(f"  SET_FIELD  {bid!r}.{col}: {str(old)!r} -> {str(val)!r}")
+            benchmarks.at[benchmarks.index[i], col] = val
+            report["updated"] += 1
+
+    return benchmarks, report
 
 
 def cascade_remove_benchmarks(benchmarks, models, results, remove_map):

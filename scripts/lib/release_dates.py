@@ -44,13 +44,36 @@ MODEL_NAME_COLUMNS = ("model_id", "model_name", "hf_repo", "url")
 
 
 def is_valid_release_date(value):
-    """True only for YYYY-MM or YYYY-MM-DD. A bare year, a bare number, or
-    anything else is NOT a release date for our purposes -- this is what
-    rejects the `128.0` leaked context-window value and the `2023.0`
-    year-only entries currently sitting in models.release_date."""
+    """True only for YYYY-MM or YYYY-MM-DD -- i.e. month precision reached.
+
+    This is the *precision* test, not the "should I keep this" test. A bare
+    year is a legitimate stored value (the corroboration ladder below emits
+    one whenever two passes agree on the year but not the month), it simply
+    has not reached month precision yet. Use `is_preservable_release_date`
+    for the keep-or-clear decision; conflating the two silently deleted
+    year-precision values, see its docstring."""
     if value is None:
         return False
     return bool(_VALID.match(str(value).strip()))
+
+
+def is_preservable_release_date(value):
+    """True for anything worth keeping: month precision OR a bare year.
+
+    Separate from `is_valid_release_date` because the two questions came
+    apart. When this module was written the only non-`YYYY-MM` values in the
+    column were junk -- a `128.0` context-window leak and float-formatted
+    `2023.0` -- so "not month precision" and "not a date at all" were the
+    same test. The corroboration ladder then started writing bare years on
+    purpose (`corroborated_year`, 223 model + 163 benchmark rows), and the
+    single shared test meant the next `enrich_*` run would have cleared every
+    one of them as invalid. A bare year is coarse, not wrong.
+
+    Still rejects `128.0`, `2023.0` and anything else non-date."""
+    if value is None:
+        return False
+    v = str(value).strip()
+    return bool(_VALID.match(v) or _YEAR_ONLY.match(v))
 
 
 def from_arxiv_url(*values):
@@ -100,9 +123,14 @@ def enrich_benchmarks(benchmarks):
 
     for _, row in out.iterrows():
         current = row.get("release_date")
-        if is_valid_release_date(current):
+        if is_preservable_release_date(current):
             dates.append(str(current).strip())
-            sources.append("existing")
+            # Keep whatever tier actually produced this value. Overwriting it
+            # with "existing" would erase the provenance the column exists to
+            # record -- `hf_createdat` and `single_haiku` are not equally
+            # trustworthy and must stay distinguishable after the fact.
+            prior = str(row.get("release_date_source") or "").strip()
+            sources.append(prior if prior and prior != "nan" else "existing")
             continue
         if current is not None and str(current).strip() not in ("", "nan"):
             cleared.append((row.get("benchmark_id"), str(current).strip()))
@@ -112,11 +140,19 @@ def enrich_benchmarks(benchmarks):
 
     out["release_date"] = dates
     out["release_date_source"] = sources
+    # "existing" counts every row that already carried a usable value,
+    # whatever tier wrote it -- not just the literal "existing" label, which
+    # now only marks values with no recorded provenance at all.
+    kept = sum(1 for s in sources if s is not None and s != "arxiv_id")
     return out, {
         "total": len(out),
-        "existing": sources.count("existing"),
+        "existing": kept,
         "arxiv_id": sources.count("arxiv_id"),
         "missing": sum(1 for s in sources if s is None),
+        "month_precision": sum(1 for d in dates if is_valid_release_date(d)),
+        "year_only": sum(1 for d in dates
+                         if d and not is_valid_release_date(d)
+                         and is_preservable_release_date(d)),
         "cleared_invalid": cleared,
     }
 
@@ -130,9 +166,14 @@ def enrich_models(models):
 
     for _, row in out.iterrows():
         current = row.get("release_date")
-        if is_valid_release_date(current):
+        if is_preservable_release_date(current):
             dates.append(str(current).strip())
-            sources.append("existing")
+            # Keep whatever tier actually produced this value. Overwriting it
+            # with "existing" would erase the provenance the column exists to
+            # record -- `hf_createdat` and `single_haiku` are not equally
+            # trustworthy and must stay distinguishable after the fact.
+            prior = str(row.get("release_date_source") or "").strip()
+            sources.append(prior if prior and prior != "nan" else "existing")
             continue
         if current is not None and str(current).strip() not in ("", "nan"):
             cleared.append((row.get("model_id"), str(current).strip()))
@@ -142,11 +183,19 @@ def enrich_models(models):
 
     out["release_date"] = dates
     out["release_date_source"] = sources
+    # "existing" counts every row that already carried a usable value,
+    # whatever tier wrote it -- not just the literal "existing" label, which
+    # now only marks values with no recorded provenance at all.
+    kept = sum(1 for s in sources if s is not None and s != "name_stamp")
     return out, {
         "total": len(out),
-        "existing": sources.count("existing"),
+        "existing": kept,
         "name_stamp": sources.count("name_stamp"),
         "missing": sum(1 for s in sources if s is None),
+        "month_precision": sum(1 for d in dates if is_valid_release_date(d)),
+        "year_only": sum(1 for d in dates
+                         if d and not is_valid_release_date(d)
+                         and is_preservable_release_date(d)),
         "cleared_invalid": cleared,
     }
 

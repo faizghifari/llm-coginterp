@@ -26,10 +26,16 @@ from scripts.lib import config, io, release_dates
 
 def _summarise(label, report, derived_key):
     filled = report["existing"] + report[derived_key]
-    print(f"\n{label} ({report['total']} rows)")
+    total = report["total"]
+    print(f"\n{label} ({total} rows)")
     print(f"  kept existing valid : {report['existing']}")
     print(f"  derived ({derived_key:10s}): {report[derived_key]}")
-    print(f"  -> month precision  : {filled} ({100 * filled / report['total']:.0f}%)")
+    print(f"  -> dated            : {filled} ({100 * filled / total:.0f}%)")
+    # Month vs year is the distinction that matters downstream: a bare year
+    # cannot order releases within a year, which is the point of the field.
+    print(f"     month precision  : {report['month_precision']} "
+          f"({100 * report['month_precision'] / total:.0f}%)")
+    print(f"     year only        : {report['year_only']}")
     print(f"  still missing       : {report['missing']}  <- stage two (hermes)")
     if report["cleared_invalid"]:
         print(f"  cleared {len(report['cleared_invalid'])} invalid value(s) "
