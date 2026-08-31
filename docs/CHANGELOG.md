@@ -2,10 +2,276 @@
 
 All notable changes to the LLM Benchmarks dataset.
 
-**Current totals (archive, `data/*.csv`):** 627 benchmarks, 2,027 models,
-19,072 result entries.
+**Current totals (archive, `data/*.csv`):** 624 benchmarks, 2014 models,
+19,030 result entries.
 **Analysis view (`data/text_only/`):** 457 benchmarks, 1,625 models,
 13,256 result entries — derived, see the 2026-08-25 entry below.
+
+---
+
+## Release-Date Enrichment + Non-Model Removal (2026-08-31)
+
+Added `release_date` (YYYY-MM) and `release_date_source` to both `benchmarks.csv`
+and `models.csv`, taking coverage from ~0% to **623/624 benchmarks (99.8%)**
+and **2007/2014 models (99.7%)**.
+
+### Provenance is recorded per row, because the sources are not equally good
+
+`release_date_source` exists so a consumer can filter to whatever standard they
+need. Strongest first:
+
+| source | benchmarks | models | what it means |
+|---|---:|---:|---|
+| `existing` | 302 | 27 | decoded from an arXiv id already in the table — exact, no lookup |
+| `verified_arxiv` | 2 | 5 | arXiv page fetched, paper TITLE confirmed to name the artifact |
+| `hf_createdat` | – | 511 | HuggingFace repo `createdAt` — the actual upload timestamp |
+| `corroborated_month/year` | 168 | 492 | two independent systems agreed |
+| `sourced_evidence` | 86 | 608 | agent-researched with a cited URL — **see caveat below** |
+| `single_hermes/haiku` | 65 | 364 | ONE uncorroborated model answer — see measured rate below |
+
+**arXiv identifiers encode the date.** `YYMM.NNNNN` means year 20YY month MM, so
+279 benchmark dates came straight out of URLs already in the table at zero cost.
+Validated against the 117 benchmarks holding both an arXiv URL and a `year`: 101
+agree exactly, 15 differ by one year (preprint vs publication), 1 disagrees
+further — `summarization_cnndm`, where the stored `year` of 2023 is simply wrong.
+
+### Two caveats that matter for interpretation
+
+**`sourced_evidence` is no longer auditable.** Those dates were produced by an
+agent citing URLs, but the evidence log recording which URL justified which date
+was deleted at the user's request. A later task from the same agent returned 21/21
+UNKNOWN with empty evidence when the answers were not present in local files,
+which is consistent with it having reused arXiv ids already in our own CSVs rather
+than searching. Treat this tier as unverified.
+
+**`single_*` is a guess.** A 10-model pilot measured ~30% wrong, often by months
+(DeepSeek-V3 dated 2024-05, actually 2024-12; Zephyr-7B-beta 2024-01, actually
+2023-10). Retained because coverage was preferred over blanks, but tagged so it
+can be excluded. The defensible subset for analysis is
+`existing + verified_arxiv + hf_createdat + corroborated_*`.
+
+### Method: corroboration, because single answers could not be trusted
+
+Each row was researched twice under different framings and only corroborating
+answers accepted at full confidence; year-level agreement was accepted where the
+month disagreed. This adjudicated only ~7% of rows — the two systems answered the
+SAME row just 136 times out of 2000 (hermes abstained on 76%, haiku on 42%) — so
+single-source answers were accepted with a provenance tag rather than discarded.
+
+`accuracy` vs `em`-style mis-attribution was the dominant failure: 59 model rows
+cited a *benchmark's* paper as evidence for the model's date (SALMONN dated from
+MMAU, Codex from MultiPL-E, mT5 from XNLI). Caught by cross-referencing cited
+arXiv ids against the 247 known benchmark ids in our own data, then re-researched.
+Note the detector over-flags: a model's own paper that also introduced a benchmark
+trips it (PaLM/COPA, mT0/StoryCloze, Typhoon/ThaiExam), so its hits need review
+rather than automatic rejection.
+
+### Web-search pass with citation verification (the early bias, largely fixed)
+
+Once a Tavily/ddgs search backend became available to the local agent, the 322
+models still carrying a guessed 2024+ date were researched against the open web.
+Each answer had to carry a URL **and a literal quote from that page**; answers
+from memory were explicitly refused.
+
+Every dated answer was then re-checked independently by re-fetching the cited
+page and requiring three things: it loads, it names that specific model version,
+and it carries the claimed date. arXiv citations are decoded straight from the
+identifier (YYMM.NNNNN), which is exact and needs no fetch.
+
+| verdict | n | meaning |
+|---|---:|---|
+| `web_verified` | 199 | page re-fetched and independently confirmed |
+| `web_cited` | 45 | real citation, page unreadable by a non-browser client — 44 of 47 are official vendor domains (openai.com, ai.google.dev, qwen.ai, ai.meta.com) that return 403 to scripts |
+| contradicted | 6 | page read fine and did NOT support the claim — **not applied** |
+| UNKNOWN | 60 | agent correctly declined; no dated page names that version |
+
+Of 244 applied, 108 confirmed the existing guess and 94 changed it. Corrections
+ran in both directions, which matters: the early bias affects recent models, but
+old models had the opposite problem, having been assigned plausible-looking
+recent dates. The largest were `davinci`/`curie`/`babbage`/`ada` 2024-01 →
+**2020-05** (the original GPT-3 API lineup), `GLM (130B)` 2024-03 → **2022-10**,
+`Claude Opus 4.7` 2024-03 → **2026-04**, and `Solar Pro` 2026-07 → **2024-12**.
+
+`GLM (130B)` is worth singling out: the earlier HuggingFace sweep had matched it
+to `zai-org/GLM-OCR` and would have dated it 2026-01. The publisher-org rule
+caught that one at review time; the web pass then found the right answer.
+
+**The 2024+ region is now 85% evidence-backed, up from ~0%.** Table-wide: 46%
+authoritative, 2% web_cited, 18% corroborated, 34% single-source. For temporal
+analysis the defensible filter is
+`hf_createdat + existing + verified_arxiv + web_verified` (+ `web_cited` if
+vendor-page citations are acceptable).
+
+Two failure modes were worth recording, because both produce plausible-looking
+wrong data:
+
+- **Family-page attribution.** A first attempt answered `Claude Opus 4.7 ->
+  2023-03` by landing on the general Claude article, which states the *product
+  line* launched March 2023. Real page, real date, wrong artifact. The quote
+  requirement plus the "page must name this version" check is what catches it;
+  the same row now reads 2026-04 from Anthropic's own announcement.
+- **A verifier can be wrong too.** The first checker reported only 2 of 8 rows
+  verified because it matched full month names while pages write "Mar 4, 2024"
+  and arXiv writes "Submitted on 11 Apr 2024". Three pages were confirmed by
+  hand to carry their dates plainly. Had that not been checked, ~90 correct rows
+  would have been discarded as unverifiable.
+
+### Known bias: dates are systematically EARLY for models released after 2024
+
+Validated against HuggingFace `createdAt` on 40 models whose repo org is the
+model's actual publisher (mirrors excluded — a mirror's upload date measures
+nothing). Overall 65% land within 3 months. But the errors are not noise:
+
+| real release year | n | stored too early | median error |
+|---|---:|---:|---:|
+| 2022 | 3 | 0% | −3 mo |
+| 2023 | 8 | 12% | 0 mo |
+| 2024 | 9 | 11% | −1 mo |
+| **2025** | **18** | **61%** | **−9 mo** |
+| 2026 | 2 | 50% | +1 mo |
+
+**All 14 errors run the same direction — early, never late** (sign test
+p ≈ 6e-05). Examples: Llama-4-Scout stored 2022-04, actually 2025-04 (−36 mo);
+MiMo-V2-Flash 2024-05 → 2025-12; Kimi K2 2024-05 → 2025-11; Sarvam-30B
+2024-10 → 2026-03; Mistral-Small-3.1 2023-10 → 2025-03.
+
+The cause is mechanical: most of these dates were produced by language models
+answering from memory, and a model cannot know about releases after its own
+training cutoff. Asked for a date it has never seen, it returns a plausible
+in-distribution one — which is always earlier. The bias therefore concentrates
+in exactly the period the archive is most likely to be used to study, and it
+*compresses* the recent timeline rather than scattering it.
+
+Practical consequence: pre-2025 dates are sound (≈89% within 3 months); the
+2025+ region needed repair. The `hf_createdat` tier was never affected — it is
+an API fact, not a recollection.
+
+**Repair pass (applied).** The 553 models with a stored date of 2024+ and a
+guessed provenance were re-swept against HuggingFace under the publisher-org
+rule, in two stages: exact repo-name match (35 accepted), then fuzzy name match
+still locked to the publisher's own org (104 accepted of 133 found), then two
+follow-ups: the same rule with the developer requirement *inverted* — accept any
+exact-name match landing in a curated publisher org, which works on the 219 rows
+with no `developer` recorded (29 accepted, 25 of them developer-less) — and a
+recovery pass over matches the filters had rejected too aggressively (13
+accepted: the unquantised sibling of a rejected `-GGUF`/`-FP8` repo, and variant
+tokens that name the *only* variant at that size, e.g. Llama 3.2 90B/11B exist
+solely as `-Vision-`). 181 models re-dated in total, 145 of them corrections.
+The 2024+ region is now **58% authoritative, up from ~0%**.
+
+Fuzzy matching needed three guards, each of which caught real errors:
+
+- **quantised / re-format repos rejected** (`-GGUF`, `-FP8`, `-AWQ`, `-NVFP4`,
+  `-bf16`) — their `createdAt` is the conversion date, not the release. This
+  caught `Command A (03-2025)` matching `command-a-plus-05-2026-bf16`.
+- **extra identity tokens rejected** — a repo carrying a token the model name
+  lacks is a different artifact. Caught `GLM (130B)` matching `GLM-OCR`,
+  `deepseek-base-33b` matching `deepseek-coder-33b-base`, and `Solar Pro`
+  matching `solar-pro-preview-instruct`.
+- **parameter size must agree** where both sides state one, so an 8B is never
+  dated from a 70B repo.
+
+Corrections ran both ways once the right repo was found — Falcon3 (2024-02 →
+2024-12, exact repo ids), GLM-4-32B (2024 → 2025-04 via the `0414` stamp), but
+also Mistral-7B-Instruct-v0.2 (2024-06 → 2023-12) and SmolLM2 (2025-02 →
+2024-10), where the stored guess had been too *late*.
+
+**What remains, and why no agent can fix it here.** 372 models with a 2024+ date
+are still guesses and still carry the early bias. Roughly 40% are closed/API
+models (Nova, ERNIE, Hunyuan, Reka, Jamba, GPT, Claude, Gemini, Grok) that have
+no HuggingFace repo under any org and never will; the rest have no repo findable
+by name. They hold ~16% of the analysis result rows.
+
+Two automated routes were tested and both fail:
+
+- **Agent web search.** The hermes `researcher` profile has no search backend
+  configured (no Brave/Serp/Tavily/Exa key), so it can fetch a known URL but
+  cannot discover one. This is not a network limitation — google.com,
+  anthropic.com, Wikipedia and arXiv are all reachable from the host. In a
+  50-row pilot it returned UNKNOWN with no evidence for 16 of 18 rows, correctly
+  refusing to answer from memory. The other 2 are the cautionary case: it guessed
+  a plausible URL (`en.wikipedia.org/wiki/Claude_Opus_4.7`), which **redirects**
+  to the general `Claude (AI)` article, read the real date on that real page
+  ("released ... in March 2023"), and attached it to a 2026 model. A citation
+  that resolves is not a citation that supports the claim.
+- **Wikipedia, deterministically.** The redirect above is detectable (requested
+  title ≠ returned title) and that guard works, but the yield is nil: of 22
+  sampled models, 0 had their own article, 3 redirected to a family page, 19 had
+  none.
+
+So these rows stay tagged rather than filled. `release_date` is not read anywhere
+in `src/` or the preproc scripts, so this constrains temporal claims only, not
+the factor pipeline. Table-wide the archive is now 36% authoritative, 21%
+corroborated, 43% single-source.
+
+### The HuggingFace `createdAt` sweep, and where it stopped working
+
+`hf_createdat` is the strongest model tier because it is an API fact, not a
+recollection: `https://huggingface.co/api/models/<org>/<repo>` returns the repo's
+upload timestamp. Sweeping it over the models still carrying a `single_*` guess
+replaced 496 of them and let the guesses be *measured* rather than estimated —
+against that ground truth they were **24% exact to the month, 73% within a year,
+and 3% wrong by more than a year**. That is much better than the 30% figure the
+10-model pilot suggested, so the earlier caveat overstated the damage.
+
+One trap had to be defended against explicitly. Repos predating the Hub migration
+return `createdAt` of exactly `2022-03-02T23:29:0X`, which is a migration
+sentinel, not an upload date — `bert-base-uncased` (2018) and `gpt2` (2019) both
+return it. Any such timestamp is rejected rather than read as March 2022.
+
+**The sweep then failed on the residual 379, and was not applied to them.** Those
+rows are residual precisely because they resist this method: the model is closed
+(no repo exists), or it is old enough that its original repo returns the migration
+sentinel, or its name collides with dozens of community re-uploads. Matching by
+name alone then lands on whichever mirror ranks highest, whose `createdAt` is the
+*mirror's* upload date and says nothing about the model. Run blind it would have
+dated GPT-2 to 2025-08, mt5-base to 2025-10 and DialoGPT to 2025-12, overwriting
+guesses that were already correct.
+
+Two things caught it. The absurd deltas were visible on inspection, and the
+statistics contradicted themselves: 44 of 63 proposed corrections moved a date by
+more than a year, against a measured guess error of 3% at that magnitude — a pass
+claiming to fix 70% of rows by over a year is reporting its own error rate. Note
+also that a second independent sweep agreed on the overall *rate* of dated rows
+(13% vs 15%) while agreeing on the actual date for only 5 rows; matching yields
+are not corroboration.
+
+Only rows where the repo's org **is** the model's publisher were accepted — 15 of
+379 (`allenai/OLMo-*`, `zai-org/ChatGLM-6B`, `tiiuae/falcon-180b-chat`,
+`deepseek-ai/…`, `01-ai/Yi-VL-*`, `nvidia/Nemotron-*`). Several are
+self-confirming: `OLMo-2-0325-32B-Instruct` encodes 2025-03 in its own name, and
+`CoT-T5-11B`'s stored guess of 2022 predated its own paper (arXiv 2305.14045).
+The other 364 keep their `single_*` guesses, which for this set are the better
+estimate.
+
+### Archive changes
+
+- **12 non-models removed** (−42 result rows). These were leaderboard-scraping
+  artifacts, not models: methods (`Causal Strength Computation (on ClueWeb12)`,
+  `Prompt Tuning`, `Virtual adversarial training`), experimental configurations
+  (`PromptRank-fewshot-2-demo`, `prompt IMT-16`, `Partial-MSP`), and scraped
+  labels — including `Kết quả nghiên cứu`, Vietnamese for "research results", and
+  `graphRepresentation， Single` containing a full-width comma. They were found by
+  auditing rows with no findable release date: they have none because there was no
+  release. NOTE the existing scope classifier returned KEEP for all of them — it
+  matches architecture keywords, so method names and scraped labels pass through.
+- **3 benchmarks removed** as zero-result stubs orphaned by that cascade
+  (`pwc_gqa_test2019`, `pwc_hotpotqa`, `pwc_vqa_v2_test_std`). `pwc_hotpotqa` is a
+  real benchmark; it went because the only entries ever scored on it were artifacts.
+- **`gpt-3.5 finetuned` merged into `GPT-3.5`**.
+- **`sMLP – deterministic 9.4B` merged into `sMLP - deterministic 9.4B`** — the same
+  model split in two by an en-dash. It survived every previous dedup pass because
+  `RESULT_IDENTITY_KEY` matches exact strings; one character made it invisible.
+  A unicode-normalisation pass before dedup would catch this class.
+
+### Tooling
+
+`scripts/lib/release_dates.py` + `scripts/enrich_release_dates.py` — the
+deterministic extractor (arXiv-id and name-stamp decoding), the two-pass
+agreement filter, and a CSV reader that tolerates both agent failure modes
+(unquoted commas in keys, and correctly-quoted evidence containing commas).
+
+Totals: 627 -> 624 benchmarks, 2,027 -> 2014 models, 19,072 -> 19,030 results.
 
 ---
 
