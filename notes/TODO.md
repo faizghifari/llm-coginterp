@@ -29,14 +29,18 @@
   models released after the guessing model's training cutoff. The 2024+ region was repaired
   and is largely evidence-backed; the pre-2024 region is the weaker half.
 
-- [ ] **Residual release-date work.** Small and well-defined:
+- [ ] **Residual release-date work.** Much smaller after the pre-2024 repair
+  (2026-09-01, see docs/CHANGELOG.md "Pre-2024 repair completed"):
   - 7 models and 1 benchmark are still undated.
-  - 242 models and 166 benchmarks sit at year precision and could be sharpened to month.
-  - A meaningful minority of the undated/weak models are not released models at all but
-    eval/method variants (`LLaVA-1.5-13B (+CSR)`, `STaR (on GPT-J)`, `Flan-PaLM (540B,
-    Few-shot)`, `Vicuna (SYRELM)`). These have no public release date by construction.
-    **Open decision:** whether they should inherit the base model's date, take their method
-    paper's date, or stay empty. Left empty rather than guessed.
+  - **47 models** at year precision, down from 242. Benchmarks still have 165 —
+    that side has had no equivalent pass and is now the weaker table.
+  - The eval/method-variant question is **settled**: a variant takes its base
+    model's date, tagged `base_model_date`, but only when the base is
+    better-evidenced than the variant. Direct evidence outranks inheritance —
+    `LLaVA-1.5-13B (+CSR)` had inherited 2023-10 from LLaVA-1.5 while its own
+    paper is 2024-05, and the paper wins.
+  - 4 rows are knowingly unresolved and should stay that way unless a real source
+    turns up: `Claude 1.3`, `Palmyra X5`, `RuGPT3Large`, `Neo-6B`.
 
 - [ ] ~~`scripts/manage_data.py categorize-models` flags 46 models as `REMOVE`-candidates~~ **(superseded by the holistic pass above; counts also stale — the current split is 0 REMOVE / 492 FLAG)** (fine-tuned name, no `model_family`/`base_model` set) and 38 as `FLAG` (unclear origin) — **none have zero results**, so none were deleted. These need metadata enrichment (fill in `model_family`/`base_model`), not removal; run `scripts/manage_data.py categorize-models --output data/models_categorized.csv` to get the full list.
 - [x] Fixed `models.csv`'s stale aggregate columns (`benchmark_count`, `total_results`, `avg_score`) — they hadn't been recomputed in a long time (e.g. GPT-4's row said 55/75/42.91, actual was 76/122/88.29). Added `scripts/lib/stats.py` + `scripts/manage_data.py recompute-stats` and ran it for all 1096 models. Re-run this after any batch of changes to results.csv (it's not automatic). Caveat documented in the module docstring: `avg_score` is a plain mean across every row regardless of metric scale (most are 0-100, but Elo ratings like Chatbot Arena's are ~1000-1500), so for models evaluated on mixed scales it isn't a meaningful "typical score" — that's how the column was already defined, just now correctly computed.
@@ -44,12 +48,14 @@
 - [x] Run scripts/verify_data.py after any data changes to ensure FK integrity — now also the documented step in docs/METHODOLOGY.md's "Adding New Data" checklist.
 - [x] **Non-LLM removal + multilingual benchmark de-duplication (2026-07-16)** — see docs/CHANGELOG.md "Non-LLM Removal & Multilingual Benchmark De-duplication" and notes/multilingual_duplication_audit.md for full detail/sourcing. Added a second, orthogonal `classify_scope` axis to `scripts/lib/categorize.py` (modality/inclusion-scope vs. the existing fine-tune-provenance axis) surfaced via `scripts/manage_data.py audit-model-scope`; removed 10 non-LLM models (CLIP/PMC-CLIP/ST5-XXL/monoT5-3B/Knowledge Review/NLLB/SeamlessM4T/m2ugen/mullama/musilingo) + the 1 benchmark (`pwc_vsr`) it orphaned. Added `remove_benchmark` and a `merge_benchmark` language-backfill mode to `scripts/lib/standardise.py`, plus a `find-language-clusters` discovery command (`scripts/lib/benchmark_clusters.py`); researched each candidate cluster against its source paper and removed 28 literal-translation benchmark_ids (MGSM/Global-MMLU-Lite non-English Kaggle variants, MBZUAI's translated Arabic MMLU) while consolidating 8 more (XCOPA/XNLI/XQuAD HELM per-language sub-pages, no data lost) into their parent id with `language` backfilled. MultiLoKo, FLORES direction pairs, LINDSEA, Thai sub-exams, ArabicMMLU, and PwC WMT/CoNLL-2002 pairs were investigated and confirmed as genuinely distinct content — left untouched. `verify_data.py` clean throughout. benchmarks.csv: 679 → 642; models.csv: 2053 → 2043; results.csv: 20234 → 19226.
 - [x] **Residual cleanup after validation sweep (2026-07-16)** — see docs/CHANGELOG.md "Residual Cleanup" entry. Removed 5 non-suffixed translated benchmarks (`mmmlu`, `global_mmlu`, `kaggle_nanliao7_global_mmlu_lite_{ca,cs}`, `indicxnli` — 126 rows; originals `mmlu`/`xnli` kept) and 12 narrow-task/encoder-only models found by sweeping for models confined to MT/NER leaderboards (BioMegatron, LUKE（Large）, Pooled Flair, Straková et al. 2019, LS-unLLaMA, HeadMask, PartialFormer, Variational Attention, Caglayan, BigBird, BigBird-etc, YiSi-1 — 22 rows), plus the 10 pure-NER/MT PwC benchmarks and 3 mmmlu-only models they orphaned. Fixed `distilgpt2` metadata (`model_name`/`developer` had the HF repo path/namespace) — `audit-model-scope` is now 100% KEEP. Totals: 642 → 627 benchmarks, 2043 → 2028 models, 19226 → 19078 results.
-- [ ] **`GPT-2-Medium 355M` is dated wrong, and so is its variant.** The base row
-  says 2019-10 (`sourced_evidence`) and the variant said 2019-02; GPT-2 shipped in
-  stages (124M 2019-02, 355M 2019-05, 774M 2019-08, 1.5B 2019-11), so 355M should
-  be ~2019-05 and both values are wrong. The variant now inherits 2019-10, which
-  swaps one wrong date for another — fix the base and the variant follows.
-  Worth checking whether the other staged GPT-2 sizes have the same problem.
+- [x] **`GPT-2-Medium 355M` is dated wrong, and so is its variant (done 2026-09-01).**
+  Confirmed against `openai/gpt-2`'s own commits — "updates for 345M model"
+  2019-05-03, "push 774M model" 2019-08-20, the 1.5B model card 2019-11-05 — and
+  the other staged sizes did have the same problem: `GPT-2 Medium (355M)` and
+  `GPT-2 Large (774M)` both sat at 2019-11, `GPT-2 (0.7B)` and `GPT-2 XL 1.5B
+  (pre-trained)` both at 2019-02. Six rows corrected via `set_model_field`. The
+  same sweep caught `SGPT-2.7B-msmarco` at 2019-02 — it is SGPT (2022-02), not a
+  GPT-2 model, mis-dated on a name collision.
 
 - [ ] **`mexa` has three candidate identities.** The row is recorded as
   `multilingual` / `mexican-languages` (year 2024), but its `paper_url` was a 2025

@@ -320,6 +320,175 @@ precisely because everything that inherits from it inherits the error too.
 model-side counterpart of `set_benchmark_field`, so single-cell corrections to
 `models.csv` also go through the tool and leave an audit trail.
 
+### Pre-2024 repair completed: 694 models re-researched (2026-09-01)
+
+The 910-row pre-2024 worklist is closed. 241 rows were settled deterministically
+by the HuggingFace repo-path lookup; the remaining 694 went to seven agent slices
+that between them answered **692 under their own model_id**. The two left over
+are `Vicuna (SYRELM)`, an eval variant that takes its base's date, and
+`GPT-2-Medium 355M (BS=5)`, corrected by hand below.
+
+Of 565 dated answers, citation verification returned **404 VERIFIED (72%), 96
+UNVERIFIABLE and 65 CONTRADICTED**. Applied, the verified and cited rows moved
+**119 archive dates, 85 of them later** — the early bias being paid down where it
+was concentrated. Provenance across the whole corpus is now:
+
+| | before this work | after |
+|---|---|---|
+| strong tiers (`arxiv_id`, `hf_createdat`, `verified_arxiv`, `name_stamp`, `web_verified`) | 897 | **1566 (78%)** |
+| `single_haiku` / `single_hermes` / `corroborated_*` | 648 | 148 |
+| month precision | — | 1960 of 2014 |
+
+**Coverage is not the same as row count, and the difference is a real defect.**
+Every slice reported N/N, and none of them was N/N. A worker that answers a row
+under the wrong key, or answers the same row twice, consumes a slice position
+without covering the input row it was meant to — and because the resume cursor is
+the OUTPUT LINE COUNT, both look like progress. p4 wrote 25 rows under names that
+exist nowhere in the dataset (`Mistral Large 2`, `StarCoder2-15B`, `OpenAI
+o1-preview`), leaving 35 of its inputs unanswered; p1, p2 and p5 lost seven more
+to duplicates. Those 42 were re-queued as slice p7 and all 42 came back.
+
+**The same off-by-one becomes a livelock if the slice is long enough.** p6 skipped
+`Galactica` at input row 35, so from there its output ran one row ahead of its
+input, and the worker was handed a row it had already answered on every
+iteration. It burned four consecutive 60-iteration budgets while the model server
+sat idle at 0.7s — indistinguishable from slowness unless you diff the two files.
+Supplying the missing row (arXiv 2211.09085, 2022-11) restored both the coverage
+and the cursor.
+
+**Concurrency made this slower, not faster** — measured, after two wrong guesses
+in the other direction:
+
+| workers | throughput |
+|---|---|
+| 1 | **2.04 rows/min** |
+| 2 | 0.72 rows/min |
+| 3 | 0.24 rows/min |
+
+The server runs `llama-server -c 131072 -np 4`, so the context is four 32k slots.
+One agent keeps its long prompt cached across turns; three evict each other and
+every turn reprocesses the prompt. GPU utilisation looks healthy throughout,
+which is exactly why it reads as headroom. Slices were serialised after that.
+
+**Two staged-release clusters were found and fixed**, both the family-attribution
+error inside a single model line rather than across families. GPT-2 shipped in
+four tranches, and `openai/gpt-2`'s own commits date each: 124M 2019-02, 355M
+2019-05-03, 774M 2019-08-20, 1.5B 2019-11-05. Six rows disagreed —
+`GPT-2 Medium (355M)` and `GPT-2 Large (774M)` both sat at 2019-11, `GPT-2 (0.7B)`
+and `GPT-2 XL 1.5B (pre-trained)` both at 2019-02. Separately, twenty models
+shared 2023-03 under the family key `gpt`, among them `GPT-4.1 mini`, `GPT-4.1
+nano`, `GPT-4V` and `gpt-4-1106-preview` — GPT-4's launch month applied to models
+that did not yet exist. Corrected to 2025-04, 2023-09 and 2023-11 from OpenAI's
+own pages. The same sweep caught `SGPT-2.7B-msmarco` dated 2019-02: it is not a
+GPT-2 model at all, but SGPT (2022-02), mis-dated on a name collision. All went
+through `scripts/standardise.py --rules` with `set_model_field`.
+
+Auditing the other 57 family/month cells found no further errors — the large ones
+(28 Qwen2.5 sizes on 2024-09, 26 Llama 2 rows on 2023-07, the Pythia suite, OPT,
+flan-t5) are genuine simultaneous launches.
+
+**61 contradicted rows were resolved individually** across five passes, each
+against identity-given evidence only; the per-row citations are recorded in
+`notes/release_date_hand_resolutions.md`, since `models.csv` has no evidence
+column and `release_date_source` can only carry the tier. Four were not resolved and keep their
+existing values: `Claude 1.3` (Anthropic's deprecations page gives deprecation,
+not release, dates), `Palmyra X5` (repo gated), `RuGPT3Large` and `Neo-6B` — the
+last is not even unambiguous as a name, since GPT-Neo tops out at 2.7B.
+
+**A refinement to the eval-variant rule.** `LLaVA-1.5-13B (+CSR)` had inherited
+2023-10 from LLaVA-1.5 while its own paper is 2024-05. Inheritance is a
+*fallback*, not something that outranks direct evidence — the tier ladder already
+says `verified_arxiv` beats `base_model_date`, and it is followed.
+
+### The contradicted bucket, resolved row by row (2026-09-01)
+
+Citation verification split the web-search answers three ways: VERIFIED (the
+cited page names this model and carries this date), UNVERIFIABLE (no evidence
+either way, usually a vendor domain that 403s a non-browser client) and
+CONTRADICTED (the page read fine and did not support the claim). Only the third
+is evidence of an error, and it was never applied.
+
+**CONTRADICTED does not mean the date is wrong.** It means the *citation* is
+wrong, and in this bucket the two came apart in both directions:
+
+- `starcoder2-15b` answered 2023-05 and cited the StarCoder **2** paper, which is
+  2024-02. The citation is right and the answer is wrong.
+- `starcoderbase` answered 2023-05 and cited arXiv 2312.03872, an unrelated
+  paper. The answer is right and only the citation is wrong.
+
+Same verdict, opposite handling — so the bucket cannot be applied or dropped
+wholesale. All 13 rows were re-checked against evidence that owes nothing to the
+agent's citation, and **only against sources where the model's identity is given
+rather than inferred**: a HuggingFace repo whose name *is* the model, the
+`arxiv:` tags that repo itself declares, or a launch announcement whose own
+`datePublished` names the model.
+
+A first attempt searched arXiv by model name and matched on a single token. It
+dated `PaLM 2-S*` to 2002-08 — a mathematics paper on Palm calculus — and `GPT-1
+117M` to 2010-06, because both names reduce to one short token after the size
+annotation is stripped. That is the family-attribution failure mode in a new
+costume, and searching by name was abandoned rather than tuned.
+
+Two rules did the rest of the work:
+
+- **Own paper, not cited paper.** A repo's `arxiv:` tags list what it draws on as
+  well as what announces it: `bigcode/starcoder2-3b` tags GQA, FlashAttention,
+  Longformer and Fill-in-the-Middle alongside StarCoder 2. Only a tag whose paper
+  *title* names the model counts. This is also what rejects
+  `Starling-LM-7B-alpha`'s single tag, which is the APA method paper.
+- **Release ≥ max(own-paper date, repo `createdAt`).** Both are lower bounds and
+  each is wrong in a different direction. `bigcode/starcoder2-3b` was created
+  2023-11-29, three months before the model was public, so `createdAt` alone
+  dates it early; `bigcode/starcoderbase-3b` was created 2023-06-30, *after* the
+  May-2023 StarCoder paper its tag points at, because the 3B checkpoint was a
+  later staged drop. Taking the later of the two is right in both cases.
+
+All 13 resolved; none had to be dropped. Two kept their date and got a real
+citation (`GPT-1 117M` → the 2018-06-11 OpenAI launch post, read through its
+2019 archive capture since the live URL 403s; `PaLM 2-S*` → the PaLM 2 Technical
+Report, which names `PaLM 2-S*` twelve times). Eleven had their date corrected,
+including `TNLG v2 (530B)` 2023-07 → 2021-10 (the cited Microsoft blog was
+correct all along at `datePublished` 2021-10-11 — the verifier failed only
+because the dataset calls the model TNLG v2 and the page calls it Megatron-Turing
+NLG) and `T0pp (11B)` 2022-10 → 2021-10.
+
+**`hf_createdat` is a lower bound, not a release date.** The starcoder2-3b case
+is the clean demonstration. That bound is sound — a model distributed from a repo
+cannot predate the repo — but it can sit months below the truth, in exactly the
+direction the corpus is already known to lean. It is corrected case by case, not
+by rule; see the next entry for why.
+
+### The deterministic HuggingFace sweep, applied (2026-09-01)
+
+The 241 rows recovered by the repo-path lookup were applied at `hf_createdat`,
+minus the 13 settled by hand above: 233 matched `models.csv`, 55 already agreed,
+**99 moved — 84 later and 15 earlier**, with ten shifting by a year or more
+(`Bielik-11B-v2.*-Instruct` 2020-05 → 2024-08, `Llama-4-Scout-17B-16E-Instruct`
+2022-04 → 2025-04, `DeciLM-7B` 2021-06 → 2023-12, `INTELLECT-1` 2023-11 →
+2024-11). The 84:15 split is the early bias being paid down.
+
+These never went through the citation verifier, and should not have: their
+evidence is an API field, not page text, so a verifier that reads a page for the
+model's name and a matching date would mark every one of them unverifiable.
+
+**A guard was built for this sweep and then thrown away**, which is worth
+recording because the reasoning looked sound. If `createdAt` is a lower bound,
+and the repo's own arXiv paper is another lower bound, then the later of the two
+should be closer to the truth — and it fixes starcoder2-3b. The premise is false:
+a paper is not a lower bound, because papers routinely trail the release. The
+Wayback captures settle it in both directions:
+
+| repo | `createdAt` | own paper | first public capture | who is right |
+|---|---|---|---|---|
+| `bigcode/starcoder` | 2023-04 | 2023-05 | 2023-05-05 | the paper — repo was pre-created |
+| `EleutherAI/pythia-12b` | 2023-02 | 2023-04 | 2023-02-03 | `createdAt` — public two months before the paper |
+
+Of the seven rows the guard moved, one was right and at least five were wrong, so
+it was dropped rather than tuned. A three-signal version bounded above by the
+first archive capture got five of seven, but its two remaining errors came from
+patchy archive coverage rather than from anything checkable, and a coin-flip
+heuristic dressed up as a rule is worse than an honestly-labelled lower bound.
+
 ### Archive metadata corrections (2026-09-01)
 
 Found while checking whether `notes/` still described the corpus accurately — the
