@@ -1,6 +1,6 @@
 # Text-only derived copy
 
-Generated 2026-09-01 by `scripts/make_text_only_copy.py` from `data/*.csv`.
+Generated 2026-09-02 by `scripts/make_text_only_copy.py` from `data/*.csv`.
 
 **This directory is tracked in git, but it is NOT hand-maintained.** It is fully reproducible from the canonical tables plus the knowledge bases in `scripts/lib/config.py`; `python3 scripts/make_text_only_copy.py --check` asserts exactly that. Never hand-edit these CSVs -- encode the decision in `config.py` and regenerate, or the edit is silently lost on the next run.
 
