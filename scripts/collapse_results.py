@@ -20,6 +20,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = ROOT / "data" / "text_only"
 DATA_PATH = DATA_ROOT / "results.csv"
+MODELS_PATH = DATA_ROOT / "models.csv"
 OUT_DIR = DATA_ROOT / "combinations"
 
 # normalize tokens
@@ -315,6 +316,13 @@ def first_nonnull(series):
     return None
 
 
+def earliest_date(values):
+    # String min works here since dates are zero-padded ISO and a bare
+    # YYYY-precision value is legitimately <= any YYYY-MM value for the same year.
+    valid = [v for v in values if pd.notna(v) and str(v).strip() != ""]
+    return min(valid) if valid else None
+
+
 def main():
     if not DATA_PATH.exists():
         print(f"Error: input file {DATA_PATH} not found.")
@@ -330,6 +338,13 @@ def main():
 
     print(f"Total raw evaluations: {len(df)}")
 
+    # Release dates live on the canonical models table, not on results.csv rows
+    if MODELS_PATH.exists():
+        release_dates = pd.read_csv(MODELS_PATH, dtype=str, usecols=['model_id', 'release_date'])
+    else:
+        print(f"Warning: {MODELS_PATH} not found; collapse_mapping.csv will not include release_date.")
+        release_dates = pd.DataFrame(columns=['model_id', 'release_date'])
+
     # 1. First, canonicalize metadata (model_family, model_size) per model_id
     print("Canonicalizing model metadata...")
     model_meta = df.groupby('model_id').agg({
@@ -344,6 +359,7 @@ def main():
 
     # Merge averaged scores back with canonical model metadata
     df_clean = df_avg.merge(model_meta, on='model_id', how='left')
+    df_clean = df_clean.merge(release_dates, on='model_id', how='left')
 
     # Prepare combinations directory
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -416,6 +432,10 @@ def main():
 
         mapping_file = strategy_dir / "collapse_mapping.csv"
         mapping_df = df_strat[['model_id', 'collapse_key']].drop_duplicates().sort_values(['collapse_key', 'model_id'])
+        # Represent each collapsed group's release date as the earliest date
+        # available among its constituent model_ids.
+        earliest_by_key = df_strat.groupby('collapse_key')['release_date'].agg(earliest_date)
+        mapping_df['release_date'] = mapping_df['collapse_key'].map(earliest_by_key)
         mapping_df.to_csv(mapping_file, index=False)
         print(f"  Saved mapping to: {mapping_file}")
 
@@ -472,5 +492,6 @@ if __name__ == "__main__":
         _root = Path(argv[argv.index("--data-root") + 1])
         _root = _root if _root.is_absolute() else ROOT / _root
         DATA_PATH = _root / "results.csv"
+        MODELS_PATH = _root / "models.csv"
         OUT_DIR = _root / "combinations"
     main()
