@@ -123,7 +123,11 @@ generate_surrogate <- function(R, n, mu, sd, seed = 1L) {
   p <- length(mu)
   Z <- matrix(rnorm(n * p), n, p)
   Xz <- Z %*% t(W)
-  sweep(sweep(Xz, 2, sd, "*"), 2, mu, "+")
+  out <- sweep(sweep(Xz, 2, sd, "*"), 2, mu, "+")
+  # eigen/sweep drop dimnames; restore the benchmark names carried by mu
+  # (mu = colMeans(x)) so write_completed emits real headers, not "1","2",...
+  colnames(out) <- names(mu)
+  out
 }
 
 # Generic correlation-matrix imputation driver, shared by the simple corr
