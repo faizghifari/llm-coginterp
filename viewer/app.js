@@ -2,7 +2,7 @@
 
 const HUES = [0, 35, 60, 100, 160, 190, 220, 260, 290, 330];
 
-const state = { data: null, key: "", focus: "", checked: new Set() };
+const state = { data: null, key: "", checked: new Set(), filter: "" };
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("plot");
@@ -33,11 +33,11 @@ function setOptions(sel, values, keep) {
 function rebuild() {
   const d = current();
   if (!d) return;
-  const benches = d.benchmarks;
-  setOptions($("focus"), ["", ...benches], state.focus);
+  const f = state.filter.toLowerCase();
   const list = $("list");
   list.textContent = "";
-  for (const b of benches) {
+  for (const b of d.benchmarks) {
+    if (f && !b.toLowerCase().includes(f)) continue;
     const lab = document.createElement("label");
     const cb = document.createElement("input");
     cb.type = "checkbox";
@@ -49,7 +49,7 @@ function rebuild() {
   }
   const tagDesc = d.tag === "pa" ? "PA factor count" : "forced 2 factors";
   $("meta").textContent =
-    `${benches.length} benchmarks · averaged over ${d.n_cells} cells (method × strategy) · tag: ${tagDesc}`;
+    `${d.benchmarks.length} benchmarks · averaged over ${d.n_cells} cells · ${tagDesc}`;
   draw();
 }
 
@@ -68,11 +68,12 @@ function draw() {
   const d = current();
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
+  if (w === 0 || h === 0) return;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = "#101014";
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
   if (!d) return;
 
@@ -86,43 +87,33 @@ function draw() {
   const px = (p) => pad + (p.x - cx) * s + w / 2;
   const py = (p) => pad + (p.y - cy) * s + h / 2;
 
-  d.px = px;
-  d.py = py;
   d.screen = d.points.map((p) => ({
     b: p.benchmark,
     x: Math.min(Math.max(px(p), pad - 10), w - pad + 10),
     y: Math.min(Math.max(py(p), pad - 10), h - pad + 10),
   }));
 
-  const anyHighlight = state.checked.size > 0 || state.focus !== "";
-  const R = 5;
+  const anyHighlight = state.checked.size > 0;
 
+  // dim base layer: one uniform color
+  ctx.fillStyle = anyHighlight ? "rgba(120, 120, 135, 0.30)" : "#9a9aa8";
   for (const p of d.screen) {
-    const highlighted = state.checked.has(p.b) || p.b === state.focus;
-    if (anyHighlight && !highlighted) continue;
+    if (anyHighlight && state.checked.has(p.b)) continue;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, highlighted ? R + 2 : R, 0, 2 * Math.PI);
-    ctx.fillStyle = `hsl(${colorOf(p.b)} 70% 65%)`;
+    ctx.arc(p.x, p.y, anyHighlight ? 2.5 : 5, 0, 2 * Math.PI);
     ctx.fill();
   }
 
-  if (anyHighlight) {
-    ctx.fillStyle = "rgba(214, 214, 221, 0.28)";
-    for (const p of d.screen) {
-      const highlighted = state.checked.has(p.b) || p.b === state.focus;
-      if (!highlighted) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 2.5, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-    }
-    for (const p of d.screen) {
-      if (state.checked.has(p.b) || p.b === state.focus) {
-        ctx.fillStyle = "rgba(214, 214, 221, 0.92)";
-        ctx.font = "12px system-ui";
-        ctx.fillText(p.b, p.x + 8, p.y - 8);
-      }
-    }
+  // highlighted layer: colored + labeled
+  for (const p of d.screen) {
+    if (!state.checked.has(p.b)) continue;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 7, 0, 2 * Math.PI);
+    ctx.fillStyle = `hsl(${colorOf(p.b)} 65% 45%)`;
+    ctx.fill();
+    ctx.fillStyle = "rgba(34, 34, 42, 0.92)";
+    ctx.font = "12px system-ui";
+    ctx.fillText(p.b, p.x + 9, p.y - 8);
   }
 }
 
@@ -136,7 +127,7 @@ canvas.addEventListener("mousemove", (ev) => {
   const mx = ev.clientX - r.left;
   const my = ev.clientY - r.top;
   let best = null;
-  let bestD = 100; // px^2
+  let bestD = 100;
   for (const p of d.screen) {
     const dx = p.x - mx;
     const dy = p.y - my;
@@ -164,6 +155,14 @@ $("list").addEventListener("change", (ev) => {
   ev.target.checked ? state.checked.add(b) : state.checked.delete(b);
   draw();
 });
+$("filter").addEventListener("input", () => {
+  state.filter = $("filter").value;
+  rebuild();
+});
+$("clear").addEventListener("click", () => {
+  state.checked.clear();
+  rebuild();
+});
 
 function init(data) {
   state.data = data;
@@ -181,21 +180,13 @@ function init(data) {
     state.key = `${$("dz").value}|${$("tag").value}`;
     rebuild();
   });
-  $("focus").addEventListener("change", () => {
-    state.focus = $("focus").value;
-    draw();
-  });
-  $("clear").addEventListener("click", () => {
-    state.checked.clear();
-    rebuild();
-  });
   rebuild();
-  // redraw once layout has settled so the canvas is sized before first scale
   requestAnimationFrame(draw);
   window.addEventListener("load", draw);
 }
 
-fetch("positions.json")
-  .then((r) => r.json())
-  .then(init)
-  .catch(() => ($("meta").textContent = "failed to load positions.json"));
+if (window.POSITIONS) {
+  init(window.POSITIONS);
+} else {
+  $("meta").textContent = "positions.js missing — run compute_positions.py";
+}

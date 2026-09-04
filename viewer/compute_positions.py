@@ -137,6 +137,9 @@ def main() -> None:
         }
         print(f"{dz}|{tag}: {len(bench)} benchmarks, {len(cell_list)} cells")
     OUT.write_text(json.dumps(out, indent=1))
+    (Path(__file__).resolve().parent / "positions.js").write_text(
+        "window.POSITIONS = " + json.dumps(out) + ";\n"
+    )
     print(f"wrote {OUT}")
 
 

@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>benchmark similarity viewer</title>
+<title>Benchmark Similarity viewer</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="frame">
 <header>
-  <h1>benchmark similarity</h1>
+  <h1>Benchmark Similarity</h1>
   <div class="controls">
     <label>densifier
       <select id="dz"></select>
@@ -17,24 +17,23 @@
     <label>tag
       <select id="tag"></select>
     </label>
-    <label>focus
-      <select id="focus"><option value="">—</option></select>
-    </label>
+    <span id="meta"></span>
   </div>
-  <div id="meta"></div>
 </header>
 <main>
   <canvas id="plot"></canvas>
   <aside>
     <div class="side-head">
-      <span>highlight</span>
-      <button id="clear" type="button">clear</button>
+      <span>Highlight</span>
+      <button id="clear" type="button">Clear</button>
     </div>
+    <input id="filter" type="search" placeholder="Filter…">
     <div id="list"></div>
   </aside>
 </main>
 </div>
 <div id="tooltip" hidden></div>
+<script src="positions.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
