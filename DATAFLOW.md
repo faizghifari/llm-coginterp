@@ -172,6 +172,23 @@ primary-factor assignment. For raw methods (`default`/`zeros`),
 correlation the factoring ran on, so downstream scoring does not have to
 reimplement the fill/smoothing recipe.
 
+**Timed mode** (`make factor-timed` → `factor.R --timed`): year-separated EFA
+instead of the pooled matrix. Reads
+`<data_root>/combinations/<st>/collapse_mapping.csv` (written by
+`scripts/collapse_results.py`), maps each `collapse_key` to a release year via
+the first `19xx`/`20xx` in `release_date` (blank/junk dates excluded), then for
+every `(method, dz, st)` cell partitions the completed matrix's rows into
+release-year cohorts and reruns the standard imputed-path factoring per cohort
+(R² gate → PA → bifactor at `pa`/`2f`). Imputer-less methods (`default`,
+`zeros`) are skipped — their pairwise-complete correlations need the full
+sparse table — and `--loco` is rejected in this mode. There is no minimum
+cohort size: degenerate years log `FACTOR FAILED` and the loop continues.
+Outputs insert the year into the run tag:
+`<method>_<dz>_<st>_bifactor_pa_y<year>_loadings.csv` etc., DB table
+`factoring` rows with `run = pa_y<year>` / `forced2f_y<year>` and `dataset`
+unchanged. `latent_scores.py` skips these files (cohort loadings are not
+scored against the pooled matrix).
+
 ## Stage 3 — latent scores (`scripts/latent_scores.py`)
 
 Python, reads factoring outputs and writes per-model factor scores next to the

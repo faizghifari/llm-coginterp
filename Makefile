@@ -15,6 +15,8 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT)
 #   make impute softimpute missforest knn
 #   make factor softimpute onesidedmc zeros default
 #   make loco   softimpute knn              # factor with --loco
+#   make factor-timed [methods]             # year-separated EFA (skips
+#                                           # imputer-less default/zeros)
 #
 # Aggregates run the whole default set:
 #
@@ -38,10 +40,11 @@ LOCO_PLAIN     := raw softimpute onesidedmc knn   # plain missforest loco skippe
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
 
 # The method words typed after the target (e.g. "make factor knn missforest").
-EXTRA := $(filter-out impute factor loco,$(MAKECMDGOALS))
+# "factor-timed" is itself a target, so keep it out of the method-word list.
+EXTRA := $(filter-out impute factor factor-timed loco,$(MAKECMDGOALS))
 
 .PHONY: deps env env-py env-r env-jl preproc clean \
-        impute factor loco \
+        impute factor factor-timed loco \
         runall runall-impute runall-factor runall-loco
 
 SUDO := $(shell if [ "$$(id -u)" -eq 0 ]; then echo ""; else echo "sudo"; fi)
@@ -85,6 +88,15 @@ loco:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor loco -- $(EXTRA) -- $(ROOTS)
 	./scripts/runmulti.sh $(LOGS) factor raw loco -- $(EXTRA) -- $(ROOTS)
+
+# Year-separated factoring: one EFA per release-year cohort of models.
+# Imputer-less methods (default/zeros) are excluded by construction and the
+# R script double-guards against them. Method words after the target override
+# the default set, e.g. "make factor-timed knn".
+factor-timed:
+	$(CLEAR_SUMMARY)
+	./scripts/runmulti.sh $(LOGS) factor timed -- $(if $(EXTRA),$(EXTRA),$(FACTOR_METHODS)) -- $(ROOTS)
+	./scripts/runmulti.sh $(LOGS) factor timed raw -- $(if $(EXTRA),$(EXTRA),$(FACTOR_METHODS)) -- $(ROOTS)
 
 # The method words after the target (e.g. "usvt" in "make factor usvt") arrive as
 # goals make wants to build; they're consumed by runmulti via $(EXTRA) above, so

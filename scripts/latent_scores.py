@@ -146,6 +146,11 @@ FNAME_RE = re.compile(
     r"^(?P<method>.+?)_(?P<densifier>" + "|".join(DENSIFIERS) +
     r")_(?P<strategy>.+?)_bifactor_(?P<tag>" + "|".join(TAGS) + r")_loadings\.csv$"
 )
+# Timed-mode factoring (factor.R --timed) emits `..._bifactor_(pa|forced2f)_y<year>_`
+# files: loadings from a release-year cohort, not the pooled matrix. The generic
+# regex would happily swallow them with a mangled strategy name, so skip them
+# explicitly before parsing.
+TIMED_RE = re.compile(r"_bifactor_(?:pa|forced2f)_y\d{4}_")
 
 
 def parse_args():
@@ -349,6 +354,8 @@ def main():
           f"data from {data_root}")
     done = 0
     for p in paths:
+        if TIMED_RE.search(p.name):
+            continue
         m = FNAME_RE.match(p.name)
         if not m:
             continue

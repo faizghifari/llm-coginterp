@@ -29,6 +29,12 @@
 #     --results-root output tree, relative to repo root
 #                    (default results/text_only)
 #     --smoke        use data/smoke fixture
+#     --timed        year-separated factoring: partition rows by release year
+#                    (collapse_mapping.csv, written by scripts/collapse_results.py)
+#                    and run the full PA -> EFA -> bifactor pipeline per cohort.
+#                    Skips imputer-less methods (default/zeros); incompatible
+#                    with --loco. Output suffixes get y<year>, DB runs become
+#                    pa_y<year> / forced2f_y<year> (dataset stays <dz>_<st>).
 #     --loco         run leave-one-covariate-out delta omega_h instead of the
 #                    standard bifactor outputs (writes database.db table `loco`)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +59,7 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "default", "zeros", "cvxr", "ggm")
 RAW_METHODS <- c("default", "zeros")
 parse_args <- function(args) {
-  method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE
+  method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE; timed <- FALSE
   data_root <- "data/text_only"; results_root <- "results/text_only"
   i <- 1L
   while (i <= length(args)) {
@@ -64,12 +70,15 @@ parse_args <- function(args) {
     else if (a == "--raw")   { raw   <- TRUE; i <- i + 1L }
     else if (a == "--smoke") { smoke <- TRUE; i <- i + 1L }
     else if (a == "--loco")  { loco  <- TRUE; i <- i + 1L }
+    else if (a == "--timed") { timed <- TRUE; i <- i + 1L }
     else stop("unknown arg: ", a)
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
+  if (timed && loco)
+    stop("--timed and --loco are mutually exclusive: per-year cohorts are too small for a LOCO sweep")
   list(methods = if (method == "all") ALL_METHODS else method,
-       raw = raw, smoke = smoke, loco = loco,
+       raw = raw, smoke = smoke, loco = loco, timed = timed,
        data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -78,6 +87,7 @@ METHODS    <- opt$methods
 DENSIFIERS <- if (opt$raw) "raw" else c("C", "S", "R")
 STRATEGIES <- c("all_standard", "all_aggressive")
 LOCO       <- opt$loco       # leave-one-covariate-out delta omega_h mode
+TIMED      <- opt$timed      # year-partitioned factoring mode
 DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
 RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
 dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
@@ -142,9 +152,126 @@ do_bifactor <- function(M, nf, method, dz, st, run_tag, n_obs = NA) {
   ho
 }
 
-factor_and_report <- function(method, dz, st, M) {
+# ── timed mode: release-year mapping ─────────────────────────────────────────
+# collapse_key -> release year, read from the strategy's collapse_mapping.csv
+# (written by scripts/collapse_results.py). The mapping is densifier-independent
+# (same key universe across raw/C/S/R), so one file per strategy serves every dz.
+# release_date is "YYYY-MM" or bare "YYYY"; the first 19xx/20xx run wins and
+# anything unparseable ("chatgpt", "code-002-175B", blank) maps to NA and is
+# excluded from timed runs.
+YEAR_RX <- "(19|20)[0-9]{2}"
+YEAR_MAP_CACHE <- new.env(parent = emptyenv())
+
+year_map_for <- function(st) {
+  if (!is.null(YEAR_MAP_CACHE[[st]])) return(YEAR_MAP_CACHE[[st]])
+  path <- file.path(DATA_ROOT, "combinations", st, "collapse_mapping.csv")
+  if (!file.exists(path))
+    stop("timed mode requires ", path, " — run `make preproc` first")
+  df <- read.csv(path, colClasses = "character")
+  m <- regexpr(YEAR_RX, df$release_date)
+  yr <- rep(NA_integer_, nrow(df))
+  hit <- !is.na(m) & m > 0
+  yr[hit] <- as.integer(substr(df$release_date[hit], m[hit],
+                               m[hit] + attr(m, "match.length")[hit] - 1L))
+  ym <- setNames(yr, df$collapse_key)
+  ym <- ym[!is.na(ym)]
+  ym <- ym[!duplicated(names(ym))]
+  cat(sprintf("timed: %d collapse keys with a release year (%s)\n", length(ym), st))
+  assign(st, ym, envir = YEAR_MAP_CACHE)
+  ym
+}
+
+# Shared imputed-method factoring core: R² gate, PA factor count, bifactor at
+# the PA count and at forced 2f. run_suffix tags the DB run names and output
+# filenames: "" for the combined run ("pa" / "forced2f"), "_y<year>" for timed
+# per-cohort runs ("pa_y2023" / "forced2f_y2023"). The R² gate is per cell —
+# it describes the imputation quality of the full matrix and is reused as-is
+# for every year cohort factored from that matrix.
+factor_imputed_core <- function(method, dz, st, M, run_suffix = "") {
+  dataset <- paste0(dz, "_", st)
+  tag <- sprintf("%s/%s/%s", method, dz, st)
+
+  r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
+                 error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
+  if (is.na(r2) || r2 < 0.3) {
+    cat(sprintf("  skipping (%s) — imputation R² = %s < 0.3\n", tag,
+                if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
+    return(invisible())
+  }
+  cat(sprintf("  R² = %.3f >= 0.3, proceeding\n", r2))
+
+  run_pa <- paste0("pa", run_suffix)
+  run_2f <- paste0("forced2f", run_suffix)
+
+  fr <- factor_matrix(M, pa_iter = 100L)
+  pa_nf <- fr$nf
+  var_explained <- extract_variance(fr$efa)
+  st_pa <- efa_stats(fr$efa)
+  cat(sprintf("  factored: nf = %d  cumvar = %.3f  phi_avg = %.3f\n",
+              pa_nf, var_explained, st_pa$phi_avg))
+
+  ho_pa <- do_bifactor(M, pa_nf, method, dz, st, run_pa)
+  if (!is.null(ho_pa)) {
+    omega_hs_pa <- if (!is.null(ho_pa$omega_group) && "group" %in% colnames(ho_pa$omega_group))
+      ho_pa$omega_group[rownames(ho_pa$omega_group) != "g", "group"] else numeric(0)
+    db_insert_factoring(method, dataset, run_pa, pa_nf, var_explained,
+                        st_pa$var_factors, st_pa$var_avg,
+                        ho_pa$omega_total, ho_pa$omega_h, omega_hs_pa,
+                        st_pa$phi_avg, st_pa$phi, DB_FILE)
+  }
+
+  efa_2f <- fa_try(M, 2L)
+  st_2f <- if (!is.null(efa_2f)) efa_stats(efa_2f) else list(phi_avg = NA_real_, phi = NULL, var_factors = numeric(0), var_avg = NA_real_)
+  ho_2f <- do_bifactor(M, 2L, method, dz, st, run_2f)
+  if (!is.null(ho_2f)) {
+    omega_hs_2f <- if (!is.null(ho_2f$omega_group) && "group" %in% colnames(ho_2f$omega_group))
+      ho_2f$omega_group[rownames(ho_2f$omega_group) != "g", "group"] else numeric(0)
+    db_insert_factoring(method, dataset, run_2f, 2L, var_explained,
+                        st_2f$var_factors, st_2f$var_avg,
+                        ho_2f$omega_total, ho_2f$omega_h, omega_hs_2f,
+                        st_2f$phi_avg, st_2f$phi, DB_FILE)
+  }
+  invisible()
+}
+
+# Timed-mode driver for one cell: skip imputer-less methods (their pairwise-
+# complete correlations are built from the whole sparse table — a year subset
+# would be far too thin to mean anything), then partition the completed
+# matrix's rows into release-year cohorts and factor each one independently.
+# There is deliberately no minimum cohort size: degenerate years fail inside
+# factor_matrix, log FACTOR FAILED, and the loop moves on.
+factor_timed_cell <- function(method, dz, st, M, keys) {
+  tag <- sprintf("%s/%s/%s", method, dz, st)
+  if (method %in% RAW_METHODS) {
+    cat(sprintf("  skipping timed (%s) — imputer-less methods have no timed variant\n", tag))
+    return(invisible())
+  }
+  if (is.null(keys)) {
+    cat(sprintf("  skipping timed (%s) — no row keys\n", tag))
+    return(invisible())
+  }
+  ym <- year_map_for(st)
+  yr <- unname(ym[as.character(keys)])
+  have <- !is.na(yr)
+  cat(sprintf("  timed: %d/%d rows have a release year (%d cohorts)\n",
+              sum(have), length(yr), length(unique(yr[have]))))
+  for (y in sort(unique(yr[have]))) {
+    idx <- which(yr == y)
+    cat(sprintf("  ---- year %d (n = %d) ----\n", y, length(idx)))
+    tryCatch(
+      factor_imputed_core(method, dz, st, M[idx, , drop = FALSE],
+                          run_suffix = sprintf("_y%d", y)),
+      error = function(e)
+        cat(sprintf("  FACTOR FAILED (year %d): %s\n", y, conditionMessage(e))))
+  }
+  invisible()
+}
+
+factor_and_report <- function(method, dz, st, M, keys = NULL) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   dataset <- paste0(dz, "_", st)
+
+  if (TIMED) return(factor_timed_cell(method, dz, st, M, keys))
 
   if (LOCO) {
     if (method %in% RAW_METHODS) {
@@ -224,43 +351,7 @@ factor_and_report <- function(method, dz, st, M) {
     return(invisible())
   }
 
-  r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
-                 error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
-  if (is.na(r2) || r2 < 0.3) {
-    cat(sprintf("  skipping (%s) — imputation R² = %s < 0.3\n", tag,
-                if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
-    return(invisible())
-  }
-  cat(sprintf("  R² = %.3f >= 0.3, proceeding\n", r2))
-
-  fr <- factor_matrix(M, pa_iter = 100L)
-  pa_nf <- fr$nf
-  var_explained <- extract_variance(fr$efa)
-  st_pa <- efa_stats(fr$efa)
-  cat(sprintf("  factored: nf = %d  cumvar = %.3f  phi_avg = %.3f\n",
-              pa_nf, var_explained, st_pa$phi_avg))
-
-  ho_pa <- do_bifactor(M, pa_nf, method, dz, st, "pa")
-  if (!is.null(ho_pa)) {
-    omega_hs_pa <- if (!is.null(ho_pa$omega_group) && "group" %in% colnames(ho_pa$omega_group))
-      ho_pa$omega_group[rownames(ho_pa$omega_group) != "g", "group"] else numeric(0)
-    db_insert_factoring(method, dataset, "pa", pa_nf, var_explained,
-                        st_pa$var_factors, st_pa$var_avg,
-                        ho_pa$omega_total, ho_pa$omega_h, omega_hs_pa,
-                        st_pa$phi_avg, st_pa$phi, DB_FILE)
-  }
-
-  efa_2f <- fa_try(M, 2L)
-  st_2f <- if (!is.null(efa_2f)) efa_stats(efa_2f) else list(phi_avg = NA_real_, phi = NULL, var_factors = numeric(0), var_avg = NA_real_)
-  ho_2f <- do_bifactor(M, 2L, method, dz, st, "2f")
-  if (!is.null(ho_2f)) {
-    omega_hs_2f <- if (!is.null(ho_2f$omega_group) && "group" %in% colnames(ho_2f$omega_group))
-      ho_2f$omega_group[rownames(ho_2f$omega_group) != "g", "group"] else numeric(0)
-    db_insert_factoring(method, dataset, "forced2f", 2L, var_explained,
-                        st_2f$var_factors, st_2f$var_avg,
-                        ho_2f$omega_total, ho_2f$omega_h, omega_hs_2f,
-                        st_2f$phi_avg, st_2f$phi, DB_FILE)
-  }
+  factor_imputed_core(method, dz, st, M)
 }
 
 main <- function() {
@@ -269,7 +360,7 @@ main <- function() {
       cat("\n======== ", method, "/", dz, "/", st, " ========\n", sep = "")
       res <- build_contract_from_disk(method, dz, st)
       if (is.null(res)) next
-      tryCatch(factor_and_report(method, dz, st, res$M),
+      tryCatch(factor_and_report(method, dz, st, res$M, res$keys),
                error = function(e) cat("  FACTOR FAILED:", conditionMessage(e), "\n"))
     }
   }
