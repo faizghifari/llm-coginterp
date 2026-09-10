@@ -15,6 +15,22 @@ function colorOf(b) {
   return PALETTE.get(b);
 }
 
+// selection key: aggregate is "dz|tag", a year cohort appends "|y<year>".
+function keyOf() {
+  const y = $("year").value;
+  return `${$("dz").value}|${$("tag").value}${y === "all" ? "" : `|y${y}`}`;
+}
+
+// years that exist for the current dz x tag; aggregate ("all") always offered.
+function yearOptions() {
+  const dz = $("dz").value, tag = $("tag").value;
+  const years = Object.keys(state.data)
+    .filter((k) => k.startsWith(`${dz}|${tag}|y`) && state.data[k].year !== undefined)
+    .map((k) => String(state.data[k].year))
+    .sort();
+  return ["all", ...years];
+}
+
 function current() {
   return state.data?.[state.key] ?? null;
 }
@@ -48,8 +64,9 @@ function rebuild() {
     list.appendChild(lab);
   }
   const tagDesc = d.tag === "pa" ? "PA factor count" : "forced 2 factors";
+  const cohort = d.year === undefined ? "all years" : `cohort ${d.year}`;
   $("meta").textContent =
-    `${d.benchmarks.length} benchmarks · averaged over ${d.n_cells} cells · ${tagDesc}`;
+    `${cohort} · ${d.benchmarks.length} benchmarks · averaged over ${d.n_cells} cells · ${tagDesc}`;
   draw();
 }
 
@@ -77,21 +94,32 @@ function draw() {
   ctx.fillRect(0, 0, w, h);
   if (!d) return;
 
-  const pad = 50;
+  const m = 40; // margin covering the largest dot radius
   const e = extent(d);
-  const sx = (w - 2 * pad) / Math.max(e.xmax - e.xmin, 1e-9);
-  const sy = (h - 2 * pad) / Math.max(e.ymax - e.ymin, 1e-9);
+  const sx = (w - 2 * m) / Math.max(e.xmax - e.xmin, 1e-9);
+  const sy = (h - 2 * m) / Math.max(e.ymax - e.ymin, 1e-9);
   const s = Math.min(sx, sy);
-  const cx = (e.xmin + e.xmax) / 2;
-  const cy = (e.ymin + e.ymax) / 2;
-  const px = (p) => pad + (p.x - cx) * s + w / 2;
-  const py = (p) => pad + (p.y - cy) * s + h / 2;
 
-  d.screen = d.points.map((p) => ({
-    b: p.benchmark,
-    x: Math.min(Math.max(px(p), pad - 10), w - pad + 10),
-    y: Math.min(Math.max(py(p), pad - 10), h - pad + 10),
-  }));
+  // map at raw scale, then fit the actual mapped bounding box onto the
+  // canvas: shrink if it overflows, then center it.
+  let pts = d.points.map((p) => ({ b: p.benchmark, x: p.x * s, y: p.y * s }));
+  let bxmin = Infinity, bxmax = -Infinity, bymin = Infinity, bymax = -Infinity;
+  for (const p of pts) {
+    if (p.x < bxmin) bxmin = p.x;
+    if (p.x > bxmax) bxmax = p.x;
+    if (p.y < bymin) bymin = p.y;
+    if (p.y > bymax) bymax = p.y;
+  }
+  const bw = bxmax - bxmin, bh = bymax - bymin;
+  const s2 = Math.min(1, (w - 2 * m) / Math.max(bw, 1e-9), (h - 2 * m) / Math.max(bh, 1e-9));
+  if (s2 < 1) {
+    for (const p of pts) { p.x *= s2; p.y *= s2; }
+    bxmin *= s2; bxmax *= s2; bymin *= s2; bymax *= s2;
+  }
+  const ox = w / 2 - (bxmin + bxmax) / 2;
+  const oy = h / 2 - (bymin + bymax) / 2;
+
+  d.screen = pts.map((p) => ({ b: p.b, x: p.x + ox, y: p.y + oy }));
 
   const anyHighlight = state.checked.size > 0;
 
@@ -172,14 +200,23 @@ function init(data) {
   state.key = keys[0];
   setOptions($("dz"), dzs, dzs[0]);
   setOptions($("tag"), tags, tags[0]);
-  $("dz").addEventListener("change", () => {
-    state.key = `${$("dz").value}|${$("tag").value}`;
+  setOptions($("year"), ["all"], "all");
+
+  const apply = () => {
+    state.key = keyOf();
+    if (!state.data[state.key]) return; // stale selection: keep last valid view
     rebuild();
+  };
+  $("dz").addEventListener("change", () => {
+    setOptions($("year"), yearOptions(), "all");
+    apply();
   });
   $("tag").addEventListener("change", () => {
-    state.key = `${$("dz").value}|${$("tag").value}`;
-    rebuild();
+    setOptions($("year"), yearOptions(), "all");
+    apply();
   });
+  $("year").addEventListener("change", apply);
+  setOptions($("year"), yearOptions(), "all");
   rebuild();
   requestAnimationFrame(draw);
   window.addEventListener("load", draw);

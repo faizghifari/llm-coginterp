@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Composite benchmark-similarity embedding for the factor-loading viewer.
 
-Reads every *_bifactor_{pa,2f}_loadings.csv under results/text_only/, builds a
-consensus cosine-distance matrix between benchmarks per (densifier, tag) by
-averaging the within-cell cosine distances (rotation/sign invariant per cell,
-hence well-defined to average), then UMAP-embeds each composite distance
-matrix and writes viewer/positions.json.
+Reads every *_bifactor_*_loadings.csv under results/text_only/, builds a
+consensus cosine-distance matrix between benchmarks per (densifier, tag,
+year) by averaging the within-cell cosine distances (rotation/sign invariant
+per cell, hence well-defined to average), then UMAP-embeds each composite
+distance matrix and writes viewer/positions.json. Year-less loadings files
+are the aggregate embedding (key "dz|tag"); per-release-year cohorts from
+factor.R --timed are embedded separately (key "dz|tag|y<year>").
 
 Each benchmark's vector within a cell is [g, F1..Fk] (group + general
 factors). Cells where a benchmark is absent simply don't contribute to that
@@ -30,14 +32,17 @@ OUT = Path(__file__).resolve().parent / "positions.json"
 
 NAME_RE = re.compile(
     r"^(?P<method>.+)_(?P<dz>C|R|S|raw)_(?P<st>all_standard|all_aggressive)"
-    r"_bifactor_(?P<tag>pa|2f)_loadings\.csv$"
+    r"_bifactor_(?P<tag>pa|2f|forced2f)(?:_y(?P<year>\d{4}))?_loadings\.csv$"
 )
+# Year-less files are the aggregate (all-years) embedding; `..._y<year>_` files
+# come from factor.R --timed (release-year cohorts). forced2f is the DB run
+# name leaked into timed filenames — normalize it to the combined 2f tag.
 FACTOR_COLS = ["g"] + [f"F{i}*" for i in range(1, 32)]
 
 
-def load_cells() -> dict[tuple[str, str], list[tuple[str, np.ndarray, list[str]]]]:
-    """{ (dz, tag): [ (cell_key, factor_matrix, [benchmarks]) ] }"""
-    cells: dict[tuple[str, str], list] = defaultdict(list)
+def load_cells() -> dict[tuple[str, str, int | None], list[tuple[str, np.ndarray, list[str]]]]:
+    """{ (dz, tag, year|None): [ (cell_key, factor_matrix, [benchmarks]) ] }"""
+    cells: dict[tuple[str, str, int | None], list] = defaultdict(list)
     for path in sorted(RESULTS.glob("*/*_loadings.csv")):
         m = NAME_RE.match(path.name)
         if not m:
@@ -57,7 +62,9 @@ def load_cells() -> dict[tuple[str, str], list[tuple[str, np.ndarray, list[str]]
         if not np.isfinite(mat).all():
             continue
         key = f"{m['method']}_{m['dz']}_{m['st']}"
-        cells[(m["dz"], m["tag"])].append((key, mat, bench))
+        tag = "2f" if m["tag"] == "forced2f" else m["tag"]
+        year = int(m["year"]) if m["year"] else None
+        cells[(m["dz"], tag, year)].append((key, mat, bench))
     return cells
 
 
@@ -122,12 +129,17 @@ def main() -> None:
     if not cells:
         raise SystemExit(f"no loadings found under {RESULTS}")
     out = {}
-    for (dz, tag), cell_list in sorted(cells.items()):
+    for (dz, tag, year), cell_list in sorted(
+        cells.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2] is not None, kv[0][2] or 0)
+    ):
         dist, bench = composite_distance(cell_list)
         xy = embed(dist)
-        out[f"{dz}|{tag}"] = {
+        # aggregate key stays "dz|tag" (backwards compatible); cohorts get |y<year>
+        key = f"{dz}|{tag}" if year is None else f"{dz}|{tag}|y{year}"
+        out[key] = {
             "densifier": dz,
             "tag": tag,
+            **({} if year is None else {"year": year}),
             "n_cells": len(cell_list),
             "benchmarks": bench,
             "points": [
@@ -135,7 +147,8 @@ def main() -> None:
                 for b, (x, y) in zip(bench, xy)
             ],
         }
-        print(f"{dz}|{tag}: {len(bench)} benchmarks, {len(cell_list)} cells")
+        cohort = "all years" if year is None else f"cohort {year}"
+        print(f"{key}: {len(bench)} benchmarks, {len(cell_list)} cells ({cohort})")
     OUT.write_text(json.dumps(out, indent=1))
     (Path(__file__).resolve().parent / "positions.js").write_text(
         "window.POSITIONS = " + json.dumps(out) + ";\n"
