@@ -299,10 +299,8 @@ loco_delta <- function(R, n_obs, nf) {
   on.exit({ stopCluster(cl); registerDoSEQ() })
 
   omega_i <- foreach(i = seq_len(p), .packages = "psych",
-                     .export = "fa_try",
                      .combine = c) %dopar% {
     R_i <- R[-i, -i, drop = FALSE]
-    fa_try(R_i, nf, n_obs = n_obs)
     tryCatch(
       suppressWarnings(psych::omega(R_i, nfactors = nf, n.obs = n_obs,
                                      fm = "minres", flip = FALSE, plot = FALSE)$omega_h),
