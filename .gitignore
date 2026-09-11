@@ -68,3 +68,6 @@ CLAUDE.md
 results/*
 .hermes_p*.csv
 .hermes_INSTRUCTIONS.md
+
+*.zip
+*.zst
