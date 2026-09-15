@@ -73,7 +73,34 @@ aside {
   padding: 4px 8px;
 }
 #filter:focus { outline: 1px solid var(--accent); }
-#list { overflow-y: auto; }
+/* Two scroll regions in one flex column: without min-height:0 the legend
+   pushes #list past the panel and aside's scrollbar fights the list's. */
+#legend { flex: 0 0 auto; max-height: 38%; overflow-y: auto; }
+#list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+#legend div {
+  display: flex;
+  gap: 8px;
+  padding: 3px 10px;
+  cursor: pointer;
+  align-items: center;
+}
+#legend div:hover { background: #eef0f5; }
+#legend div.on { background: #e4ebf9; }
+/* the residual row is selectable too -- "what does this axis say nothing about"
+   is a real query -- but stays visually recessive since it is not a group */
+#legend div.unassigned { color: var(--dim); font-style: italic; }
+#legend .axis-head {
+  padding: 6px 10px 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: .6px;
+  cursor: default;
+}
+#legend .axis-head:hover { background: none; }
+#legend .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+#legend .n { color: var(--dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+label:has(select:disabled) { opacity: .45; }
 .side-head {
   position: sticky;
   top: 0;
@@ -120,4 +147,5 @@ aside {
   color: var(--text);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   z-index: 10;
+  white-space: pre-line;
 }

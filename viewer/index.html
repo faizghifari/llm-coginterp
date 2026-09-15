@@ -20,12 +20,34 @@
     <label>cohort
       <select id="year"></select>
     </label>
+    <label>cluster
+      <select id="algo">
+        <option value="hac">hierarchical</option>
+        <option value="hdbscan">HDBSCAN</option>
+      </select>
+    </label>
+    <label>k
+      <select id="k"></select>
+    </label>
+    <label>factors
+      <select id="variant">
+        <option value="with_g">with g</option>
+        <option value="without_g">without g</option>
+      </select>
+    </label>
+    <label>color by
+      <select id="colorby"></select>
+    </label>
     <span id="meta"></span>
   </div>
 </header>
 <main>
   <canvas id="plot"></canvas>
   <aside>
+    <div class="side-head" id="legend-head" title="Cluster mode: clusters by id and size only, no inferred name. Category mode: pick ONE category to highlight; its cohesion score (is this set tighter in the distance matrix than a coverage-matched random set?) is shown in the header. Ids are per-cell.">
+      <span>Groups</span>
+    </div>
+    <div id="legend"></div>
     <div class="side-head">
       <span>Highlight</span>
       <button id="clear" type="button">Clear</button>

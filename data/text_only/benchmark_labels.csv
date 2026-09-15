@@ -1,0 +1,457 @@
+benchmark_id,benchmark_name,category,evaluated,task_labels,subject,language
+ChipBench,ChipBench,coding,code,code_generation,industrial,
+DarkBench,DarkBench,alignment/safety,alignment_safety,generation_dialogue,,
+DeceptionBench,DeceptionBench,alignment/safety,alignment_safety,question_answering,,
+FlashInfer-Bench,FlashInfer-Bench,coding,code,code_generation,,
+HistRev,Historical Revisionism Detection,alignment/safety,alignment_safety,generation_dialogue;classic_nlp,,
+LegalEval-Q,LegalEval-Q,domain-specific,,generation_dialogue,legal,monolingual_non_english
+LemmaBench,LemmaBench,math,math,reasoning,,
+MenatQA,MenatQA,reasoning,,question_answering;reasoning,,
+MoralMachine,Moral Machine Cross-Language,alignment/safety,cognitive_science;alignment_safety,question_answering,,multilingual
+NormAd,NormAd,alignment/safety,alignment_safety,question_answering,,
+ProphetArena,Prophet Arena,reasoning,,reasoning,,
+RealMath,RealMath,math,math,reasoning,,
+ReasonBENCH,ReasonBENCH,general_knowledge,,reasoning,,
+ShoppingMMLU,Shopping MMLU,domain-specific,knowledge,question_answering;classic_nlp,e_commerce,multilingual
+SocialStigmaQA,SocialStigmaQA,alignment/safety,alignment_safety,question_answering,,
+SpiralBench,LLM Spirals of Delusion,alignment/safety,alignment_safety,generation_dialogue,,
+StatEval,StatEval,general_knowledge,math,question_answering;reasoning,,
+StrongREJECT,StrongREJECT,alignment/safety,alignment_safety,generation_dialogue,,
+SuperGPQA,SuperGPQA,academic,knowledge,question_answering,,
+Vericoding,Vericoding Benchmark,coding,code,code_generation,,
+abceval,ABC-Eval: Benchmarking LLMs on Symbolic Music Understanding,audio/speech,knowledge,question_answering,music,
+aci_bench,ACI-Bench,Medical,,summarization,medical,
+afrobench,AfroBench,multilingual,,question_answering;classic_nlp;machine_translation,,multilingual
+agentif,AgentIF: Agentic Instruction Following,alignment/safety,,generation_dialogue;agentic_tool_use,,
+agieval,AGIEval,academic,knowledge,question_answering,,multilingual
+aime,AIME 2024,Math,math,reasoning,,
+aime25,AIME 2025,Math,math,reasoning,,
+aime_2025,,math,math,reasoning,,
+akata_games_2023,Akata Games (2023),general_knowledge,cognitive_science,game_playing,,
+alghafa,AlGhafa,"Multilingual, Crosslingual, Cultural",knowledge,question_answering,,monolingual_non_english
+alpacaeval,AlpacaEval,alignment/safety,,generation_dialogue,,
+alrage,ALRAGE,"Multilingual, Crosslingual, Cultural",,question_answering,,monolingual_non_english
+americasnli,AmericasNLI,multilingual,,reasoning,,multilingual
+anthropic_red_team,Anthropic Red Team,Alignment & Safety,alignment_safety,generation_dialogue,,
+arabic_exams,Arabic EXAMS,"Multilingual, Crosslingual, Cultural",knowledge,question_answering,,monolingual_non_english
+arabicmmlu,ArabicMMLU: Massive Multitask Language Understanding in Arabic,multilingual,knowledge,question_answering,,monolingual_non_english
+aratrust,AraTrust,Alignment & Safety,alignment_safety,question_answering,,monolingual_non_english
+arc,AI2 Reasoning Challenge,general_knowledge,commonsense,reasoning,,
+arena_hard_auto,Arena-Hard-Auto,alignment/safety,,generation_dialogue,,
+artificial_analysis_intelligence,,general_knowledge,knowledge,question_answering,,
+babi_qa,bAbI,Reasoning,commonsense,reasoning;question_answering,,
+banking77,BANKING77,General Knowledge,,classic_nlp,finance,
+batayan,Batayan: Filipino NLP Benchmark,multilingual,,classic_nlp,,monolingual_non_english
+bbh,Big Bench Hard,general_knowledge,,reasoning,,
+bbq,BBQ (Bias Benchmark for Question Answering),Alignment & Safety,alignment_safety,question_answering,,
+belebele,The Belebele Benchmark,multilingual,,question_answering,,multilingual
+benchmax,BenchMAX: Comprehensive Multilingual Evaluation Suite,multilingual,knowledge;code,question_answering;code_generation;generation_dialogue,,multilingual
+bfcl,BFCL: Berkeley Function Calling Leaderboard,alignment/safety,code,agentic_tool_use;code_generation,,
+bharatbench,BharatBench,multilingual,knowledge,question_answering,,multilingual
+bhasa,BHASA,multilingual,,question_answering;classic_nlp;machine_translation,,multilingual
+bigcodebench,BigCodeBench,coding,code,code_generation,,
+blend,BLEND,multilingual,knowledge,question_answering,,multilingual
+blimp,BLiMP (The Benchmark of Linguistic Minimal Pairs for English),Cognitive Science,cognitive_science,language_modelling,,
+bold,BOLD (Bias in Open-Ended Language Generation Dataset),Alignment & Safety,alignment_safety,generation_dialogue,,
+boolq,BoolQ,General Knowledge,,question_answering,,
+burmesesan,BURMESE-SAN: Burmese NLP Benchmark,multilingual,,classic_nlp,,monolingual_non_english
+cac,CAC: Cultural Association Contexts,cross-cultural,knowledge,question_answering,,
+chatbot_arena,Chatbot Arena,alignment/safety,,generation_dialogue,,
+chw_care_plan,NoteExtract,Medical,,classic_nlp,medical,
+civil_comments,CivilComments,Alignment & Safety,alignment_safety,classic_nlp,,
+clear,CLEAR,Medical,,question_answering,medical,
+cmmlu,Chinese MMLU,multilingual,knowledge,question_answering,,monolingual_non_english
+code_humaneval,HumanEval (Code),Coding,code,code_generation,,
+cogbench,CogBench,general_knowledge,cognitive_science,reasoning;game_playing,,
+complexbench,ComplexBench,general_knowledge,,reasoning,,
+copyright_code,Copyright (code),Alignment & Safety,code;alignment_safety,language_modelling,,
+copyright_text,Copyright (text),Alignment & Safety,alignment_safety,language_modelling,,
+creativityprism,CreativityPrism,creative,,generation_dialogue,,
+criticbench,"CriticBench: Evaluating Generation, Critique and Correction in LLMs",reasoning,,reasoning;generation_dialogue,,
+cruxeval,"CRUXEval: A Benchmark for Code Reasoning, Understanding and Execution",coding,code,reasoning,,
+culemo,CuleMo,cross-cultural,cognitive_science,classic_nlp,,multilingual
+culturalbench,CulturalBench,cross-cultural,knowledge,question_answering,,
+culturescope,CultureScope,cross-cultural,knowledge,question_answering,,
+debugbench,DebugBench,coding,code,code_generation,,
+dialectbench,DialectBench,multilingual,,classic_nlp;question_answering,,multilingual
+dialogbench,DialogBench,alignment/safety,,generation_dialogue,,
+dischargeme,DischargeMe,Medical,,summarization,medical,
+disinformation_reiteration,Disinformation (reiteration),Alignment & Safety,alignment_safety,generation_dialogue,,
+disinformation_wedging,Disinformation (wedging),Alignment & Safety,alignment_safety,generation_dialogue,,
+do_not_answer,Do-Not-Answer,alignment/safety,alignment_safety,generation_dialogue;classic_nlp,,
+dyck_language,Dyck,Reasoning,,reasoning,,
+ehr_sql,EHRSQL,Medical,code,code_generation,medical,
+ehrshot,EHRSHOT,Medical,,classic_nlp,medical,
+eifbench,EIFBench,instruction-following,,generation_dialogue,,
+emobench,EmoBench,general_knowledge,cognitive_science,question_answering,,multilingual
+engibench,EngiBench: Evaluating Engineering Instruction Following in LLMs,coding,code,code_generation,industrial,
+entity_data_imputation,Data imputation,General Knowledge,,classic_nlp,,
+entity_matching,Entity matching,General Knowledge,,classic_nlp,,
+eqbench,EQ-Bench,general_knowledge,cognitive_science,question_answering,,
+evalplus,EvalPlus (HumanEval+),coding,code,code_generation,,
+ewok,EWoK,Cognitive Science,commonsense,language_modelling,,
+ewok_agent_properties,Agent Properties,Cognitive Science,commonsense,language_modelling,,
+ewok_material_dynamics,Material Dynamics,Cognitive Science,commonsense,language_modelling,,
+ewok_material_properties,Material Properties,Cognitive Science,commonsense,language_modelling,,
+ewok_physical_dynamics,Physical Dynamics,Cognitive Science,commonsense,language_modelling,,
+ewok_physical_interactions,Physical Interactions,Cognitive Science,commonsense,language_modelling,,
+ewok_physical_relations,Physical Relations,Cognitive Science,commonsense,language_modelling,,
+ewok_quantitative_properties,Quantitative Properties,Cognitive Science,commonsense,language_modelling,,
+ewok_social_interactions,Social Interactions,Cognitive Science,commonsense,language_modelling,,
+ewok_social_properties,Social Properties,Cognitive Science,commonsense,language_modelling,,
+ewok_social_relations,Social Relations,Cognitive Science,commonsense,language_modelling,,
+ewok_spatial_relations,Spatial Relations,Cognitive Science,commonsense,language_modelling,,
+facts_grounding,FACTS Grounding,general_knowledge,alignment_safety,question_answering,,
+facts_parametric,FACTS Parametric,general_knowledge,knowledge;alignment_safety,question_answering,,
+facts_search,FACTS Search,general_knowledge,alignment_safety,question_answering;agentic_tool_use,,
+fever,FEVER,alignment/safety,alignment_safety,reasoning,,
+filbench,FilBench: Filipino LLM Evaluation Suite,multilingual,knowledge,question_answering,,multilingual
+fin_qa,FinQA,Reasoning,math,reasoning;question_answering,finance,
+financebench,FinanceBench,Reasoning,,question_answering,finance,
+financial_scenarios,Financial Scenarios,General Knowledge,,question_answering,finance,
+flores_200,FLORES-200: Multilingual Machine Translation Benchmark,multilingual,,machine_translation,,crosslingual
+flores_en_id,Flores,Machine Translation,,machine_translation,,crosslingual
+flores_en_ta,Flores,Machine Translation,,machine_translation,,crosslingual
+flores_en_th,Flores,Machine Translation,,machine_translation,,crosslingual
+flores_en_vi,Flores,Machine Translation,,machine_translation,,crosslingual
+flores_id_en,Flores,Machine Translation,,machine_translation,,crosslingual
+flores_ta_en,Flores,Machine Translation,,machine_translation,,crosslingual
+flores_th_en,Flores,Machine Translation,,machine_translation,,crosslingual
+flores_vi_en,Flores,Machine Translation,,machine_translation,,crosslingual
+followbench,FollowBench,alignment/safety,,generation_dialogue,,
+freshqa,FreshQA,general_knowledge,knowledge;alignment_safety,question_answering,,
+global_piqa,Global PIQA,multilingual,commonsense,reasoning,,multilingual
+gpqa,GPQA,math,knowledge,reasoning,,
+gpqa_diamond,,reasoning,knowledge,reasoning,,
+gsm,GSM8K (Grade school math word problems),Math,math,reasoning,,
+gsm8k,Grade School Math 8K,math,math,reasoning,,
+gtbench,GTBench,reasoning,,game_playing;reasoning,,
+hagendorff_biases_2023,Hagendorff Biases (2023),alignment/safety,cognitive_science,reasoning,,
+harmbench,HarmBench,alignment/safety,alignment_safety,generation_dialogue,,
+head_qa,HeadQA,Medical,knowledge,question_answering,medical,monolingual_non_english
+hellaswag,HellaSwag: Can a Machine Really Finish Your Sentence?,general_knowledge,commonsense,reasoning,,
+helm,HELM,alignment/safety,knowledge;alignment_safety,question_answering;summarization;classic_nlp,,
+humaneval,HumanEval,coding,code,code_generation,,
+humanitys_last_exam,,general_knowledge,knowledge,question_answering,,
+humorbench,HumorBench,creative,,generation_dialogue,,
+ice,ICE (International Corpus of English),General Knowledge,,language_modelling,,
+ifeval,IFEval,alignment/safety,,generation_dialogue,,
+ilakkanam,ILAKKANAM: Tamil Linguistic Benchmark,multilingual,knowledge,question_answering,,monolingual_non_english
+imdb,IMDB,General Knowledge,,classic_nlp,,
+include,INCLUDe,multilingual,knowledge,question_answering,,multilingual
+indicgenbench,IndicGenBench: Multilingual Benchmark for Indic Languages,multilingual,,machine_translation;summarization,,crosslingual
+indicqa,IndicQA,"Multilingual, Crosslingual, Cultural",,question_answering,,multilingual
+indicsentiment,IndicSentiment,"Multilingual, Crosslingual, Cultural",,classic_nlp,,multilingual
+indoculture,IndoCulture: Indonesian Cultural Commonsense Reasoning,cross-cultural,commonsense,reasoning,,monolingual_non_english
+indommlu,IndoMMLU,multilingual,knowledge,question_answering,,monolingual_non_english
+indonli,IndoNLI,"Multilingual, Crosslingual, Cultural",,reasoning,,monolingual_non_english
+irokobench,IrokoBench,multilingual,knowledge;math,question_answering;reasoning,,multilingual
+jailbreakbench,JailbreakBench,alignment/safety,alignment_safety,generation_dialogue,,
+kaggle_aminmohamedmohami_browsecomp,BrowseComp,agentic/tool-use,knowledge,agentic_tool_use;question_answering,,
+kaggle_aminmohamedmohami_indic_gen_bench,IndicGen Benchmark,multilingual,,machine_translation;summarization,,crosslingual
+kaggle_andrewmingwang_asset_ops_bench,FailureSensorIQ,domain-specific,knowledge,question_answering;reasoning,industrial,
+kaggle_andrewmingwang_dsqa,DeepSearchQA,agentic/tool-use,knowledge,agentic_tool_use;question_answering,,
+kaggle_andrewmingwang_facts,FACTS,alignment/safety,alignment_safety,question_answering,,
+kaggle_andrewmingwang_scicode_main_standard,SciCode Main,coding,code,code_generation,,
+kaggle_andrewmingwang_scicode_main_with_background,SciCode Main With Background,coding,code,code_generation,,
+kaggle_andrewmingwang_scicode_subproblem_standard,SciCode Subproblem,coding,code,code_generation,,
+kaggle_andrewmingwang_scicode_subproblem_with_background,SciCode Subproblem With Background,coding,code,code_generation,,
+kaggle_andrewmingwang_simpleqa_verified,SimpleQA Verified,alignment/safety,knowledge;alignment_safety,question_answering,,
+kaggle_jonlipovetz_chess_suite,Chess Suite,game-playing,,game_playing,,
+kaggle_jonlipovetz_game_arena,Game Arena,game-playing,,game_playing,,
+kaggle_nanliao7_enterprise_ops,Enterprise Ops,agentic/tool-use,,agentic_tool_use,industrial,
+kaggle_nanliao7_itbench,ITBench,agentic/tool-use,,agentic_tool_use,industrial,
+kaggle_olamysiak_eclektic,ECLeKTic,multilingual,knowledge,question_answering,,crosslingual
+kaggle_sjmikler_livecodebench,LiveCodeBench,coding,code,code_generation,,
+kaggle_sripalthilakraj_global_mmlu_lite_english,Global MMLU Lite English,general_knowledge,knowledge,question_answering,,
+kaggle_vijitsingh1_mgsm_english,MGSM English,math,math,reasoning,,
+kaggle_yulongt_facts_parametric,Facts V2 Parametric,alignment/safety,knowledge;alignment_safety,question_answering,,
+kalahi,Kalahi: Filipino Cultural LLM Evaluation,cross-cultural,,question_answering,,monolingual_non_english
+kernelbench,KernelBench: Evaluating LLMs on Kernel Development,coding,code,code_generation,,
+kmmlu,Korean MMLU,multilingual,knowledge,question_answering,,monolingual_non_english
+lawbench,LawBench,alignment/safety,knowledge,question_answering;classic_nlp,legal,monolingual_non_english
+legal_support,LegalSupport,Reasoning,,reasoning,legal,
+legalbench,LegalBench,alignment/safety,knowledge,reasoning,legal,
+lindsea_pragmatics_presuppositions_id,LINDSEA Pragmatics Presuppositions,"Multilingual, Crosslingual, Cultural",cognitive_science,reasoning,,monolingual_non_english
+lindsea_pragmatics_scalar_implicatures_id,LINDSEA Pragmatics Scalar Implicatures,"Multilingual, Crosslingual, Cultural",cognitive_science,reasoning,,monolingual_non_english
+lindsea_syntax_minimal_pairs_id,LINDSEA Syntax Minimal Pairs,"Multilingual, Crosslingual, Cultural",cognitive_science,language_modelling,,monolingual_non_english
+litbench,LitBench,creative,,generation_dialogue,,
+livebench,"LiveBench: A Challenging, Contamination-Free LLM Benchmark",general_knowledge,knowledge,reasoning,,
+livecodebench,,coding,code,code_generation,,
+llmchess,LLM Chess,reasoning,,game_playing;agentic_tool_use,,
+lsat_qa,LSAT,Reasoning,,reasoning;question_answering,,
+madinah_qa,MadinahQA,"Multilingual, Crosslingual, Cultural",knowledge,question_answering,,monolingual_non_english
+maliciousinstruct,MaliciousInstruct: A Benchmark for Measuring and Improving LLM Robustness against Malicious Use,alignment/safety,alignment_safety,generation_dialogue,,
+math,MATH Dataset (Measuring Mathematical Problem Solving),math,math,reasoning,,
+math500,MATH-500,Math,math,reasoning,,
+math_chain_of_thought,MATH (chain-of-thoughts),Math,math,reasoning,,
+math_regular,MATH,Math,math,reasoning,,
+mbpp,MBPP,coding,code,code_generation,,
+mceval,MCEval,alignment/safety,code,code_generation,,
+mclm,MCLM,multilingual,math,reasoning,,multilingual
+med_dialog,MedDialog,Medical,,generation_dialogue,medical,
+medal,MEDAL,domain-specific,,classic_nlp,medical,
+medalign,MedAlign,Medical,,generation_dialogue,medical,
+medbullets,Medbullets,Medical,knowledge,question_answering,medical,
+medcalc_bench,MedCalc-Bench,Medical,math,question_answering;reasoning,medical,
+medec,Medec,Medical,alignment_safety,classic_nlp;generation_dialogue,medical,
+medhallu,MedHallu,Medical,alignment_safety,classic_nlp,medical,
+medi_qa,MEDIQA,Medical,knowledge,question_answering,medical,
+medication_qa,MedicationQA,Medical,knowledge,question_answering,medical,
+medmcqa,MedMCQA,domain-specific,knowledge,question_answering,medical,
+medqa,MedQA,domain-specific,knowledge,question_answering,medical,
+mega,Multilingual Evaluation of Generative AI,multilingual,,classic_nlp,,multilingual
+mena_bench,MENA-Bench,multilingual,knowledge,question_answering,,multilingual
+mental_health,MentalHealth,Medical,,question_answering,medical,
+mexa,MEXA,multilingual,knowledge,question_answering,,multilingual
+mgsm,Multilingual Grade School Math,math,math,reasoning,,multilingual
+milu,MILU,multilingual,knowledge,question_answering,,multilingual
+mimic_bhc,MIMIC-IV-BHC,Medical,,summarization,medical,
+mimic_rrs,MIMIC-RRS,Medical,,summarization,medical,
+mimiciv_billing_code,MIMIC-IV Billing Code,Medical,,classic_nlp,medical,
+mlhsd,MLHSD,Alignment & Safety,alignment_safety,classic_nlp,,monolingual_non_english
+mmedbench,MMedBench,domain-specific,knowledge,question_answering,medical,multilingual
+mmlu,Measuring Massive Multitask Language Understanding,general_knowledge,knowledge,question_answering,,
+mmlu_pro,MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark,general_knowledge,knowledge,question_answering,,
+mmlu_prox,MMLU-Pro,general_knowledge,knowledge,question_answering,,
+moralbench,MoralBench,alignment/safety,alignment_safety;cognitive_science,question_answering,,
+msmarco_regular,MS MARCO (regular track),General Knowledge,,information_retrieval,,
+msmarco_trec,MS MARCO (TREC track),General Knowledge,,information_retrieval,,
+mt_bench,MT-Bench,alignment/safety,,generation_dialogue,,
+mtrag,MTRAG,multilingual,,question_answering;generation_dialogue,,multilingual
+mtsamples_procedures,MTSamples Procedures,Medical,,classic_nlp,medical,
+mtsamples_replicate,MTSamples,Medical,,classic_nlp,medical,
+multi_if,Multi-IF,multilingual,,generation_dialogue,,multilingual
+multichallenge,MultiChallenge,multilingual,,generation_dialogue;reasoning,,
+multiloko,MultiLoKo,cross-cultural,knowledge,question_answering,,multilingual
+multipl_e,Multiple-E,coding,code,code_generation,,
+musr,MuSR: Testing the Limits of Chain-of-thought with Multistep Soft Reasoning,general_knowledge,commonsense,reasoning,,
+n2c2_ct_matching,N2C2-CT Matching,Medical,,classic_nlp,medical,
+narrative_qa,NarrativeQA,General Knowledge,,question_answering,,
+natural_qa_closedbook,NaturalQuestions (closed-book),General Knowledge,knowledge,question_answering,,
+natural_qa_openbook_longans,NaturalQuestions (open-book),General Knowledge,,question_answering,,
+naturalquestions,Natural Questions,general_knowledge,knowledge,question_answering,,
+neuro_eval,NeuroEval,general_knowledge,knowledge,question_answering,,
+numeric_nlg,NumericNLG,Reasoning,,reasoning;generation_dialogue,,
+nusamt,NusaMT: Indonesian Local Language Machine Translation,multilingual,,machine_translation,,crosslingual
+nusax,NusaX,multilingual,,classic_nlp,,multilingual
+oogiri,Oogiri LLM Benchmark,general_knowledge,,generation_dialogue,,monolingual_non_english
+openbookqa,OpenbookQA,General Knowledge,commonsense,question_answering,,
+opencompass,OpenCompass,general_knowledge,knowledge,question_answering,,
+parsiNLU,ParsiNLU,multilingual,,classic_nlp,,monolingual_non_english
+pinocchio,Pinocchio,general_knowledge,knowledge;alignment_safety,question_answering,,
+pubmedqa,PubMedQA,domain-specific,knowledge,question_answering,medical,
+pwc_abstractive_text_summarization_from_fanpage,Abstractive Text Summarization from Fanpage,Abstractive Text Summarization,,summarization,,monolingual_non_english
+pwc_abstractive_text_summarization_from_il_post,Abstractive Text Summarization from Il Post,Abstractive Text Summarization,,summarization,,monolingual_non_english
+pwc_ace_2005,ACE 2005,Named Entity Recognition (NER),,classic_nlp,,
+pwc_acos,ACOS,Aspect-Based Sentiment Analysis (ABSA),,classic_nlp,,
+pwc_ag_news,AG News,Text Classification,,classic_nlp,,
+pwc_aime24,AIME24,Mathematical Reasoning,math,reasoning,,
+pwc_anatem,AnatEM,Named Entity Recognition (NER),,classic_nlp,medical,
+pwc_anli_test,ANLI test,Natural Language Inference,,reasoning,,
+pwc_apps,APPS,Code Generation,code,code_generation,,
+pwc_arc_challenge,ARC (Challenge),Common Sense Reasoning,commonsense,reasoning,,
+pwc_arc_easy,ARC (Easy),Common Sense Reasoning,commonsense,reasoning,,
+pwc_arxiv_hep_th_citation_graph,Arxiv HEP-TH citation graph,Language Modelling,,language_modelling,,
+pwc_arxiv_summarization_dataset,arXiv Summarization Dataset,Text Summarization,,summarization,,
+pwc_asdiv_a,ASDiv-A,Math Word Problem Solving,math,reasoning,,
+pwc_asqp,ASQP,Aspect-Based Sentiment Analysis (ABSA),,classic_nlp,,
+pwc_aste,ASTE,Aspect-Based Sentiment Analysis (ABSA),,classic_nlp,,
+pwc_average_on_nlp_datasets,Average on NLP datasets,Few-Shot Text Classification,,classic_nlp,,
+pwc_bamboogle,Bamboogle,Question Answering,knowledge,question_answering;reasoning,,
+pwc_bc2gm,BC2GM,Named Entity Recognition (NER),,classic_nlp,medical,
+pwc_bc4chemd,BC4CHEMD,Named Entity Recognition (NER),,classic_nlp,medical,
+pwc_bc5cdr,BC5CDR,Named Entity Recognition (NER),,classic_nlp,medical,
+pwc_big_bench_causal_judgment,BIG-bench (Causal Judgment),Common Sense Reasoning,commonsense,reasoning,,
+pwc_big_bench_date_understanding,BIG-bench (Date Understanding),Common Sense Reasoning,commonsense,reasoning,,
+pwc_big_bench_disambiguation_qa,BIG-bench (Disambiguation QA),Common Sense Reasoning,commonsense,reasoning,,
+pwc_big_bench_formal_fallacies_syllogisms_negation,BIG-bench (Formal Fallacies Syllogisms Negation),Logical Reasoning,,reasoning,,
+pwc_big_bench_logic_grid_puzzle,BIG-bench (Logic Grid Puzzle),Logical Reasoning,,reasoning,,
+pwc_big_bench_penguins_in_a_table,BIG-bench (Penguins In A Table),Logical Reasoning,,reasoning,,
+pwc_big_bench_reasoning_about_colored_objects,BIG-bench (Reasoning About Colored Objects),Logical Reasoning,commonsense,reasoning,,
+pwc_big_bench_sports_understanding,BIG-bench (Sports Understanding),Common Sense Reasoning,commonsense,reasoning,sports,
+pwc_big_bench_strategyqa,BIG-bench (StrategyQA),Logical Reasoning,knowledge,reasoning;question_answering,,
+pwc_big_bench_temporal_sequences,BIG-bench (Temporal Sequences),Logical Reasoning,commonsense,reasoning,,
+pwc_big_bench_winowhy,BIG-bench (Winowhy),Common Sense Reasoning,commonsense,reasoning,,
+pwc_bioasq,BioASQ,Question Answering,knowledge,question_answering,medical,
+pwc_c4,C4,Language Modelling,,language_modelling,,
+pwc_carb,CaRB,Open Information Extraction,,classic_nlp,,
+pwc_cc3m_tagmask,CC3M-TagMask,Multi-Label Text Classification,,classic_nlp,,
+pwc_citesum,CiteSum,Extreme Summarization,,summarization,,
+pwc_climate_fever_beir,CLIMATE-FEVER (BEIR),Fact Checking,alignment_safety,information_retrieval,,
+pwc_cnn_daily_mail_anonymized,CNN / Daily Mail (Anonymized),Text Summarization,,summarization,,
+pwc_codecontests,CodeContests,Code Generation,code,code_generation,,
+pwc_commitmentbank,CommitmentBank,Natural Language Inference,,reasoning,,
+pwc_commonsenseqa,CommonsenseQA,Common Sense Reasoning,commonsense,reasoning;question_answering,,
+pwc_conala,CoNaLa,Code Generation,code,code_generation,,
+pwc_conll03,CoNLL03,Named Entity Recognition (NER),,classic_nlp,,
+pwc_copa,COPA,Question Answering,commonsense,reasoning,,
+pwc_coqa,CoQA,Question Answering,,question_answering,,
+pwc_cr,CR,Sentiment Analysis,,classic_nlp,,
+pwc_cronquestions,CronQuestions,Question Answering,knowledge,question_answering;reasoning,,
+pwc_danetqa,DaNetQA,Question Answering,,question_answering,,monolingual_non_english
+pwc_django,Django,Code Generation,code,code_generation,,
+pwc_drop,DROP,Question Answering,,question_answering;reasoning,,
+pwc_drop_test,DROP Test,Question Answering,,question_answering;reasoning,,
+pwc_dynasent,DynaSent,Sentiment Analysis,,classic_nlp,,
+pwc_enwik8,enwik8,Language Modelling,,language_modelling,,
+pwc_fever_beir,FEVER (BEIR),Fact Checking,alignment_safety,information_retrieval,,
+pwc_fiqa_2018_beir,FiQA-2018 (BEIR),Question Answering,,information_retrieval,finance,
+pwc_frontiermath,FrontierMath,Mathematical Reasoning,math,reasoning,,
+pwc_gem_xsum,GEM-XSum,Extreme Summarization,,summarization,,
+pwc_genia,GENIA,Named Entity Recognition (NER),,classic_nlp,medical,
+pwc_gigaword,GigaWord,Text Summarization,,summarization,,
+pwc_hotpotqa_beir,HotpotQA (BEIR),Question Answering,,information_retrieval,,
+pwc_kilt_eli5,KILT: ELI5,Question Answering,,question_answering;generation_dialogue,,
+pwc_kvret,Kvret,Task-Oriented Dialogue Systems,,generation_dialogue,,
+pwc_lambada,LAMBADA,Language Modelling,,language_modelling,,
+pwc_lidirus,LiDiRus,Natural Language Inference,,reasoning,,monolingual_non_english
+pwc_lila_iid,Lila (IID),Mathematical Reasoning,math,reasoning,,
+pwc_lila_ood,Lila (OOD),Mathematical Reasoning,math,reasoning,,
+pwc_math23k,Math23K,Math Word Problem Solving,math,reasoning,,monolingual_non_english
+pwc_mawps,MAWPS,Math Word Problem Solving,math,reasoning,,
+pwc_mlsum_it,MLSum-it,Abstractive Text Summarization,,summarization,,monolingual_non_english
+pwc_mr,MR,Sentiment Analysis,,classic_nlp,,
+pwc_mteb,MTEB,Text Summarization,,text_embedding;information_retrieval,,
+pwc_multinli,MultiNLI,Natural Language Inference,,reasoning,,
+pwc_multirc,MultiRC,Question Answering,,question_answering,,
+pwc_multitq,MultiTQ,Question Answering,knowledge,question_answering;reasoning,,
+pwc_muserc,MuSeRC,Reading Comprehension,,question_answering,,monolingual_non_english
+pwc_ncbi_disease,NCBI-disease,Named Entity Recognition (NER),,classic_nlp,medical,
+pwc_newsqa,NewsQA,Question Answering,,question_answering,,
+pwc_nq_beir,NQ (BEIR),Question Answering,,information_retrieval,,
+pwc_obqa,OBQA,Question Answering,commonsense,question_answering,,
+pwc_oie2016,OIE2016,Open Information Extraction,,classic_nlp,,
+pwc_one_billion_word,One Billion Word,Language Modelling,,language_modelling,,
+pwc_openapi_completion_refined,OpenAPI completion refined,OpenAPI code completion,code,code_generation,,
+pwc_openwebtext,OpenWebText,Language Modelling,,language_modelling,,
+pwc_paramawps,ParaMAWPS,Math Word Problem Solving,math,reasoning,,
+pwc_parus,PARus,Common Sense Reasoning,commonsense,reasoning,,monolingual_non_english
+pwc_pecc,PECC,Code Generation,code,code_generation,,
+pwc_peerqa,PeerQA,Question Answering,,question_answering,,
+pwc_penn_treebank_word_level,Penn Treebank (Word Level),Language Modelling,,language_modelling,,
+pwc_piqa,PIQA,Question Answering,commonsense,question_answering;reasoning,,
+pwc_pubmed,Pubmed,Text Summarization,,summarization,medical,
+pwc_qnli,QNLI,Natural Language Inference,,reasoning,,
+pwc_quality,QuALITY,Question Answering,,question_answering,,
+pwc_race,RACE,Reading Comprehension,,question_answering,,
+pwc_rcb,RCB,Natural Language Inference,,reasoning,,monolingual_non_english
+pwc_reclor,ReClor,Reading Comprehension,,question_answering;reasoning,,
+pwc_record,ReCoRD,Common Sense Reasoning,commonsense,reasoning;question_answering,,
+pwc_reddit_tifu,Reddit TIFU,Text Summarization,,summarization,,
+pwc_rte,RTE,Natural Language Inference,,reasoning,,
+pwc_rucos,RuCoS,Common Sense Reasoning,commonsense,reasoning,,monolingual_non_english
+pwc_rwsd,RWSD,Common Sense Reasoning,commonsense,reasoning,,monolingual_non_english
+pwc_safim,SAFIM,Code Completion,code,code_generation,,
+pwc_samsum,SAMSum,Text Summarization,,summarization,,
+pwc_scifact_beir,SciFact (BEIR),Fact Checking,alignment_safety,information_retrieval,,
+pwc_semeval_2014_task_4_subtask_1_2,SemEval 2014 Task 4 Subtask 1+2,Sentiment Analysis,,classic_nlp,,
+pwc_sentiment_merged,Sentiment Merged,Sentiment Analysis,,classic_nlp,,
+pwc_siqa,SIQA,Question Answering,commonsense,question_answering;reasoning,,
+pwc_snli,SNLI,Natural Language Inference,,reasoning,,
+pwc_squad,SQuAD,Question Answering,,question_answering,,
+pwc_squad1_1_dev,SQuAD1.1 dev,Question Answering,,question_answering,,
+pwc_sst_2_binary_classification,SST-2 Binary classification,Sentiment Analysis,,classic_nlp,,
+pwc_sst_3,SST-3,Sentiment Analysis,,classic_nlp,,
+pwc_sst_5_fine_grained_classification,SST-5 Fine-grained classification,Sentiment Analysis,,classic_nlp,,
+pwc_storycloze,StoryCloze,Question Answering,commonsense,reasoning,,
+pwc_strategyqa,StrategyQA,Question Answering,knowledge,reasoning;question_answering,,
+pwc_svamp,SVAMP,Math Word Problem Solving,math,reasoning,,
+pwc_tasd,TASD,Aspect-Based Sentiment Analysis (ABSA),,classic_nlp,,
+pwc_tempquestions,TempQuestions,Question Answering,knowledge,question_answering;reasoning,,
+pwc_terra,TERRa,Natural Language Inference,,reasoning,,monolingual_non_english
+pwc_text8,Text8,Language Modelling,,language_modelling,,
+pwc_threatgram_101_extreme_telegram_data,ThreatGram 101 - Extreme Telegram Data,Text Classification,alignment_safety,classic_nlp,,
+pwc_timequestions,TimeQuestions,Question Answering,knowledge,question_answering;reasoning,,
+pwc_tiq,TIQ,Question Answering,knowledge,question_answering;reasoning,,
+pwc_turbulence,Turbulence,Code Generation,code,code_generation,,
+pwc_vietnews,vietnews,Abstractive Text Summarization,,summarization,,monolingual_non_english
+pwc_webapp1k_duo_react,WebApp1k-Duo-React,Code Generation,code,code_generation,,
+pwc_webapp1k_react,WebApp1K-React,Code Generation,code,code_generation,,
+pwc_webquestions,WebQuestions,Question Answering,knowledge,question_answering,,
+pwc_wikitext_103,WikiText-103,Language Modelling,,language_modelling,,
+pwc_wikitext_2,WikiText-2,Language Modelling,,language_modelling,,
+pwc_wits,WITS,Abstractive Text Summarization,,summarization,,monolingual_non_english
+pwc_wmt2014_english_french,WMT2014 English-French,Machine Translation,,machine_translation,,crosslingual
+pwc_wmt2014_english_german,WMT2014 English-German,Machine Translation,,machine_translation,,crosslingual
+pwc_wmt2016_english_german,WMT2016 English-German,Machine Translation,,machine_translation,,crosslingual
+pwc_wmt2016_english_romanian,WMT2016 English-Romanian,Machine Translation,,machine_translation,,crosslingual
+pwc_wmt2016_german_english,WMT2016 German-English,Machine Translation,,machine_translation,,crosslingual
+pwc_wmt2016_romanian_english,WMT2016 Romanian-English,Machine Translation,,machine_translation,,crosslingual
+pwc_wnli,WNLI,Natural Language Inference,commonsense,reasoning,,
+qtsumm,QTSumm,Reasoning,,summarization;reasoning,,
+quac,QuAC (Question Answering in Context),General Knowledge,,question_answering,,
+race_based_med,RaceBias,Medical,alignment_safety,question_answering,medical,
+raft,RAFT (Real-world Annotated Few-Shot),General Knowledge,,classic_nlp,,
+real_toxicity_prompts,RealToxicityPrompts,Alignment & Safety,alignment_safety,generation_dialogue,,
+rpgbench,RPGBench,reasoning,,game_playing;generation_dialogue,,
+scigen,SciGen,Reasoning,,reasoning;generation_dialogue,,
+sea_exam,SEA-Exam,multilingual,knowledge,question_answering,,multilingual
+sea_helm,SEA-HELM,multilingual,knowledge,question_answering;classic_nlp,,multilingual
+shc_bmt_med,BMT-Status,domain-specific,,classic_nlp,medical,
+shc_cdi_med,CDI-QA,domain-specific,,question_answering,medical,
+shc_conf_med,MedConfInfo,domain-specific,,classic_nlp,medical,
+shc_ent_med,ENT-Referral,domain-specific,,classic_nlp,medical,
+shc_gip_med,HospiceReferral,domain-specific,,classic_nlp,medical,
+shc_privacy_med,PrivacyDetection,domain-specific,alignment_safety,classic_nlp,medical,
+shc_proxy_med,ProxySender,domain-specific,,classic_nlp,medical,
+shc_ptbm_med,ADHD-Behavior,domain-specific,,classic_nlp,medical,
+shc_sei_med,ADHD-MedEffects,domain-specific,,classic_nlp,medical,
+shc_sequoia_med,ClinicReferral,domain-specific,,classic_nlp,medical,
+sibench,SI-Bench,general_knowledge,cognitive_science,generation_dialogue,,monolingual_non_english
+simple_safety_tests,SimpleSafetyTests,Alignment & Safety,alignment_safety,generation_dialogue,,
+simpleqa,SimpleQA,general_knowledge,knowledge;alignment_safety,question_answering,,
+sorry_bench,Sorry-Bench,alignment/safety,alignment_safety,generation_dialogue,,
+sotopia,SOTOPIA,general_knowledge,cognitive_science,generation_dialogue,,
+sportqa,SportQA: A Benchmark for Sports Understanding in LLMs,domain-specific,knowledge,question_answering,sports,
+sportsmetrics,SportsMetrics: Blending Text and Numerical Data to Understand Information Fusion in LLMs,reasoning,math,reasoning,sports,
+starr_patient_instructions,PatientInstruct,Medical,,summarization,medical,
+summarization_cnndm,CNN/DailyMail,Reasoning,,summarization,,
+summarization_xsum,XSUM,Reasoning,,summarization,,
+swe_bench,SWE-Bench,coding,code,agentic_tool_use;code_generation,,
+swiss_legal_bench,Swiss-LegalBench,alignment/safety,knowledge,question_answering;classic_nlp,legal,multilingual
+synthetic_reasoning,Synthetic reasoning (abstract symbols),Reasoning,,reasoning,,
+synthetic_reasoning_natural,Synthetic reasoning (natural language),Reasoning,,reasoning,,
+tab_fact,TabFact,Reasoning,alignment_safety,reasoning,,
+tablebench_data_analysis,Tablebench Data Analysis,Reasoning,,reasoning,,
+tablebench_fact_checking,Tablebench Fact Checking,Reasoning,alignment_safety,reasoning,,
+tablebench_numerical_reasoning,Tablebench Numerical Reasoning,Reasoning,math,reasoning,,
+thai_exam_a_level,A-Level,General Knowledge,knowledge,question_answering,,monolingual_non_english
+thai_exam_tgat,TGAT,General Knowledge,knowledge,question_answering,,monolingual_non_english
+thai_exam_tpat1,TPAT-1,General Knowledge,knowledge,question_answering,,monolingual_non_english
+thaiexam,ThaiExam: Thai Language Benchmark,multilingual,knowledge,question_answering,,monolingual_non_english
+thaih6,Thai-H6: Thai Cultural & Knowledge Evaluation,cross-cultural,knowledge,question_answering;reasoning,,monolingual_non_english
+thaitoxicitytweets,Thai Toxicity Tweets,Alignment & Safety,alignment_safety,classic_nlp,,monolingual_non_english
+the_pile,The Pile,General Knowledge,,language_modelling,,
+tombench,TomBench,multilingual,cognitive_science,question_answering,,multilingual
+triangulating,Triangulating,general_knowledge,cognitive_science,game_playing;reasoning,,
+triviaqa,TriviaQA,general_knowledge,knowledge,question_answering,,
+trustllm,TrustLLM,alignment/safety,alignment_safety,generation_dialogue;question_answering,,
+truthfulqa,TruthfulQA,alignment/safety,alignment_safety,question_answering,,
+ttcw,TTCW,general_knowledge,cognitive_science,generation_dialogue,,
+turl_col_type,Turl Col Type,General Knowledge,,classic_nlp,,
+twitter_aae,TwitterAAE,General Knowledge,alignment_safety,language_modelling,,
+tydiqa,TyDiQA,"Multilingual, Crosslingual, Cultural",,question_answering,,multilingual
+uitvsfc,UIT-VSFC,"Multilingual, Crosslingual, Cultural",,classic_nlp,,monolingual_non_english
+ullman_tom_2023,Ullman ToM (2023),general_knowledge,cognitive_science,question_answering,,
+vectara,Vectara Hallucination Leaderboard,alignment/safety,alignment_safety,summarization,,
+vietnamese_glue,Vietnamese GLUE,multilingual,,classic_nlp,,monolingual_non_english
+vihsd,ViHSD,Alignment & Safety,alignment_safety,classic_nlp,,monolingual_non_english
+vmlu,VMLU,multilingual,knowledge,question_answering,,monolingual_non_english
+wikifact,WikiFact,General Knowledge,knowledge,question_answering,,
+wikitq,WikiTableQuestions,Reasoning,,question_answering;reasoning,,
+wildbench,WildBench,alignment/safety,,generation_dialogue,,
+winogrande,WinoGrande: An Adversarial Winograd Schema Challenge,general_knowledge,commonsense,reasoning,,
+wisesight,Wisesight,"Multilingual, Crosslingual, Cultural",,classic_nlp,,monolingual_non_english
+wmt,WMT,multilingual,,machine_translation,,crosslingual
+wmt_14,WMT 2014,Machine Translation,,machine_translation,,crosslingual
+workplacehumor,Not All Jokes Land,creative,,generation_dialogue;classic_nlp,,
+worldvaluesbench,World Values Bench,cross-cultural,alignment_safety;cognitive_science,question_answering,,
+xcopa,Cross-lingual Choice of Plausible Alternatives,multilingual,commonsense,reasoning,,multilingual
+xcr_bench,XCR-Bench,cross-cultural,,reasoning,,multilingual
+xifbench,XIF-Bench,multilingual,,generation_dialogue,,multilingual
+xnli,Cross-lingual Natural Language Inference,multilingual,,reasoning,,multilingual
+xquad,Cross-lingual Question Answering Dataset,multilingual,,question_answering,,multilingual
+xstest,XSTest,alignment/safety,alignment_safety,generation_dialogue,,
+xtreme,Cross-lingual Transfer Evaluation of Multilingual Encoders,multilingual,,classic_nlp;question_answering,,multilingual
+ziqi_eval,ZIQI-Eval: A Massive Music Evaluation Benchmark for LLMs,audio/speech,knowledge,question_answering,music,
