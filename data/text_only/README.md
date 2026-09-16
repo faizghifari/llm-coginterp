@@ -1,6 +1,6 @@
 # Text-only derived copy
 
-Generated 2026-09-13 by `scripts/make_text_only_copy.py` from `data/*.csv`.
+Generated 2026-09-16 by `scripts/make_text_only_copy.py` from `data/*.csv`.
 
 **This directory is tracked in git, but it is NOT hand-maintained.** It is fully reproducible from the canonical tables plus the knowledge bases in `scripts/lib/config.py`; `python3 scripts/make_text_only_copy.py --check` asserts exactly that. Never hand-edit these CSVs -- encode the decision in `config.py` and regenerate, or the edit is silently lost on the next run.
 
@@ -70,7 +70,7 @@ Benchmarks confirmed non-text on inspection despite keyword-free or mislabeled m
 - `kaggle_andrewmingwang_parsebench`: ParseBench (arXiv:2604.08538): document-image parsing/OCR for agents (tables, charts, visual grounding); metadata otherwise blank
 - `longshot`: LongShOTBench (arXiv:2512.16978): omni-modal reasoning in long VIDEOS (vision + speech + ambient audio); rows are VLMs (LLaVA, InternVL, Qwen3-VL); subcategory misleadingly says 'long document reasoning'
 
-## Benchmarks removed (49) — redundant, translated, or defective
+## Benchmarks removed (49) â€” redundant, translated, or defective
 
 From `config.SCORE_REDUNDANT_BENCHMARKS` (near-duplicate columns, decided from full pairwise Pearson correlation over the models evaluated on both), `config.TRANSLATION_DUPLICATE_BENCHMARKS` (translations of an in-corpus original, decided on construct), and `config.DEFECTIVE_BENCHMARKS`:
 

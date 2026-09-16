@@ -26,7 +26,7 @@ agentif,AgentIF: Agentic Instruction Following,alignment/safety,,generation_dial
 agieval,AGIEval,academic,knowledge,question_answering,,multilingual
 aime,AIME 2024,Math,math,reasoning,,
 aime25,AIME 2025,Math,math,reasoning,,
-aime_2025,,math,math,reasoning,,
+aime_2025,AIME 2025,math,math,reasoning,,
 akata_games_2023,Akata Games (2023),general_knowledge,cognitive_science,game_playing,,
 alghafa,AlGhafa,"Multilingual, Crosslingual, Cultural",knowledge,question_answering,,monolingual_non_english
 alpacaeval,AlpacaEval,alignment/safety,,generation_dialogue,,
@@ -38,7 +38,7 @@ arabicmmlu,ArabicMMLU: Massive Multitask Language Understanding in Arabic,multil
 aratrust,AraTrust,Alignment & Safety,alignment_safety,question_answering,,monolingual_non_english
 arc,AI2 Reasoning Challenge,general_knowledge,commonsense,reasoning,,
 arena_hard_auto,Arena-Hard-Auto,alignment/safety,,generation_dialogue,,
-artificial_analysis_intelligence,,general_knowledge,knowledge,question_answering,,
+artificial_analysis_intelligence,Artificial Analysis Intelligence Index,general_knowledge,knowledge,question_answering,,
 babi_qa,bAbI,Reasoning,commonsense,reasoning;question_answering,,
 banking77,BANKING77,General Knowledge,,classic_nlp,finance,
 batayan,Batayan: Filipino NLP Benchmark,multilingual,,classic_nlp,,monolingual_non_english
@@ -104,7 +104,7 @@ ewok_spatial_relations,Spatial Relations,Cognitive Science,commonsense,language_
 facts_grounding,FACTS Grounding,general_knowledge,alignment_safety,question_answering,,
 facts_parametric,FACTS Parametric,general_knowledge,knowledge;alignment_safety,question_answering,,
 facts_search,FACTS Search,general_knowledge,alignment_safety,question_answering;agentic_tool_use,,
-fever,FEVER,alignment/safety,alignment_safety,reasoning,,
+fever,FEVER,alignment/safety,knowledge,reasoning,,
 filbench,FilBench: Filipino LLM Evaluation Suite,multilingual,knowledge,question_answering,,multilingual
 fin_qa,FinQA,Reasoning,math,reasoning;question_answering,finance,
 financebench,FinanceBench,Reasoning,,question_answering,finance,
@@ -122,7 +122,7 @@ followbench,FollowBench,alignment/safety,,generation_dialogue,,
 freshqa,FreshQA,general_knowledge,knowledge;alignment_safety,question_answering,,
 global_piqa,Global PIQA,multilingual,commonsense,reasoning,,multilingual
 gpqa,GPQA,math,knowledge,reasoning,,
-gpqa_diamond,,reasoning,knowledge,reasoning,,
+gpqa_diamond,GPQA Diamond,reasoning,knowledge,reasoning,,
 gsm,GSM8K (Grade school math word problems),Math,math,reasoning,,
 gsm8k,Grade School Math 8K,math,math,reasoning,,
 gtbench,GTBench,reasoning,,game_playing;reasoning,,
@@ -132,7 +132,7 @@ head_qa,HeadQA,Medical,knowledge,question_answering,medical,monolingual_non_engl
 hellaswag,HellaSwag: Can a Machine Really Finish Your Sentence?,general_knowledge,commonsense,reasoning,,
 helm,HELM,alignment/safety,knowledge;alignment_safety,question_answering;summarization;classic_nlp,,
 humaneval,HumanEval,coding,code,code_generation,,
-humanitys_last_exam,,general_knowledge,knowledge,question_answering,,
+humanitys_last_exam,Humanity's Last Exam,general_knowledge,knowledge,question_answering,,
 humorbench,HumorBench,creative,,generation_dialogue,,
 ice,ICE (International Corpus of English),General Knowledge,,language_modelling,,
 ifeval,IFEval,alignment/safety,,generation_dialogue,,
@@ -177,7 +177,7 @@ lindsea_pragmatics_scalar_implicatures_id,LINDSEA Pragmatics Scalar Implicatures
 lindsea_syntax_minimal_pairs_id,LINDSEA Syntax Minimal Pairs,"Multilingual, Crosslingual, Cultural",cognitive_science,language_modelling,,monolingual_non_english
 litbench,LitBench,creative,,generation_dialogue,,
 livebench,"LiveBench: A Challenging, Contamination-Free LLM Benchmark",general_knowledge,knowledge,reasoning,,
-livecodebench,,coding,code,code_generation,,
+livecodebench,LiveCodeBench,coding,code,code_generation,,
 llmchess,LLM Chess,reasoning,,game_playing;agentic_tool_use,,
 lsat_qa,LSAT,Reasoning,,reasoning;question_answering,,
 madinah_qa,MadinahQA,"Multilingual, Crosslingual, Cultural",knowledge,question_answering,,monolingual_non_english
@@ -278,7 +278,7 @@ pwc_c4,C4,Language Modelling,,language_modelling,,
 pwc_carb,CaRB,Open Information Extraction,,classic_nlp,,
 pwc_cc3m_tagmask,CC3M-TagMask,Multi-Label Text Classification,,classic_nlp,,
 pwc_citesum,CiteSum,Extreme Summarization,,summarization,,
-pwc_climate_fever_beir,CLIMATE-FEVER (BEIR),Fact Checking,alignment_safety,information_retrieval,,
+pwc_climate_fever_beir,CLIMATE-FEVER (BEIR),Fact Checking,knowledge,information_retrieval,,
 pwc_cnn_daily_mail_anonymized,CNN / Daily Mail (Anonymized),Text Summarization,,summarization,,
 pwc_codecontests,CodeContests,Code Generation,code,code_generation,,
 pwc_commitmentbank,CommitmentBank,Natural Language Inference,,reasoning,,
@@ -295,7 +295,7 @@ pwc_drop,DROP,Question Answering,,question_answering;reasoning,,
 pwc_drop_test,DROP Test,Question Answering,,question_answering;reasoning,,
 pwc_dynasent,DynaSent,Sentiment Analysis,,classic_nlp,,
 pwc_enwik8,enwik8,Language Modelling,,language_modelling,,
-pwc_fever_beir,FEVER (BEIR),Fact Checking,alignment_safety,information_retrieval,,
+pwc_fever_beir,FEVER (BEIR),Fact Checking,knowledge,information_retrieval,,
 pwc_fiqa_2018_beir,FiQA-2018 (BEIR),Question Answering,,information_retrieval,finance,
 pwc_frontiermath,FrontierMath,Mathematical Reasoning,math,reasoning,,
 pwc_gem_xsum,GEM-XSum,Extreme Summarization,,summarization,,
@@ -344,7 +344,7 @@ pwc_rucos,RuCoS,Common Sense Reasoning,commonsense,reasoning,,monolingual_non_en
 pwc_rwsd,RWSD,Common Sense Reasoning,commonsense,reasoning,,monolingual_non_english
 pwc_safim,SAFIM,Code Completion,code,code_generation,,
 pwc_samsum,SAMSum,Text Summarization,,summarization,,
-pwc_scifact_beir,SciFact (BEIR),Fact Checking,alignment_safety,information_retrieval,,
+pwc_scifact_beir,SciFact (BEIR),Fact Checking,knowledge,information_retrieval,,
 pwc_semeval_2014_task_4_subtask_1_2,SemEval 2014 Task 4 Subtask 1+2,Sentiment Analysis,,classic_nlp,,
 pwc_sentiment_merged,Sentiment Merged,Sentiment Analysis,,classic_nlp,,
 pwc_siqa,SIQA,Question Answering,commonsense,question_answering;reasoning,,
@@ -412,9 +412,9 @@ swe_bench,SWE-Bench,coding,code,agentic_tool_use;code_generation,,
 swiss_legal_bench,Swiss-LegalBench,alignment/safety,knowledge,question_answering;classic_nlp,legal,multilingual
 synthetic_reasoning,Synthetic reasoning (abstract symbols),Reasoning,,reasoning,,
 synthetic_reasoning_natural,Synthetic reasoning (natural language),Reasoning,,reasoning,,
-tab_fact,TabFact,Reasoning,alignment_safety,reasoning,,
+tab_fact,TabFact,Reasoning,knowledge,reasoning,,
 tablebench_data_analysis,Tablebench Data Analysis,Reasoning,,reasoning,,
-tablebench_fact_checking,Tablebench Fact Checking,Reasoning,alignment_safety,reasoning,,
+tablebench_fact_checking,Tablebench Fact Checking,Reasoning,knowledge,reasoning,,
 tablebench_numerical_reasoning,Tablebench Numerical Reasoning,Reasoning,math,reasoning,,
 thai_exam_a_level,A-Level,General Knowledge,knowledge,question_answering,,monolingual_non_english
 thai_exam_tgat,TGAT,General Knowledge,knowledge,question_answering,,monolingual_non_english
