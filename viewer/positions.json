@@ -4095,513 +4095,513 @@
   "points": [
    {
     "benchmark": "aime25",
-    "x": 13.73196,
-    "y": 2.53888
+    "x": 17.80034,
+    "y": 20.37015
    },
    {
     "benchmark": "alghafa",
-    "x": 13.27802,
-    "y": 2.71198
+    "x": 16.79793,
+    "y": 19.47428
    },
    {
     "benchmark": "alrage",
-    "x": 13.28359,
-    "y": 3.24156
+    "x": 17.07813,
+    "y": 20.21133
    },
    {
     "benchmark": "anthropic_red_team",
-    "x": 13.4014,
-    "y": 3.44043
+    "x": 16.99759,
+    "y": 19.56121
    },
    {
     "benchmark": "arabic_exams",
-    "x": 13.47805,
-    "y": 2.00548
+    "x": 17.38421,
+    "y": 19.73907
    },
    {
     "benchmark": "arabicmmlu",
-    "x": 13.58141,
-    "y": 2.38989
+    "x": 18.05647,
+    "y": 19.9754
    },
    {
     "benchmark": "aratrust",
-    "x": 12.76758,
-    "y": 3.01212
+    "x": 17.3369,
+    "y": 19.74732
    },
    {
     "benchmark": "arc",
-    "x": -2.75798,
-    "y": 18.2834
+    "x": 2.26625,
+    "y": -2.08249
    },
    {
     "benchmark": "arena_hard_auto",
-    "x": -3.1704,
-    "y": 17.4105
+    "x": 1.91954,
+    "y": -1.41133
    },
    {
     "benchmark": "artificial_analysis_intelligence",
-    "x": 12.86237,
-    "y": 2.73561
+    "x": 17.00024,
+    "y": 19.95579
    },
    {
     "benchmark": "babi_qa",
-    "x": 12.95598,
-    "y": 3.44113
+    "x": 17.38654,
+    "y": 20.24435
    },
    {
     "benchmark": "bbh",
-    "x": -3.33559,
-    "y": 17.67378
+    "x": 2.80958,
+    "y": -1.32103
    },
    {
     "benchmark": "bbq",
-    "x": -3.33587,
-    "y": 18.07641
+    "x": 1.92676,
+    "y": -1.91277
    },
    {
     "benchmark": "bfcl",
-    "x": 13.51386,
-    "y": 2.91973
+    "x": 17.88422,
+    "y": 19.96398
    },
    {
     "benchmark": "bold",
-    "x": 15.64859,
-    "y": 2.89204
+    "x": 18.35034,
+    "y": 18.78242
    },
    {
     "benchmark": "boolq",
-    "x": -2.90711,
-    "y": 18.62533
+    "x": 2.53091,
+    "y": -1.3676
    },
    {
     "benchmark": "chatbot_arena",
-    "x": -3.58903,
-    "y": 17.70589
+    "x": 2.22858,
+    "y": -0.85702
    },
    {
     "benchmark": "civil_comments",
-    "x": 14.80962,
-    "y": 2.59708
+    "x": 17.63692,
+    "y": 18.92481
    },
    {
     "benchmark": "copyright_text",
-    "x": 15.56161,
-    "y": 4.40646
+    "x": 18.78848,
+    "y": 18.97692
    },
    {
     "benchmark": "disinformation_reiteration",
-    "x": -2.67483,
-    "y": 17.74045
+    "x": 2.99089,
+    "y": -1.78493
    },
    {
     "benchmark": "disinformation_wedging",
-    "x": -2.90005,
-    "y": 18.17999
+    "x": 2.46278,
+    "y": -2.17628
    },
    {
     "benchmark": "dyck_language",
-    "x": 14.1096,
-    "y": 3.24728
+    "x": 17.36347,
+    "y": 18.18733
    },
    {
     "benchmark": "entity_data_imputation",
-    "x": 14.37245,
-    "y": 2.83949
+    "x": 18.31366,
+    "y": 19.00819
    },
    {
     "benchmark": "entity_matching",
-    "x": -2.80898,
-    "y": 17.78514
+    "x": 2.91049,
+    "y": -1.88651
    },
    {
     "benchmark": "facts_grounding",
-    "x": 14.73444,
-    "y": 3.56241
+    "x": 18.00644,
+    "y": 19.1289
    },
    {
     "benchmark": "gpqa",
-    "x": -3.53523,
-    "y": 17.32987
+    "x": 2.74724,
+    "y": -1.96378
    },
    {
     "benchmark": "gpqa_diamond",
-    "x": 14.38554,
-    "y": 3.86195
+    "x": 17.29723,
+    "y": 17.3792
    },
    {
     "benchmark": "gsm",
-    "x": 13.8676,
-    "y": 4.00974
+    "x": 16.96434,
+    "y": 18.57026
    },
    {
     "benchmark": "gsm8k",
-    "x": -3.61152,
-    "y": 18.51669
+    "x": 1.9197,
+    "y": -1.05824
    },
    {
     "benchmark": "harmbench",
-    "x": 15.48192,
-    "y": 4.06824
+    "x": 17.7855,
+    "y": 19.15429
    },
    {
     "benchmark": "hellaswag",
-    "x": -3.9428,
-    "y": 17.88293
+    "x": 2.65147,
+    "y": -1.11972
    },
    {
     "benchmark": "ifeval",
-    "x": -3.74501,
-    "y": 18.13432
+    "x": 2.42164,
+    "y": -1.97724
    },
    {
     "benchmark": "imdb",
-    "x": 14.9343,
-    "y": 2.98733
+    "x": 18.34628,
+    "y": 17.9936
    },
    {
     "benchmark": "kaggle_aminmohamedmohami_browsecomp",
-    "x": 14.56995,
-    "y": 2.65588
+    "x": 18.59537,
+    "y": 19.01944
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_subproblem_standard",
-    "x": 14.21226,
-    "y": 4.60692
+    "x": 18.26219,
+    "y": 17.75533
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_subproblem_with_background",
-    "x": 15.48567,
-    "y": 2.36698
+    "x": 17.82185,
+    "y": 18.48045
    },
    {
     "benchmark": "kaggle_andrewmingwang_simpleqa_verified",
-    "x": 14.18536,
-    "y": 4.38368
+    "x": 17.96662,
+    "y": 18.18377
    },
    {
     "benchmark": "kaggle_sjmikler_livecodebench",
-    "x": 15.26948,
-    "y": 3.35341
+    "x": 17.5558,
+    "y": 18.35496
    },
    {
     "benchmark": "kaggle_vijitsingh1_mgsm_english",
-    "x": 13.71715,
-    "y": 3.92255
+    "x": 18.56295,
+    "y": 18.14729
    },
    {
     "benchmark": "legal_support",
-    "x": -3.26702,
-    "y": 18.34885
+    "x": 2.02285,
+    "y": -1.48334
    },
    {
     "benchmark": "legalbench",
-    "x": 14.85939,
-    "y": 4.00856
+    "x": 18.27708,
+    "y": 18.67396
    },
    {
     "benchmark": "lsat_qa",
-    "x": 15.93735,
-    "y": 3.35979
+    "x": 17.38856,
+    "y": 18.68596
    },
    {
     "benchmark": "madinah_qa",
-    "x": 15.10711,
-    "y": 2.44792
+    "x": 18.29678,
+    "y": 17.21659
    },
    {
     "benchmark": "math",
-    "x": 15.67802,
-    "y": 3.74026
+    "x": 18.74357,
+    "y": 19.50412
    },
    {
     "benchmark": "math500",
-    "x": 14.7558,
-    "y": 4.0578
+    "x": 18.11247,
+    "y": 18.60415
    },
    {
     "benchmark": "math_chain_of_thought",
-    "x": 13.97583,
-    "y": 3.91042
+    "x": 17.09759,
+    "y": 18.32982
    },
    {
     "benchmark": "math_regular",
-    "x": 14.14804,
-    "y": 3.64408
+    "x": 17.47784,
+    "y": 18.77064
    },
    {
     "benchmark": "mbpp",
-    "x": 14.6392,
-    "y": 3.13665
+    "x": 17.95347,
+    "y": 19.41788
    },
    {
     "benchmark": "medqa",
-    "x": 15.50028,
-    "y": 2.77549
+    "x": 19.11639,
+    "y": 18.15694
    },
    {
     "benchmark": "mmlu",
-    "x": -2.6318,
-    "y": 17.60181
+    "x": 1.86173,
+    "y": -1.54283
    },
    {
     "benchmark": "mmlu_pro",
-    "x": -2.53,
-    "y": 17.96339
+    "x": 3.14874,
+    "y": -1.58212
    },
    {
     "benchmark": "mmlu_prox",
-    "x": 14.82121,
-    "y": 3.4517
+    "x": 17.98602,
+    "y": 18.97515
    },
    {
     "benchmark": "multiloko",
-    "x": 14.94969,
-    "y": 3.29789
+    "x": 17.20688,
+    "y": 18.88362
    },
    {
     "benchmark": "musr",
-    "x": -3.17431,
-    "y": 17.87624
+    "x": 2.35063,
+    "y": -0.94214
    },
    {
     "benchmark": "narrative_qa",
-    "x": 14.79025,
-    "y": 2.51467
+    "x": 17.77567,
+    "y": 17.90721
    },
    {
     "benchmark": "natural_qa_closedbook",
-    "x": 14.39476,
-    "y": 3.19509
+    "x": 19.29882,
+    "y": 18.75707
    },
    {
     "benchmark": "natural_qa_openbook_longans",
-    "x": 14.44513,
-    "y": 4.39087
+    "x": 19.00291,
+    "y": 19.13204
    },
    {
     "benchmark": "openbookqa",
-    "x": -3.1545,
-    "y": 16.97231
+    "x": 2.19796,
+    "y": -1.37561
    },
    {
     "benchmark": "pwc_arc_challenge",
-    "x": -3.21156,
-    "y": 18.33523
+    "x": 1.85877,
+    "y": -2.32016
    },
    {
     "benchmark": "pwc_piqa",
-    "x": -3.2208,
-    "y": 17.48946
+    "x": 2.37144,
+    "y": -1.59495
    },
    {
     "benchmark": "quac",
-    "x": 15.1689,
-    "y": 2.93209
+    "x": 17.4844,
+    "y": 17.72307
    },
    {
     "benchmark": "raft",
-    "x": 14.22385,
-    "y": 2.85647
+    "x": 18.27823,
+    "y": 18.12074
    },
    {
     "benchmark": "real_toxicity_prompts",
-    "x": 14.76793,
-    "y": 4.41676
+    "x": 17.1626,
+    "y": 17.79046
    },
    {
     "benchmark": "simple_safety_tests",
-    "x": 14.03083,
-    "y": 3.20535
+    "x": 17.67506,
+    "y": 17.86667
    },
    {
     "benchmark": "summarization_cnndm",
-    "x": -3.26987,
-    "y": 18.00377
+    "x": 2.62196,
+    "y": -1.63878
    },
    {
     "benchmark": "summarization_xsum",
-    "x": 14.63463,
-    "y": 3.72462
+    "x": 18.46263,
+    "y": 17.77694
    },
    {
     "benchmark": "synthetic_reasoning",
-    "x": 14.53509,
-    "y": 3.37996
+    "x": 19.13597,
+    "y": 18.44164
    },
    {
     "benchmark": "synthetic_reasoning_natural",
-    "x": 14.71269,
-    "y": 2.05821
+    "x": 18.03907,
+    "y": 18.37322
    },
    {
     "benchmark": "thai_exam_a_level",
-    "x": 14.88093,
-    "y": 4.55516
+    "x": 18.0776,
+    "y": 17.37557
    },
    {
     "benchmark": "thai_exam_tgat",
-    "x": 15.35655,
-    "y": 3.87552
+    "x": 18.80327,
+    "y": 18.54083
    },
    {
     "benchmark": "thai_exam_tpat1",
-    "x": 15.47178,
-    "y": 2.41025
+    "x": 18.9931,
+    "y": 18.70268
    },
    {
     "benchmark": "thaiexam",
-    "x": 15.27114,
-    "y": 3.13188
+    "x": 18.69531,
+    "y": 17.36166
    },
    {
     "benchmark": "the_pile",
-    "x": -2.57929,
-    "y": 17.39055
+    "x": 1.82103,
+    "y": -2.0562
    },
    {
     "benchmark": "truthfulqa",
-    "x": -3.78871,
-    "y": 17.30952
+    "x": 3.11025,
+    "y": -1.10507
    },
    {
     "benchmark": "wikifact",
-    "x": 15.10511,
-    "y": 3.66337
+    "x": 18.87085,
+    "y": 17.8034
    },
    {
     "benchmark": "winogrande",
-    "x": -3.02699,
-    "y": 17.25847
+    "x": 3.25271,
+    "y": -2.06104
    },
    {
     "benchmark": "wmt_14",
-    "x": 15.70017,
-    "y": 3.51182
+    "x": 18.56644,
+    "y": 18.2949
    },
    {
     "benchmark": "xstest",
-    "x": 15.31997,
-    "y": 4.31269
+    "x": 19.17219,
+    "y": 17.60571
    },
    {
     "benchmark": "bigcodebench",
-    "x": 14.24099,
-    "y": 2.27555
+    "x": 17.97593,
+    "y": 18.68659
    },
    {
     "benchmark": "cogbench",
-    "x": -2.84523,
-    "y": 17.06651
+    "x": 2.78341,
+    "y": -0.77255
    },
    {
     "benchmark": "cruxeval",
-    "x": 14.0342,
-    "y": 3.48844
+    "x": 18.08222,
+    "y": 18.05391
    },
    {
     "benchmark": "humaneval",
-    "x": -2.38393,
-    "y": 18.08825
+    "x": 2.8887,
+    "y": -2.35465
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_main_standard",
-    "x": 15.93821,
-    "y": 3.14291
+    "x": 18.46292,
+    "y": 19.53365
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_main_with_background",
-    "x": 13.54988,
-    "y": 4.31629
+    "x": 17.43011,
+    "y": 19.19635
    },
    {
     "benchmark": "kaggle_olamysiak_eclektic",
-    "x": 15.4362,
-    "y": 3.61738
+    "x": 18.88078,
+    "y": 17.74337
    },
    {
     "benchmark": "kaggle_sripalthilakraj_global_mmlu_lite_english",
-    "x": 15.09269,
-    "y": 3.36924
+    "x": 18.40379,
+    "y": 19.379
    },
    {
     "benchmark": "pubmedqa",
-    "x": 14.42235,
-    "y": 3.73219
+    "x": 16.7763,
+    "y": 18.62274
    },
    {
     "benchmark": "pwc_arc_easy",
-    "x": -2.98087,
-    "y": 18.36306
+    "x": 1.541,
+    "y": -1.65901
    },
    {
     "benchmark": "pwc_commonsenseqa",
-    "x": -2.98866,
-    "y": 17.78598
+    "x": 2.29442,
+    "y": -1.58776
    },
    {
     "benchmark": "pwc_copa",
-    "x": -2.6852,
-    "y": 18.27022
+    "x": 3.10393,
+    "y": -1.20361
    },
    {
     "benchmark": "pwc_multirc",
-    "x": -3.60596,
-    "y": 17.34685
+    "x": 2.466,
+    "y": -1.1617
    },
    {
     "benchmark": "pwc_record",
-    "x": -2.97153,
-    "y": 17.48694
+    "x": 2.87245,
+    "y": -1.56574
    },
    {
     "benchmark": "pwc_storycloze",
-    "x": -3.82009,
-    "y": 18.38443
+    "x": 2.08595,
+    "y": -1.67845
    },
    {
     "benchmark": "simpleqa",
-    "x": 15.1879,
-    "y": 4.46103
+    "x": 18.89914,
+    "y": 18.37986
    },
    {
     "benchmark": "triviaqa",
-    "x": 14.95703,
-    "y": 2.07333
+    "x": 17.76799,
+    "y": 17.51287
    },
    {
     "benchmark": "vihsd",
-    "x": 13.33246,
-    "y": 2.47607
+    "x": 17.6627,
+    "y": 20.12454
    },
    {
     "benchmark": "vmlu",
-    "x": 13.15012,
-    "y": 3.04606
+    "x": 16.78813,
+    "y": 19.87152
    },
    {
     "benchmark": "wildbench",
-    "x": -3.97436,
-    "y": 17.75939
+    "x": 2.26579,
+    "y": -2.40159
    },
    {
     "benchmark": "wisesight",
-    "x": 12.73803,
-    "y": 3.30983
+    "x": 17.20815,
+    "y": 20.07831
    },
    {
     "benchmark": "xcopa",
-    "x": 13.0989,
-    "y": 2.28015
+    "x": 16.86706,
+    "y": 20.186
    },
    {
     "benchmark": "xnli",
-    "x": 12.87734,
-    "y": 2.55652
+    "x": 17.49286,
+    "y": 20.31327
    },
    {
     "benchmark": "xquad",
-    "x": 12.84887,
-    "y": 2.71512
+    "x": 17.32936,
+    "y": 20.55494
    }
   ],
   "categories": [
@@ -39138,513 +39138,513 @@
   "points": [
    {
     "benchmark": "aime25",
-    "x": 14.52651,
-    "y": 20.61725
+    "x": 11.39467,
+    "y": -10.62519
    },
    {
     "benchmark": "alghafa",
-    "x": 14.76002,
-    "y": 21.35857
+    "x": 10.62208,
+    "y": -10.61577
    },
    {
     "benchmark": "alrage",
-    "x": 15.17308,
-    "y": 21.59309
+    "x": 11.13038,
+    "y": -11.22356
    },
    {
     "benchmark": "anthropic_red_team",
-    "x": 14.62736,
-    "y": 20.8043
+    "x": 10.98396,
+    "y": -11.08862
    },
    {
     "benchmark": "arabic_exams",
-    "x": 15.43273,
-    "y": 20.58228
+    "x": 10.4181,
+    "y": -11.54228
    },
    {
     "benchmark": "arabicmmlu",
-    "x": 14.95132,
-    "y": 21.53792
+    "x": 10.26629,
+    "y": -10.94599
    },
    {
     "benchmark": "aratrust",
-    "x": 15.34238,
-    "y": 20.88041
+    "x": 10.50153,
+    "y": -11.05432
    },
    {
     "benchmark": "arc",
-    "x": -0.6882,
-    "y": -4.57104
+    "x": 1.9165,
+    "y": 9.70628
    },
    {
     "benchmark": "arena_hard_auto",
-    "x": -0.55136,
-    "y": -5.59073
+    "x": 1.65415,
+    "y": 8.98339
    },
    {
     "benchmark": "artificial_analysis_intelligence",
-    "x": 14.49389,
-    "y": 20.91441
+    "x": 10.97882,
+    "y": -10.36593
    },
    {
     "benchmark": "babi_qa",
-    "x": 15.33788,
-    "y": 21.2751
+    "x": 10.70467,
+    "y": -11.37466
    },
    {
     "benchmark": "bbh",
-    "x": -0.18103,
-    "y": -5.28141
+    "x": 1.02752,
+    "y": 9.40167
    },
    {
     "benchmark": "bbq",
-    "x": -1.17821,
-    "y": -4.88427
+    "x": 0.92356,
+    "y": 9.02431
    },
    {
     "benchmark": "bfcl",
-    "x": 14.80087,
-    "y": 21.08872
+    "x": 11.3192,
+    "y": -10.63573
    },
    {
     "benchmark": "bold",
-    "x": 12.94245,
-    "y": 21.56536
+    "x": 11.17188,
+    "y": -12.83861
    },
    {
     "benchmark": "boolq",
-    "x": -1.41131,
-    "y": -5.18089
+    "x": 1.58745,
+    "y": 9.8745
    },
    {
     "benchmark": "chatbot_arena",
-    "x": -0.92559,
-    "y": -4.82851
+    "x": 1.08058,
+    "y": 10.19426
    },
    {
     "benchmark": "civil_comments",
-    "x": 12.51709,
-    "y": 21.87419
+    "x": 13.07677,
+    "y": -12.47338
    },
    {
     "benchmark": "copyright_text",
-    "x": 14.15978,
-    "y": 21.92017
+    "x": 11.47694,
+    "y": -11.67042
    },
    {
     "benchmark": "disinformation_reiteration",
-    "x": -0.93787,
-    "y": -4.42438
+    "x": 1.39634,
+    "y": 9.50616
    },
    {
     "benchmark": "disinformation_wedging",
-    "x": -0.83869,
-    "y": -5.146
+    "x": 1.37073,
+    "y": 9.04212
    },
    {
     "benchmark": "dyck_language",
-    "x": 14.06119,
-    "y": 21.72777
+    "x": 11.79728,
+    "y": -11.80328
    },
    {
     "benchmark": "entity_data_imputation",
-    "x": 13.16226,
-    "y": 21.76698
+    "x": 12.47638,
+    "y": -12.34273
    },
    {
     "benchmark": "entity_matching",
-    "x": -0.91716,
-    "y": -4.88043
+    "x": 2.30672,
+    "y": 9.55745
    },
    {
     "benchmark": "facts_grounding",
-    "x": 14.00289,
-    "y": 21.1824
+    "x": 12.05348,
+    "y": -11.08797
    },
    {
     "benchmark": "gpqa",
-    "x": -0.30177,
-    "y": -5.42132
+    "x": 2.31611,
+    "y": 9.71668
    },
    {
     "benchmark": "gpqa_diamond",
-    "x": 13.39404,
-    "y": 20.80797
+    "x": 12.78711,
+    "y": -11.99137
    },
    {
     "benchmark": "gsm",
-    "x": 12.4808,
-    "y": 21.65624
+    "x": 12.83888,
+    "y": -11.20567
    },
    {
     "benchmark": "gsm8k",
-    "x": -1.12935,
-    "y": -5.11931
+    "x": 2.15791,
+    "y": 9.83614
    },
    {
     "benchmark": "harmbench",
-    "x": 12.87537,
-    "y": 20.70514
+    "x": 11.78631,
+    "y": -11.15407
    },
    {
     "benchmark": "hellaswag",
-    "x": -0.28411,
-    "y": -5.02484
+    "x": 1.03122,
+    "y": 9.86757
    },
    {
     "benchmark": "ifeval",
-    "x": -0.44998,
-    "y": -5.06866
+    "x": 1.58226,
+    "y": 10.00974
    },
    {
     "benchmark": "imdb",
-    "x": 13.92466,
-    "y": 21.94863
+    "x": 12.01078,
+    "y": -12.59454
    },
    {
     "benchmark": "kaggle_aminmohamedmohami_browsecomp",
-    "x": 13.67077,
-    "y": 21.87428
+    "x": 11.02355,
+    "y": -12.07511
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_subproblem_standard",
-    "x": 13.82706,
-    "y": 20.92028
+    "x": 11.32771,
+    "y": -11.95127
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_subproblem_with_background",
-    "x": 13.65471,
-    "y": 21.06913
+    "x": 12.15831,
+    "y": -12.10785
    },
    {
     "benchmark": "kaggle_andrewmingwang_simpleqa_verified",
-    "x": 12.69707,
-    "y": 22.15005
+    "x": 10.6608,
+    "y": -12.46067
    },
    {
     "benchmark": "kaggle_sjmikler_livecodebench",
-    "x": 13.23769,
-    "y": 21.32248
+    "x": 11.91955,
+    "y": -11.72815
    },
    {
     "benchmark": "kaggle_vijitsingh1_mgsm_english",
-    "x": 12.78394,
-    "y": 22.69868
+    "x": 11.5368,
+    "y": -12.45773
    },
    {
     "benchmark": "legal_support",
-    "x": -0.74237,
-    "y": -5.47811
+    "x": 1.57872,
+    "y": 9.25902
    },
    {
     "benchmark": "legalbench",
-    "x": 13.95702,
-    "y": 21.57699
+    "x": 12.2798,
+    "y": -10.95302
    },
    {
     "benchmark": "lsat_qa",
-    "x": 14.14748,
-    "y": 22.75295
+    "x": 11.74402,
+    "y": -12.15755
    },
    {
     "benchmark": "madinah_qa",
-    "x": 13.57329,
-    "y": 22.66274
+    "x": 12.41638,
+    "y": -11.23466
    },
    {
     "benchmark": "math",
-    "x": 14.51531,
-    "y": 22.09641
+    "x": 12.22799,
+    "y": -11.57369
    },
    {
     "benchmark": "math500",
-    "x": 13.87517,
-    "y": 22.38686
+    "x": 11.01517,
+    "y": -12.26445
    },
    {
     "benchmark": "math_chain_of_thought",
-    "x": 13.12562,
-    "y": 22.52706
+    "x": 11.30654,
+    "y": -12.47304
    },
    {
     "benchmark": "math_regular",
-    "x": 13.68237,
-    "y": 20.53759
+    "x": 12.43569,
+    "y": -13.23285
    },
    {
     "benchmark": "mbpp",
-    "x": 13.01785,
-    "y": 21.22625
+    "x": 11.40756,
+    "y": -12.23305
    },
    {
     "benchmark": "medqa",
-    "x": 14.66308,
-    "y": 22.19218
+    "x": 12.35736,
+    "y": -11.74623
    },
    {
     "benchmark": "mmlu",
-    "x": -0.39302,
-    "y": -4.43948
+    "x": 1.20425,
+    "y": 9.4848
    },
    {
     "benchmark": "mmlu_pro",
-    "x": -0.71038,
-    "y": -5.79561
+    "x": 1.26174,
+    "y": 9.81236
    },
    {
     "benchmark": "mmlu_prox",
-    "x": 13.20271,
-    "y": 21.89678
+    "x": 13.21522,
+    "y": -11.96286
    },
    {
     "benchmark": "multiloko",
-    "x": 13.48829,
-    "y": 21.65127
+    "x": 12.83681,
+    "y": -12.89716
    },
    {
     "benchmark": "musr",
-    "x": -1.70291,
-    "y": -5.41536
+    "x": 2.19808,
+    "y": 9.00658
    },
    {
     "benchmark": "narrative_qa",
-    "x": 12.64777,
-    "y": 21.28339
+    "x": 11.94607,
+    "y": -13.12188
    },
    {
     "benchmark": "natural_qa_closedbook",
-    "x": 14.15229,
-    "y": 22.47089
+    "x": 11.5979,
+    "y": -13.06862
    },
    {
     "benchmark": "natural_qa_openbook_longans",
-    "x": 13.62043,
-    "y": 22.13019
+    "x": 11.48774,
+    "y": -12.79475
    },
    {
     "benchmark": "openbookqa",
-    "x": -1.37258,
-    "y": -4.3961
+    "x": 2.04754,
+    "y": 9.27499
    },
    {
     "benchmark": "pwc_arc_challenge",
-    "x": -1.29505,
-    "y": -5.62259
+    "x": 1.77419,
+    "y": 9.9705
    },
    {
     "benchmark": "pwc_piqa",
-    "x": -0.98664,
-    "y": -4.74181
+    "x": 1.66361,
+    "y": 8.92941
    },
    {
     "benchmark": "quac",
-    "x": 13.76707,
-    "y": 21.5351
+    "x": 12.48946,
+    "y": -11.65298
    },
    {
     "benchmark": "raft",
-    "x": 13.07276,
-    "y": 22.95257
+    "x": 12.27144,
+    "y": -13.14349
    },
    {
     "benchmark": "real_toxicity_prompts",
-    "x": 13.51434,
-    "y": 21.43955
+    "x": 12.94281,
+    "y": -11.3047
    },
    {
     "benchmark": "simple_safety_tests",
-    "x": 13.20473,
-    "y": 22.18008
+    "x": 11.74253,
+    "y": -12.48222
    },
    {
     "benchmark": "summarization_cnndm",
-    "x": -1.15298,
-    "y": -5.46656
+    "x": 1.75044,
+    "y": 8.8497
    },
    {
     "benchmark": "summarization_xsum",
-    "x": 12.9069,
-    "y": 21.53769
+    "x": 12.52584,
+    "y": -12.62003
    },
    {
     "benchmark": "synthetic_reasoning",
-    "x": 14.5204,
-    "y": 22.45396
+    "x": 11.96483,
+    "y": -11.87666
    },
    {
     "benchmark": "synthetic_reasoning_natural",
-    "x": 13.54221,
-    "y": 22.28141
+    "x": 11.63397,
+    "y": -11.35196
    },
    {
     "benchmark": "thai_exam_a_level",
-    "x": 14.30373,
-    "y": 22.14229
+    "x": 11.88305,
+    "y": -12.33536
    },
    {
     "benchmark": "thai_exam_tgat",
-    "x": 13.86158,
-    "y": 22.98917
+    "x": 11.57718,
+    "y": -11.7138
    },
    {
     "benchmark": "thai_exam_tpat1",
-    "x": 13.64658,
-    "y": 22.86574
+    "x": 12.20358,
+    "y": -12.79753
    },
    {
     "benchmark": "thaiexam",
-    "x": 13.09578,
-    "y": 20.9504
+    "x": 12.71865,
+    "y": -11.73794
    },
    {
     "benchmark": "the_pile",
-    "x": -0.31873,
-    "y": -4.62781
+    "x": 1.6828,
+    "y": 9.55943
    },
    {
     "benchmark": "truthfulqa",
-    "x": -1.21893,
-    "y": -4.61247
+    "x": 1.29873,
+    "y": 10.03135
    },
    {
     "benchmark": "wikifact",
-    "x": 13.20751,
-    "y": 22.70001
+    "x": 11.44459,
+    "y": -12.76128
    },
    {
     "benchmark": "winogrande",
-    "x": -1.49269,
-    "y": -5.20211
+    "x": 1.83219,
+    "y": 10.26239
    },
    {
     "benchmark": "wmt_14",
-    "x": 12.81265,
-    "y": 22.23061
+    "x": 12.84503,
+    "y": -12.02361
    },
    {
     "benchmark": "xstest",
-    "x": 13.7168,
-    "y": 22.79632
+    "x": 12.72052,
+    "y": -12.19614
    },
    {
     "benchmark": "bigcodebench",
-    "x": 13.40485,
-    "y": 23.19821
+    "x": 10.99337,
+    "y": -11.91383
    },
    {
     "benchmark": "cogbench",
-    "x": -0.5956,
-    "y": -4.78666
+    "x": 2.04742,
+    "y": 9.38854
    },
    {
     "benchmark": "cruxeval",
-    "x": 12.85526,
-    "y": 22.36322
+    "x": 12.46772,
+    "y": -12.29262
    },
    {
     "benchmark": "humaneval",
-    "x": -0.60132,
-    "y": -5.27224
+    "x": 1.47579,
+    "y": 9.63174
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_main_standard",
-    "x": 12.56145,
-    "y": 21.80759
+    "x": 11.68356,
+    "y": -13.45059
    },
    {
     "benchmark": "kaggle_andrewmingwang_scicode_main_with_background",
-    "x": 13.20769,
-    "y": 20.39646
+    "x": 12.36909,
+    "y": -10.66674
    },
    {
     "benchmark": "kaggle_olamysiak_eclektic",
-    "x": 14.48247,
-    "y": 21.7187
+    "x": 12.03292,
+    "y": -12.98032
    },
    {
     "benchmark": "kaggle_sripalthilakraj_global_mmlu_lite_english",
-    "x": 14.2549,
-    "y": 21.34444
+    "x": 12.77335,
+    "y": -10.82608
    },
    {
     "benchmark": "pubmedqa",
-    "x": 13.22687,
-    "y": 22.01857
+    "x": 12.04122,
+    "y": -12.0671
    },
    {
     "benchmark": "pwc_arc_easy",
-    "x": -1.57675,
-    "y": -4.63532
+    "x": 1.48526,
+    "y": 10.32479
    },
    {
     "benchmark": "pwc_commonsenseqa",
-    "x": -0.68596,
-    "y": -5.62354
+    "x": 1.84213,
+    "y": 9.44526
    },
    {
     "benchmark": "pwc_copa",
-    "x": -0.7435,
-    "y": -5.15853
+    "x": 1.12472,
+    "y": 9.16139
    },
    {
     "benchmark": "pwc_multirc",
-    "x": -0.01903,
-    "y": -4.60451
+    "x": 0.85337,
+    "y": 9.61311
    },
    {
     "benchmark": "pwc_record",
-    "x": -1.77775,
-    "y": -4.96687
+    "x": 1.38314,
+    "y": 9.10867
    },
    {
     "benchmark": "pwc_storycloze",
-    "x": -0.9816,
-    "y": -5.90703
+    "x": 2.18671,
+    "y": 9.34907
    },
    {
     "benchmark": "simpleqa",
-    "x": 13.55969,
-    "y": 20.87316
+    "x": 11.07386,
+    "y": -11.62447
    },
    {
     "benchmark": "triviaqa",
-    "x": 13.93833,
-    "y": 22.43402
+    "x": 10.92506,
+    "y": -12.91672
    },
    {
     "benchmark": "vihsd",
-    "x": 15.2602,
-    "y": 20.81613
+    "x": 10.97497,
+    "y": -10.67719
    },
    {
     "benchmark": "vmlu",
-    "x": 15.01638,
-    "y": 20.90135
+    "x": 10.97336,
+    "y": -10.70746
    },
    {
     "benchmark": "wildbench",
-    "x": -0.73794,
-    "y": -4.18183
+    "x": 2.16449,
+    "y": 10.10624
    },
    {
     "benchmark": "wisesight",
-    "x": 15.20604,
-    "y": 21.12557
+    "x": 10.61068,
+    "y": -10.92704
    },
    {
     "benchmark": "xcopa",
-    "x": 15.02571,
-    "y": 20.58861
+    "x": 10.26529,
+    "y": -11.03631
    },
    {
     "benchmark": "xnli",
-    "x": 15.58678,
-    "y": 21.10779
+    "x": 10.55657,
+    "y": -10.38149
    },
    {
     "benchmark": "xquad",
-    "x": 14.96129,
-    "y": 20.41825
+    "x": 10.33752,
+    "y": -10.61146
    }
   ],
   "categories": [
@@ -73161,14 +73161,14 @@
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -73323,7 +73323,7 @@
     "monolingual_non_english"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -73357,11 +73357,11 @@
    "with_g": [
     {
      "category": "knowledge",
-     "n": 69,
-     "within": 0.5403,
-     "null_mean": 0.6627,
-     "z": -3.335,
-     "p": 0.0005
+     "n": 72,
+     "within": 0.5252,
+     "null_mean": 0.6613,
+     "z": -3.705,
+     "p": 0.0
     },
     {
      "category": "multilingual",
@@ -73383,25 +73383,25 @@
      "category": "finance",
      "n": 4,
      "within": 0.0586,
-     "null_mean": 0.5532,
-     "z": -2.457,
-     "p": 0.0005
+     "null_mean": 0.5505,
+     "z": -2.415,
+     "p": 0.001
     },
     {
      "category": "code",
      "n": 23,
      "within": 0.4783,
-     "null_mean": 0.6397,
-     "z": -2.093,
-     "p": 0.0255
+     "null_mean": 0.6437,
+     "z": -2.181,
+     "p": 0.02
     },
     {
      "category": "code_generation",
      "n": 22,
      "within": 0.4967,
-     "null_mean": 0.6464,
-     "z": -1.998,
-     "p": 0.03
+     "null_mean": 0.6459,
+     "z": -1.996,
+     "p": 0.0315
     },
     {
      "category": "question_answering",
@@ -73423,17 +73423,17 @@
      "category": "crosslingual",
      "n": 11,
      "within": 0.4382,
-     "null_mean": 0.5873,
-     "z": -1.418,
-     "p": 0.0835
+     "null_mean": 0.5839,
+     "z": -1.449,
+     "p": 0.077
     },
     {
      "category": "cognitive_science",
      "n": 14,
      "within": 0.5067,
-     "null_mean": 0.6414,
-     "z": -1.203,
-     "p": 0.12
+     "null_mean": 0.6427,
+     "z": -1.21,
+     "p": 0.1215
     },
     {
      "category": "agentic_tool_use",
@@ -73447,9 +73447,9 @@
      "category": "commonsense",
      "n": 36,
      "within": 0.5863,
-     "null_mean": 0.6265,
-     "z": -0.744,
-     "p": 0.2145
+     "null_mean": 0.6288,
+     "z": -0.782,
+     "p": 0.2185
     },
     {
      "category": "summarization",
@@ -73471,17 +73471,17 @@
      "category": "generation_dialogue",
      "n": 39,
      "within": 0.6427,
-     "null_mean": 0.6603,
-     "z": -0.321,
-     "p": 0.3635
+     "null_mean": 0.6601,
+     "z": -0.313,
+     "p": 0.3725
     },
     {
      "category": "game_playing",
      "n": 8,
      "within": 0.6068,
-     "null_mean": 0.6217,
-     "z": -0.095,
-     "p": 0.4525
+     "null_mean": 0.6192,
+     "z": -0.081,
+     "p": 0.459
     },
     {
      "category": "math",
@@ -73516,29 +73516,29 @@
      "p": 0.7475
     },
     {
-     "category": "alignment_safety",
-     "n": 38,
-     "within": 0.6922,
-     "null_mean": 0.6466,
-     "z": 0.895,
-     "p": 0.8085
-    },
-    {
      "category": "classic_nlp",
      "n": 46,
      "within": 0.7151,
-     "null_mean": 0.6431,
-     "z": 1.351,
-     "p": 0.913
+     "null_mean": 0.6445,
+     "z": 1.309,
+     "p": 0.9135
+    },
+    {
+     "category": "alignment_safety",
+     "n": 35,
+     "within": 0.7257,
+     "null_mean": 0.6475,
+     "z": 1.471,
+     "p": 0.9345
     }
    ],
    "without_g": [
     {
      "category": "knowledge",
-     "n": 69,
-     "within": 0.5712,
-     "null_mean": 0.6857,
-     "z": -3.347,
+     "n": 72,
+     "within": 0.5569,
+     "null_mean": 0.6861,
+     "z": -3.805,
      "p": 0.0
     },
     {
@@ -73550,14 +73550,6 @@
      "p": 0.0085
     },
     {
-     "category": "finance",
-     "n": 4,
-     "within": 0.0708,
-     "null_mean": 0.5804,
-     "z": -2.478,
-     "p": 0.0025
-    },
-    {
      "category": "monolingual_non_english",
      "n": 35,
      "within": 0.5413,
@@ -73566,19 +73558,27 @@
      "p": 0.0125
     },
     {
+     "category": "finance",
+     "n": 4,
+     "within": 0.0708,
+     "null_mean": 0.5724,
+     "z": -2.402,
+     "p": 0.005
+    },
+    {
      "category": "code",
      "n": 23,
      "within": 0.5033,
-     "null_mean": 0.6658,
-     "z": -2.224,
-     "p": 0.0185
+     "null_mean": 0.6682,
+     "z": -2.261,
+     "p": 0.0125
     },
     {
      "category": "code_generation",
      "n": 22,
      "within": 0.5222,
-     "null_mean": 0.6675,
-     "z": -1.985,
+     "null_mean": 0.6687,
+     "z": -1.995,
      "p": 0.033
     },
     {
@@ -73601,25 +73601,25 @@
      "category": "crosslingual",
      "n": 11,
      "within": 0.4422,
-     "null_mean": 0.61,
-     "z": -1.635,
-     "p": 0.059
+     "null_mean": 0.6092,
+     "z": -1.633,
+     "p": 0.0625
     },
     {
      "category": "cognitive_science",
      "n": 14,
      "within": 0.5286,
-     "null_mean": 0.6687,
-     "z": -1.278,
-     "p": 0.1075
+     "null_mean": 0.6671,
+     "z": -1.282,
+     "p": 0.109
     },
     {
      "category": "commonsense",
      "n": 36,
      "within": 0.6011,
      "null_mean": 0.6552,
-     "z": -1.053,
-     "p": 0.1495
+     "z": -1.066,
+     "p": 0.1455
     },
     {
      "category": "agentic_tool_use",
@@ -73649,17 +73649,17 @@
      "category": "generation_dialogue",
      "n": 39,
      "within": 0.6647,
-     "null_mean": 0.6846,
-     "z": -0.375,
-     "p": 0.3475
+     "null_mean": 0.6877,
+     "z": -0.438,
+     "p": 0.3305
     },
     {
      "category": "game_playing",
      "n": 8,
      "within": 0.6172,
-     "null_mean": 0.6406,
-     "z": -0.152,
-     "p": 0.4325
+     "null_mean": 0.6351,
+     "z": -0.118,
+     "p": 0.443
     },
     {
      "category": "reasoning",
@@ -73694,20 +73694,20 @@
      "p": 0.752
     },
     {
-     "category": "alignment_safety",
-     "n": 38,
-     "within": 0.708,
-     "null_mean": 0.6696,
-     "z": 0.793,
-     "p": 0.783
-    },
-    {
      "category": "classic_nlp",
      "n": 46,
      "within": 0.7383,
-     "null_mean": 0.6677,
-     "z": 1.381,
-     "p": 0.926
+     "null_mean": 0.6675,
+     "z": 1.384,
+     "p": 0.928
+    },
+    {
+     "category": "alignment_safety",
+     "n": 35,
+     "within": 0.74,
+     "null_mean": 0.6664,
+     "z": 1.417,
+     "p": 0.9285
     }
    ]
   },
@@ -84677,14 +84677,14 @@
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -84839,7 +84839,7 @@
     "monolingual_non_english"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -84880,28 +84880,28 @@
      "p": 0.0
     },
     {
-     "category": "commonsense",
-     "n": 36,
-     "within": 0.7655,
-     "null_mean": 0.8722,
-     "z": -4.857,
+     "category": "knowledge",
+     "n": 72,
+     "within": 0.815,
+     "null_mean": 0.8858,
+     "z": -5.047,
      "p": 0.0
     },
     {
-     "category": "knowledge",
-     "n": 69,
-     "within": 0.8205,
-     "null_mean": 0.886,
-     "z": -4.6,
+     "category": "commonsense",
+     "n": 36,
+     "within": 0.7655,
+     "null_mean": 0.8724,
+     "z": -4.911,
      "p": 0.0
     },
     {
      "category": "finance",
      "n": 4,
      "within": 0.3144,
-     "null_mean": 0.8244,
-     "z": -4.378,
-     "p": 0.0
+     "null_mean": 0.8252,
+     "z": -4.408,
+     "p": 0.004
     },
     {
      "category": "monolingual_non_english",
@@ -84923,9 +84923,9 @@
      "category": "code",
      "n": 23,
      "within": 0.7953,
-     "null_mean": 0.879,
-     "z": -2.759,
-     "p": 0.0105
+     "null_mean": 0.88,
+     "z": -2.727,
+     "p": 0.0085
     },
     {
      "category": "question_answering",
@@ -84939,9 +84939,9 @@
      "category": "code_generation",
      "n": 22,
      "within": 0.8042,
-     "null_mean": 0.879,
-     "z": -2.385,
-     "p": 0.019
+     "null_mean": 0.8798,
+     "z": -2.41,
+     "p": 0.0185
     },
     {
      "category": "machine_translation",
@@ -84955,9 +84955,9 @@
      "category": "crosslingual",
      "n": 11,
      "within": 0.7333,
-     "null_mean": 0.8462,
-     "z": -2.194,
-     "p": 0.03
+     "null_mean": 0.8468,
+     "z": -2.27,
+     "p": 0.0185
     },
     {
      "category": "medical",
@@ -84979,16 +84979,16 @@
      "category": "cognitive_science",
      "n": 14,
      "within": 0.7992,
-     "null_mean": 0.8744,
-     "z": -1.622,
-     "p": 0.065
+     "null_mean": 0.8747,
+     "z": -1.667,
+     "p": 0.0595
     },
     {
      "category": "generation_dialogue",
      "n": 39,
      "within": 0.8594,
-     "null_mean": 0.8853,
-     "z": -1.189,
+     "null_mean": 0.8852,
+     "z": -1.191,
      "p": 0.118
     },
     {
@@ -85003,9 +85003,9 @@
      "category": "game_playing",
      "n": 8,
      "within": 0.8289,
-     "null_mean": 0.8652,
-     "z": -0.545,
-     "p": 0.274
+     "null_mean": 0.8647,
+     "z": -0.544,
+     "p": 0.2755
     },
     {
      "category": "summarization",
@@ -85027,9 +85027,9 @@
      "category": "classic_nlp",
      "n": 46,
      "within": 0.904,
-     "null_mean": 0.8762,
-     "z": 1.279,
-     "p": 0.905
+     "null_mean": 0.8767,
+     "z": 1.248,
+     "p": 0.9105
     },
     {
      "category": "legal",
@@ -85041,11 +85041,11 @@
     },
     {
      "category": "alignment_safety",
-     "n": 38,
-     "within": 0.9124,
-     "null_mean": 0.8795,
-     "z": 1.64,
-     "p": 0.962
+     "n": 35,
+     "within": 0.9214,
+     "null_mean": 0.8796,
+     "z": 2.08,
+     "p": 0.9885
     }
    ],
    "without_g": [
@@ -85053,8 +85053,8 @@
      "category": "commonsense",
      "n": 36,
      "within": 0.8104,
-     "null_mean": 0.9312,
-     "z": -9.318,
+     "null_mean": 0.9315,
+     "z": -9.034,
      "p": 0.0
     },
     {
@@ -85066,6 +85066,14 @@
      "p": 0.0
     },
     {
+     "category": "knowledge",
+     "n": 72,
+     "within": 0.8971,
+     "null_mean": 0.938,
+     "z": -5.09,
+     "p": 0.0
+    },
+    {
      "category": "medical",
      "n": 39,
      "within": 0.8606,
@@ -85074,12 +85082,12 @@
      "p": 0.0
     },
     {
-     "category": "knowledge",
-     "n": 69,
-     "within": 0.8994,
-     "null_mean": 0.9383,
-     "z": -4.933,
-     "p": 0.0
+     "category": "finance",
+     "n": 4,
+     "within": 0.4293,
+     "null_mean": 0.8938,
+     "z": -4.866,
+     "p": 0.0005
     },
     {
      "category": "multilingual",
@@ -85088,14 +85096,6 @@
      "null_mean": 0.935,
      "z": -4.667,
      "p": 0.0
-    },
-    {
-     "category": "finance",
-     "n": 4,
-     "within": 0.4293,
-     "null_mean": 0.8926,
-     "z": -4.619,
-     "p": 0.002
     },
     {
      "category": "monolingual_non_english",
@@ -85122,28 +85122,28 @@
      "p": 0.0005
     },
     {
-     "category": "code",
-     "n": 23,
-     "within": 0.8722,
-     "null_mean": 0.9371,
-     "z": -3.733,
-     "p": 0.0005
-    },
-    {
      "category": "crosslingual",
      "n": 11,
      "within": 0.7717,
-     "null_mean": 0.9109,
-     "z": -3.715,
-     "p": 0.002
+     "null_mean": 0.9123,
+     "z": -3.829,
+     "p": 0.003
+    },
+    {
+     "category": "code",
+     "n": 23,
+     "within": 0.8722,
+     "null_mean": 0.9364,
+     "z": -3.538,
+     "p": 0.0015
     },
     {
      "category": "code_generation",
      "n": 22,
      "within": 0.8772,
-     "null_mean": 0.9378,
-     "z": -3.316,
-     "p": 0.0025
+     "null_mean": 0.9377,
+     "z": -3.285,
+     "p": 0.0035
     },
     {
      "category": "agentic_tool_use",
@@ -85165,9 +85165,9 @@
      "category": "cognitive_science",
      "n": 14,
      "within": 0.8788,
-     "null_mean": 0.9337,
-     "z": -1.869,
-     "p": 0.038
+     "null_mean": 0.9342,
+     "z": -1.878,
+     "p": 0.0405
     },
     {
      "category": "math",
@@ -85181,17 +85181,17 @@
      "category": "generation_dialogue",
      "n": 39,
      "within": 0.9241,
-     "null_mean": 0.9392,
-     "z": -1.231,
-     "p": 0.1135
+     "null_mean": 0.939,
+     "z": -1.24,
+     "p": 0.111
     },
     {
      "category": "game_playing",
      "n": 8,
      "within": 0.8784,
-     "null_mean": 0.9288,
-     "z": -1.157,
-     "p": 0.126
+     "null_mean": 0.9306,
+     "z": -1.216,
+     "p": 0.118
     },
     {
      "category": "summarization",
@@ -85205,17 +85205,9 @@
      "category": "classic_nlp",
      "n": 46,
      "within": 0.9477,
-     "null_mean": 0.9368,
-     "z": 0.924,
-     "p": 0.8365
-    },
-    {
-     "category": "alignment_safety",
-     "n": 38,
-     "within": 0.9548,
-     "null_mean": 0.9343,
-     "z": 1.697,
-     "p": 0.961
+     "null_mean": 0.9361,
+     "z": 0.999,
+     "p": 0.8445
     },
     {
      "category": "legal",
@@ -85224,6 +85216,14 @@
      "null_mean": 0.9392,
      "z": 1.697,
      "p": 0.9575
+    },
+    {
+     "category": "alignment_safety",
+     "n": 35,
+     "within": 0.9577,
+     "null_mean": 0.9328,
+     "z": 1.97,
+     "p": 0.9855
     }
    ]
   },
@@ -96035,14 +96035,14 @@
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -96200,27 +96200,27 @@
     },
     {
      "category": "knowledge",
-     "n": 58,
-     "within": 0.6715,
-     "null_mean": 0.8319,
-     "z": -3.452,
-     "p": 0.0015
+     "n": 60,
+     "within": 0.6608,
+     "null_mean": 0.8288,
+     "z": -3.611,
+     "p": 0.001
     },
     {
      "category": "code",
      "n": 22,
      "within": 0.5395,
-     "null_mean": 0.8333,
-     "z": -3.431,
+     "null_mean": 0.8335,
+     "z": -3.42,
      "p": 0.003
     },
     {
      "category": "code_generation",
      "n": 21,
      "within": 0.5609,
-     "null_mean": 0.8387,
-     "z": -3.098,
-     "p": 0.005
+     "null_mean": 0.834,
+     "z": -3.089,
+     "p": 0.004
     },
     {
      "category": "multilingual",
@@ -96234,9 +96234,9 @@
      "category": "finance",
      "n": 4,
      "within": 0.04,
-     "null_mean": 0.7068,
-     "z": -2.31,
-     "p": 0.005
+     "null_mean": 0.7134,
+     "z": -2.409,
+     "p": 0.004
     },
     {
      "category": "math",
@@ -96250,9 +96250,9 @@
      "category": "generation_dialogue",
      "n": 34,
      "within": 0.7167,
-     "null_mean": 0.8369,
-     "z": -1.745,
-     "p": 0.056
+     "null_mean": 0.8376,
+     "z": -1.759,
+     "p": 0.055
     },
     {
      "category": "machine_translation",
@@ -96266,8 +96266,8 @@
      "category": "crosslingual",
      "n": 11,
      "within": 0.5878,
-     "null_mean": 0.7408,
-     "z": -1.135,
+     "null_mean": 0.7382,
+     "z": -1.067,
      "p": 0.1375
     },
     {
@@ -96290,9 +96290,9 @@
      "category": "cognitive_science",
      "n": 11,
      "within": 0.728,
-     "null_mean": 0.7859,
-     "z": -0.359,
-     "p": 0.3275
+     "null_mean": 0.7867,
+     "z": -0.365,
+     "p": 0.322
     },
     {
      "category": "summarization",
@@ -96330,33 +96330,33 @@
      "category": "game_playing",
      "n": 7,
      "within": 0.9637,
-     "null_mean": 0.8079,
-     "z": 0.772,
-     "p": 0.7495
+     "null_mean": 0.8078,
+     "z": 0.811,
+     "p": 0.765
     },
     {
      "category": "alignment_safety",
-     "n": 36,
-     "within": 0.8693,
-     "null_mean": 0.8226,
-     "z": 0.812,
-     "p": 0.777
+     "n": 34,
+     "within": 0.8756,
+     "null_mean": 0.8201,
+     "z": 0.93,
+     "p": 0.817
     },
     {
      "category": "commonsense",
      "n": 36,
      "within": 0.8924,
-     "null_mean": 0.8189,
-     "z": 1.204,
-     "p": 0.8985
+     "null_mean": 0.8183,
+     "z": 1.223,
+     "p": 0.8955
     },
     {
      "category": "classic_nlp",
      "n": 38,
      "within": 0.8959,
-     "null_mean": 0.7719,
-     "z": 1.513,
-     "p": 0.952
+     "null_mean": 0.7706,
+     "z": 1.517,
+     "p": 0.9505
     }
    ],
    "without_g": [
@@ -96369,19 +96369,19 @@
      "p": 0.001
     },
     {
+     "category": "knowledge",
+     "n": 60,
+     "within": 0.6811,
+     "null_mean": 0.8421,
+     "z": -3.778,
+     "p": 0.0
+    },
+    {
      "category": "code",
      "n": 22,
      "within": 0.565,
-     "null_mean": 0.8437,
-     "z": -3.44,
-     "p": 0.002
-    },
-    {
-     "category": "knowledge",
-     "n": 58,
-     "within": 0.6911,
-     "null_mean": 0.8433,
-     "z": -3.432,
+     "null_mean": 0.8441,
+     "z": -3.452,
      "p": 0.002
     },
     {
@@ -96396,17 +96396,17 @@
      "category": "code_generation",
      "n": 21,
      "within": 0.5868,
-     "null_mean": 0.8487,
-     "z": -3.133,
-     "p": 0.004
+     "null_mean": 0.8438,
+     "z": -3.037,
+     "p": 0.0075
     },
     {
      "category": "finance",
      "n": 4,
      "within": 0.0486,
-     "null_mean": 0.716,
-     "z": -2.369,
-     "p": 0.0025
+     "null_mean": 0.7197,
+     "z": -2.362,
+     "p": 0.003
     },
     {
      "category": "math",
@@ -96420,9 +96420,9 @@
      "category": "generation_dialogue",
      "n": 34,
      "within": 0.7257,
-     "null_mean": 0.8481,
-     "z": -1.863,
-     "p": 0.043
+     "null_mean": 0.849,
+     "z": -1.881,
+     "p": 0.0425
     },
     {
      "category": "machine_translation",
@@ -96433,20 +96433,20 @@
      "p": 0.0625
     },
     {
-     "category": "crosslingual",
-     "n": 11,
-     "within": 0.5992,
-     "null_mean": 0.7452,
-     "z": -1.091,
-     "p": 0.155
-    },
-    {
      "category": "question_answering",
      "n": 99,
      "within": 0.8056,
      "null_mean": 0.84,
      "z": -1.085,
      "p": 0.143
+    },
+    {
+     "category": "crosslingual",
+     "n": 11,
+     "within": 0.5992,
+     "null_mean": 0.744,
+     "z": -1.036,
+     "p": 0.157
     },
     {
      "category": "agentic_tool_use",
@@ -96460,9 +96460,9 @@
      "category": "cognitive_science",
      "n": 11,
      "within": 0.7405,
-     "null_mean": 0.792,
-     "z": -0.328,
-     "p": 0.347
+     "null_mean": 0.7916,
+     "z": -0.32,
+     "p": 0.3445
     },
     {
      "category": "summarization",
@@ -96500,33 +96500,33 @@
      "category": "game_playing",
      "n": 7,
      "within": 0.9486,
-     "null_mean": 0.8064,
-     "z": 0.711,
-     "p": 0.723
+     "null_mean": 0.8122,
+     "z": 0.686,
+     "p": 0.7125
     },
     {
      "category": "alignment_safety",
-     "n": 36,
-     "within": 0.8739,
-     "null_mean": 0.8309,
-     "z": 0.745,
-     "p": 0.762
+     "n": 34,
+     "within": 0.8797,
+     "null_mean": 0.8335,
+     "z": 0.822,
+     "p": 0.7785
     },
     {
      "category": "commonsense",
      "n": 36,
      "within": 0.9009,
-     "null_mean": 0.8293,
-     "z": 1.22,
-     "p": 0.897
+     "null_mean": 0.8283,
+     "z": 1.218,
+     "p": 0.8965
     },
     {
      "category": "classic_nlp",
      "n": 38,
      "within": 0.8978,
-     "null_mean": 0.7815,
-     "z": 1.466,
-     "p": 0.948
+     "null_mean": 0.7814,
+     "z": 1.487,
+     "p": 0.952
     }
    ]
   },
@@ -145495,14 +145495,14 @@
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -145662,9 +145662,17 @@
      "category": "finance",
      "n": 4,
      "within": 0.1929,
-     "null_mean": 0.8464,
-     "z": -4.673,
+     "null_mean": 0.8488,
+     "z": -4.637,
      "p": 0.0
+    },
+    {
+     "category": "knowledge",
+     "n": 60,
+     "within": 0.8336,
+     "null_mean": 0.9175,
+     "z": -4.572,
+     "p": 0.0005
     },
     {
      "category": "multilingual",
@@ -145675,27 +145683,19 @@
      "p": 0.0005
     },
     {
-     "category": "knowledge",
-     "n": 58,
-     "within": 0.8425,
-     "null_mean": 0.918,
-     "z": -4.009,
-     "p": 0.0
-    },
-    {
      "category": "code",
      "n": 22,
      "within": 0.7939,
-     "null_mean": 0.9187,
-     "z": -3.529,
-     "p": 0.0015
+     "null_mean": 0.9197,
+     "z": -3.615,
+     "p": 0.001
     },
     {
      "category": "code_generation",
      "n": 21,
      "within": 0.8,
-     "null_mean": 0.9229,
-     "z": -3.521,
+     "null_mean": 0.9218,
+     "z": -3.423,
      "p": 0.0025
     },
     {
@@ -145710,9 +145710,9 @@
      "category": "crosslingual",
      "n": 11,
      "within": 0.6807,
-     "null_mean": 0.8663,
-     "z": -2.783,
-     "p": 0.0065
+     "null_mean": 0.8705,
+     "z": -2.938,
+     "p": 0.007
     },
     {
      "category": "language_modelling",
@@ -145734,9 +145734,9 @@
      "category": "commonsense",
      "n": 36,
      "within": 0.8546,
-     "null_mean": 0.9068,
-     "z": -2.034,
-     "p": 0.032
+     "null_mean": 0.9062,
+     "z": -1.951,
+     "p": 0.035
     },
     {
      "category": "math",
@@ -145750,9 +145750,9 @@
      "category": "generation_dialogue",
      "n": 34,
      "within": 0.8868,
-     "null_mean": 0.9253,
-     "z": -1.437,
-     "p": 0.089
+     "null_mean": 0.9249,
+     "z": -1.412,
+     "p": 0.0915
     },
     {
      "category": "reasoning",
@@ -145790,33 +145790,33 @@
      "category": "cognitive_science",
      "n": 11,
      "within": 0.8706,
-     "null_mean": 0.8996,
-     "z": -0.417,
-     "p": 0.302
+     "null_mean": 0.8995,
+     "z": -0.419,
+     "p": 0.2985
     },
     {
      "category": "game_playing",
      "n": 7,
      "within": 0.9398,
-     "null_mean": 0.8991,
-     "z": 0.468,
-     "p": 0.648
+     "null_mean": 0.9035,
+     "z": 0.432,
+     "p": 0.638
     },
     {
      "category": "classic_nlp",
      "n": 38,
      "within": 0.9314,
-     "null_mean": 0.8914,
-     "z": 1.125,
-     "p": 0.8705
+     "null_mean": 0.891,
+     "z": 1.161,
+     "p": 0.8785
     },
     {
      "category": "alignment_safety",
-     "n": 36,
-     "within": 0.9456,
-     "null_mean": 0.9081,
-     "z": 1.51,
-     "p": 0.954
+     "n": 34,
+     "within": 0.9527,
+     "null_mean": 0.908,
+     "z": 1.77,
+     "p": 0.9725
     }
    ],
    "without_g": [
@@ -145845,28 +145845,28 @@
      "p": 0.0
     },
     {
-     "category": "finance",
-     "n": 4,
-     "within": 0.26,
-     "null_mean": 0.8943,
-     "z": -5.144,
-     "p": 0.0
-    },
-    {
      "category": "commonsense",
      "n": 36,
      "within": 0.8444,
-     "null_mean": 0.9324,
-     "z": -4.919,
+     "null_mean": 0.9325,
+     "z": -4.895,
+     "p": 0.0
+    },
+    {
+     "category": "finance",
+     "n": 4,
+     "within": 0.26,
+     "null_mean": 0.8883,
+     "z": -4.89,
      "p": 0.0
     },
     {
      "category": "crosslingual",
      "n": 11,
      "within": 0.6799,
-     "null_mean": 0.9113,
-     "z": -4.733,
-     "p": 0.0
+     "null_mean": 0.9096,
+     "z": -4.556,
+     "p": 0.001
     },
     {
      "category": "language_modelling",
@@ -145877,6 +145877,22 @@
      "p": 0.0015
     },
     {
+     "category": "knowledge",
+     "n": 60,
+     "within": 0.9024,
+     "null_mean": 0.9415,
+     "z": -3.366,
+     "p": 0.0015
+    },
+    {
+     "category": "code",
+     "n": 22,
+     "within": 0.8687,
+     "null_mean": 0.9429,
+     "z": -3.284,
+     "p": 0.0035
+    },
+    {
      "category": "reasoning",
      "n": 81,
      "within": 0.9116,
@@ -145885,28 +145901,12 @@
      "p": 0.005
     },
     {
-     "category": "code",
-     "n": 22,
-     "within": 0.8687,
-     "null_mean": 0.9429,
-     "z": -3.268,
-     "p": 0.003
-    },
-    {
      "category": "code_generation",
      "n": 21,
      "within": 0.8708,
      "null_mean": 0.945,
-     "z": -3.144,
-     "p": 0.004
-    },
-    {
-     "category": "knowledge",
-     "n": 58,
-     "within": 0.9084,
-     "null_mean": 0.9411,
-     "z": -2.741,
-     "p": 0.005
+     "z": -3.058,
+     "p": 0.003
     },
     {
      "category": "medical",
@@ -145952,41 +145952,41 @@
      "category": "cognitive_science",
      "n": 11,
      "within": 0.9165,
-     "null_mean": 0.9416,
-     "z": -0.577,
-     "p": 0.258
+     "null_mean": 0.9414,
+     "z": -0.586,
+     "p": 0.27
     },
     {
      "category": "generation_dialogue",
      "n": 34,
      "within": 0.9455,
-     "null_mean": 0.9472,
-     "z": -0.103,
-     "p": 0.4405
+     "null_mean": 0.947,
+     "z": -0.087,
+     "p": 0.4475
     },
     {
      "category": "game_playing",
      "n": 7,
      "within": 0.9506,
-     "null_mean": 0.9355,
-     "z": 0.252,
-     "p": 0.5725
+     "null_mean": 0.935,
+     "z": 0.259,
+     "p": 0.566
     },
     {
      "category": "classic_nlp",
      "n": 38,
      "within": 0.9497,
-     "null_mean": 0.9381,
-     "z": 0.615,
-     "p": 0.7025
+     "null_mean": 0.9382,
+     "z": 0.619,
+     "p": 0.726
     },
     {
      "category": "alignment_safety",
-     "n": 36,
-     "within": 0.9648,
-     "null_mean": 0.933,
-     "z": 1.783,
-     "p": 0.9705
+     "n": 34,
+     "within": 0.9702,
+     "null_mean": 0.9317,
+     "z": 2.009,
+     "p": 0.987
     }
    ]
   },
@@ -194786,7 +194786,7 @@
     "agentic_tool_use"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -195820,14 +195820,14 @@
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -196019,14 +196019,14 @@
     "language_modelling"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "information_retrieval"
    ],
    [
     "classic_nlp"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "information_retrieval"
    ],
    [
@@ -196055,7 +196055,7 @@
     "question_answering"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "information_retrieval"
    ],
    [
@@ -196078,33 +196078,33 @@
      "category": "code",
      "n": 32,
      "within": 0.4295,
-     "null_mean": 0.6224,
-     "z": -4.108,
+     "null_mean": 0.6236,
+     "z": -4.214,
+     "p": 0.0
+    },
+    {
+     "category": "knowledge",
+     "n": 84,
+     "within": 0.5242,
+     "null_mean": 0.6227,
+     "z": -3.696,
      "p": 0.0
     },
     {
      "category": "code_generation",
      "n": 30,
      "within": 0.4532,
-     "null_mean": 0.6235,
-     "z": -3.411,
-     "p": 0.001
-    },
-    {
-     "category": "knowledge",
-     "n": 78,
-     "within": 0.5328,
-     "null_mean": 0.625,
-     "z": -3.223,
-     "p": 0.002
+     "null_mean": 0.6231,
+     "z": -3.428,
+     "p": 0.0005
     },
     {
      "category": "finance",
      "n": 5,
      "within": 0.2509,
-     "null_mean": 0.5988,
-     "z": -2.044,
-     "p": 0.022
+     "null_mean": 0.603,
+     "z": -2.048,
+     "p": 0.028
     },
     {
      "category": "multilingual",
@@ -196126,8 +196126,8 @@
      "category": "crosslingual",
      "n": 14,
      "within": 0.4232,
-     "null_mean": 0.5853,
-     "z": -1.708,
+     "null_mean": 0.5861,
+     "z": -1.76,
      "p": 0.055
     },
     {
@@ -196150,17 +196150,17 @@
      "category": "information_retrieval",
      "n": 9,
      "within": 0.5016,
-     "null_mean": 0.6154,
-     "z": -1.167,
-     "p": 0.1255
+     "null_mean": 0.6183,
+     "z": -1.217,
+     "p": 0.118
     },
     {
      "category": "commonsense",
      "n": 41,
      "within": 0.5741,
-     "null_mean": 0.6068,
-     "z": -0.747,
-     "p": 0.222
+     "null_mean": 0.6082,
+     "z": -0.766,
+     "p": 0.219
     },
     {
      "category": "math",
@@ -196198,9 +196198,9 @@
      "category": "game_playing",
      "n": 8,
      "within": 0.6042,
-     "null_mean": 0.6017,
-     "z": 0.022,
-     "p": 0.4845
+     "null_mean": 0.6007,
+     "z": 0.03,
+     "p": 0.4935
     },
     {
      "category": "reasoning",
@@ -196214,9 +196214,9 @@
      "category": "industrial",
      "n": 4,
      "within": 0.5839,
-     "null_mean": 0.561,
-     "z": 0.105,
-     "p": 0.5475
+     "null_mean": 0.5518,
+     "z": 0.154,
+     "p": 0.572
     },
     {
      "category": "legal",
@@ -196230,9 +196230,9 @@
      "category": "generation_dialogue",
      "n": 44,
      "within": 0.6358,
-     "null_mean": 0.6191,
-     "z": 0.41,
-     "p": 0.6495
+     "null_mean": 0.6174,
+     "z": 0.447,
+     "p": 0.6525
     },
     {
      "category": "medical",
@@ -196246,25 +196246,25 @@
      "category": "classic_nlp",
      "n": 60,
      "within": 0.6247,
-     "null_mean": 0.5844,
-     "z": 1.061,
-     "p": 0.8495
+     "null_mean": 0.5858,
+     "z": 1.034,
+     "p": 0.8505
     },
     {
      "category": "cognitive_science",
      "n": 18,
      "within": 0.6974,
-     "null_mean": 0.5992,
-     "z": 1.46,
-     "p": 0.9295
+     "null_mean": 0.5998,
+     "z": 1.419,
+     "p": 0.9225
     },
     {
      "category": "alignment_safety",
-     "n": 48,
-     "within": 0.6996,
-     "null_mean": 0.629,
-     "z": 1.876,
-     "p": 0.9825
+     "n": 42,
+     "within": 0.7355,
+     "null_mean": 0.6322,
+     "z": 2.611,
+     "p": 0.999
     }
    ],
    "without_g": [
@@ -196272,33 +196272,33 @@
      "category": "code",
      "n": 32,
      "within": 0.4767,
-     "null_mean": 0.6544,
-     "z": -3.991,
+     "null_mean": 0.6548,
+     "z": -4.02,
+     "p": 0.0
+    },
+    {
+     "category": "knowledge",
+     "n": 84,
+     "within": 0.5639,
+     "null_mean": 0.6571,
+     "z": -3.627,
      "p": 0.0
     },
     {
      "category": "code_generation",
      "n": 30,
      "within": 0.4985,
-     "null_mean": 0.6553,
-     "z": -3.458,
-     "p": 0.001
-    },
-    {
-     "category": "knowledge",
-     "n": 78,
-     "within": 0.5726,
-     "null_mean": 0.6582,
-     "z": -3.288,
-     "p": 0.0015
+     "null_mean": 0.6571,
+     "z": -3.562,
+     "p": 0.0
     },
     {
      "category": "finance",
      "n": 5,
      "within": 0.2651,
-     "null_mean": 0.6411,
-     "z": -2.23,
-     "p": 0.0195
+     "null_mean": 0.6387,
+     "z": -2.262,
+     "p": 0.018
     },
     {
      "category": "machine_translation",
@@ -196312,9 +196312,9 @@
      "category": "crosslingual",
      "n": 14,
      "within": 0.4363,
-     "null_mean": 0.6202,
-     "z": -2.07,
-     "p": 0.027
+     "null_mean": 0.617,
+     "z": -1.983,
+     "p": 0.0305
     },
     {
      "category": "multilingual",
@@ -196344,9 +196344,9 @@
      "category": "information_retrieval",
      "n": 9,
      "within": 0.502,
-     "null_mean": 0.6383,
-     "z": -1.461,
-     "p": 0.078
+     "null_mean": 0.6428,
+     "z": -1.515,
+     "p": 0.0655
     },
     {
      "category": "math",
@@ -196368,9 +196368,9 @@
      "category": "commonsense",
      "n": 41,
      "within": 0.6212,
-     "null_mean": 0.6438,
-     "z": -0.539,
-     "p": 0.2845
+     "null_mean": 0.6456,
+     "z": -0.575,
+     "p": 0.2695
     },
     {
      "category": "reasoning",
@@ -196392,17 +196392,17 @@
      "category": "game_playing",
      "n": 8,
      "within": 0.6421,
-     "null_mean": 0.6346,
-     "z": 0.066,
-     "p": 0.502
+     "null_mean": 0.6373,
+     "z": 0.043,
+     "p": 0.494
     },
     {
      "category": "industrial",
      "n": 4,
      "within": 0.6137,
-     "null_mean": 0.5829,
-     "z": 0.145,
-     "p": 0.5625
+     "null_mean": 0.5875,
+     "z": 0.128,
+     "p": 0.558
     },
     {
      "category": "language_modelling",
@@ -196424,9 +196424,9 @@
      "category": "generation_dialogue",
      "n": 44,
      "within": 0.6744,
-     "null_mean": 0.6532,
-     "z": 0.577,
-     "p": 0.716
+     "null_mean": 0.6522,
+     "z": 0.583,
+     "p": 0.711
     },
     {
      "category": "medical",
@@ -196440,25 +196440,25 @@
      "category": "classic_nlp",
      "n": 60,
      "within": 0.6549,
-     "null_mean": 0.6186,
-     "z": 1.023,
-     "p": 0.835
+     "null_mean": 0.6193,
+     "z": 1.025,
+     "p": 0.847
     },
     {
      "category": "cognitive_science",
      "n": 18,
      "within": 0.7334,
-     "null_mean": 0.6317,
-     "z": 1.556,
-     "p": 0.946
+     "null_mean": 0.6345,
+     "z": 1.544,
+     "p": 0.9435
     },
     {
      "category": "alignment_safety",
-     "n": 48,
-     "within": 0.7278,
-     "null_mean": 0.6653,
-     "z": 1.823,
-     "p": 0.9725
+     "n": 42,
+     "within": 0.7626,
+     "null_mean": 0.6669,
+     "z": 2.566,
+     "p": 0.9985
     }
    ]
   },
@@ -209278,7 +209278,7 @@
     "agentic_tool_use"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -210312,14 +210312,14 @@
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
     "reasoning"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "reasoning"
    ],
    [
@@ -210511,14 +210511,14 @@
     "language_modelling"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "information_retrieval"
    ],
    [
     "classic_nlp"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "information_retrieval"
    ],
    [
@@ -210547,7 +210547,7 @@
     "question_answering"
    ],
    [
-    "alignment_safety",
+    "knowledge",
     "information_retrieval"
    ],
    [
@@ -210578,8 +210578,8 @@
      "category": "commonsense",
      "n": 41,
      "within": 0.7626,
-     "null_mean": 0.8575,
-     "z": -4.983,
+     "null_mean": 0.8577,
+     "z": -5.026,
      "p": 0.0
     },
     {
@@ -210594,41 +210594,41 @@
      "category": "finance",
      "n": 5,
      "within": 0.5336,
-     "null_mean": 0.8555,
-     "z": -4.314,
+     "null_mean": 0.8548,
+     "z": -4.185,
      "p": 0.0
     },
     {
      "category": "code",
      "n": 32,
      "within": 0.7574,
-     "null_mean": 0.8336,
-     "z": -3.718,
-     "p": 0.001
+     "null_mean": 0.8332,
+     "z": -3.7,
+     "p": 0.0005
     },
     {
      "category": "knowledge",
-     "n": 78,
-     "within": 0.8072,
-     "null_mean": 0.8442,
-     "z": -3.198,
-     "p": 0.0015
+     "n": 84,
+     "within": 0.8043,
+     "null_mean": 0.8413,
+     "z": -3.376,
+     "p": 0.0005
     },
     {
      "category": "code_generation",
      "n": 30,
      "within": 0.7712,
-     "null_mean": 0.8332,
-     "z": -2.92,
-     "p": 0.0025
+     "null_mean": 0.833,
+     "z": -2.931,
+     "p": 0.003
     },
     {
      "category": "crosslingual",
      "n": 14,
      "within": 0.7315,
-     "null_mean": 0.8433,
-     "z": -2.835,
-     "p": 0.007
+     "null_mean": 0.8424,
+     "z": -2.805,
+     "p": 0.0095
     },
     {
      "category": "machine_translation",
@@ -210674,9 +210674,9 @@
      "category": "industrial",
      "n": 4,
      "within": 0.6962,
-     "null_mean": 0.8334,
-     "z": -1.375,
-     "p": 0.086
+     "null_mean": 0.8322,
+     "z": -1.37,
+     "p": 0.0935
     },
     {
      "category": "medical",
@@ -210690,9 +210690,9 @@
      "category": "game_playing",
      "n": 8,
      "within": 0.8108,
-     "null_mean": 0.8468,
-     "z": -0.674,
-     "p": 0.244
+     "null_mean": 0.8462,
+     "z": -0.697,
+     "p": 0.246
     },
     {
      "category": "question_answering",
@@ -210703,20 +210703,20 @@
      "p": 0.314
     },
     {
+     "category": "generation_dialogue",
+     "n": 44,
+     "within": 0.8447,
+     "null_mean": 0.8417,
+     "z": 0.175,
+     "p": 0.5595
+    },
+    {
      "category": "summarization",
      "n": 17,
      "within": 0.8367,
      "null_mean": 0.8303,
      "z": 0.203,
      "p": 0.56
-    },
-    {
-     "category": "generation_dialogue",
-     "n": 44,
-     "within": 0.8447,
-     "null_mean": 0.8411,
-     "z": 0.212,
-     "p": 0.5785
     },
     {
      "category": "legal",
@@ -210730,33 +210730,33 @@
      "category": "cognitive_science",
      "n": 18,
      "within": 0.843,
-     "null_mean": 0.8177,
-     "z": 0.8,
-     "p": 0.774
+     "null_mean": 0.8174,
+     "z": 0.809,
+     "p": 0.7735
     },
     {
      "category": "information_retrieval",
      "n": 9,
      "within": 0.8416,
-     "null_mean": 0.7896,
-     "z": 1.027,
-     "p": 0.8425
+     "null_mean": 0.7879,
+     "z": 1.033,
+     "p": 0.837
     },
     {
      "category": "classic_nlp",
      "n": 60,
      "within": 0.8494,
-     "null_mean": 0.8286,
-     "z": 1.308,
-     "p": 0.909
+     "null_mean": 0.8279,
+     "z": 1.357,
+     "p": 0.919
     },
     {
      "category": "alignment_safety",
-     "n": 48,
-     "within": 0.8803,
-     "null_mean": 0.8502,
-     "z": 1.992,
-     "p": 0.9845
+     "n": 42,
+     "within": 0.89,
+     "null_mean": 0.8558,
+     "z": 2.163,
+     "p": 0.988
     }
    ],
    "without_g": [
@@ -210764,8 +210764,8 @@
      "category": "commonsense",
      "n": 41,
      "within": 0.8183,
-     "null_mean": 0.9239,
-     "z": -8.967,
+     "null_mean": 0.924,
+     "z": -9.268,
      "p": 0.0
     },
     {
@@ -210780,16 +210780,8 @@
      "category": "finance",
      "n": 5,
      "within": 0.6276,
-     "null_mean": 0.9242,
-     "z": -5.289,
-     "p": 0.0
-    },
-    {
-     "category": "crosslingual",
-     "n": 14,
-     "within": 0.783,
-     "null_mean": 0.9171,
-     "z": -5.277,
+     "null_mean": 0.9247,
+     "z": -5.243,
      "p": 0.0
     },
     {
@@ -210798,6 +210790,14 @@
      "within": 0.8753,
      "null_mean": 0.9099,
      "z": -5.185,
+     "p": 0.0
+    },
+    {
+     "category": "crosslingual",
+     "n": 14,
+     "within": 0.783,
+     "null_mean": 0.9167,
+     "z": -5.177,
      "p": 0.0
     },
     {
@@ -210828,9 +210828,9 @@
      "category": "code",
      "n": 32,
      "within": 0.8361,
-     "null_mean": 0.8961,
-     "z": -3.632,
-     "p": 0.0
+     "null_mean": 0.896,
+     "z": -3.609,
+     "p": 0.0005
     },
     {
      "category": "agentic_tool_use",
@@ -210844,9 +210844,9 @@
      "category": "code_generation",
      "n": 30,
      "within": 0.8454,
-     "null_mean": 0.8973,
-     "z": -3.058,
-     "p": 0.001
+     "null_mean": 0.8974,
+     "z": -2.968,
+     "p": 0.003
     },
     {
      "category": "math",
@@ -210860,17 +210860,17 @@
      "category": "industrial",
      "n": 4,
      "within": 0.7321,
-     "null_mean": 0.9112,
-     "z": -2.294,
-     "p": 0.0195
+     "null_mean": 0.9123,
+     "z": -2.348,
+     "p": 0.019
     },
     {
      "category": "knowledge",
-     "n": 78,
-     "within": 0.8894,
-     "null_mean": 0.9078,
-     "z": -2.169,
-     "p": 0.016
+     "n": 84,
+     "within": 0.8899,
+     "null_mean": 0.9053,
+     "z": -1.87,
+     "p": 0.033
     },
     {
      "category": "multilingual",
@@ -210884,9 +210884,9 @@
      "category": "game_playing",
      "n": 8,
      "within": 0.886,
-     "null_mean": 0.9154,
-     "z": -0.755,
-     "p": 0.2225
+     "null_mean": 0.917,
+     "z": -0.824,
+     "p": 0.1925
     },
     {
      "category": "summarization",
@@ -210908,9 +210908,9 @@
      "category": "generation_dialogue",
      "n": 44,
      "within": 0.9135,
-     "null_mean": 0.9074,
-     "z": 0.486,
-     "p": 0.6755
+     "null_mean": 0.9069,
+     "z": 0.536,
+     "p": 0.706
     },
     {
      "category": "legal",
@@ -210925,32 +210925,32 @@
      "n": 18,
      "within": 0.9107,
      "null_mean": 0.8866,
-     "z": 0.945,
-     "p": 0.8215
+     "z": 0.935,
+     "p": 0.823
     },
     {
      "category": "classic_nlp",
      "n": 60,
      "within": 0.9111,
-     "null_mean": 0.8998,
-     "z": 1.091,
-     "p": 0.865
+     "null_mean": 0.9002,
+     "z": 1.052,
+     "p": 0.857
     },
     {
      "category": "information_retrieval",
      "n": 9,
      "within": 0.92,
-     "null_mean": 0.8531,
-     "z": 1.402,
-     "p": 0.928
+     "null_mean": 0.8526,
+     "z": 1.394,
+     "p": 0.9225
     },
     {
      "category": "alignment_safety",
-     "n": 48,
-     "within": 0.9343,
-     "null_mean": 0.9127,
-     "z": 1.945,
-     "p": 0.976
+     "n": 42,
+     "within": 0.9363,
+     "null_mean": 0.9165,
+     "z": 1.726,
+     "p": 0.9625
     }
    ]
   },
