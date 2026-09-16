@@ -70,7 +70,7 @@ Benchmarks confirmed non-text on inspection despite keyword-free or mislabeled m
 - `kaggle_andrewmingwang_parsebench`: ParseBench (arXiv:2604.08538): document-image parsing/OCR for agents (tables, charts, visual grounding); metadata otherwise blank
 - `longshot`: LongShOTBench (arXiv:2512.16978): omni-modal reasoning in long VIDEOS (vision + speech + ambient audio); rows are VLMs (LLaVA, InternVL, Qwen3-VL); subcategory misleadingly says 'long document reasoning'
 
-## Benchmarks removed (49) â€” redundant, translated, or defective
+## Benchmarks removed (49) — redundant, translated, or defective
 
 From `config.SCORE_REDUNDANT_BENCHMARKS` (near-duplicate columns, decided from full pairwise Pearson correlation over the models evaluated on both), `config.TRANSLATION_DUPLICATE_BENCHMARKS` (translations of an in-corpus original, decided on construct), and `config.DEFECTIVE_BENCHMARKS`:
 

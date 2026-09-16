@@ -33,9 +33,10 @@ asks the narrower question of which *group* factors a benchmark shares. Both
 are emitted so the viewer can toggle. The UMAP coordinates are always computed
 WITH g, so point positions are unaffected by this choice.
 
-Clusters are cross-checked against the curated benchmarks.csv categories via
-the Adjusted Rand Index. That agreement is deliberately a weak criterion -- see
-LABEL_COLUMNS below and the caveats in the viewer's meta line.
+Human labels (see LABEL_COLUMNS) are scored independently of the clustering:
+category_cohesion() tests whether each label's members sit closer together in
+the distance matrix than a coverage-matched random set. Labels are authored on
+benchmark content and never tuned against that score.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ import polars as pl
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 from sklearn.cluster import HDBSCAN
-from sklearn.metrics import adjusted_rand_score, silhouette_score
+from sklearn.metrics import silhouette_score
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = REPO / "viewer" / "positions.json"
@@ -91,12 +92,24 @@ COVERAGE_STRATA = 4
 # which put recall on both sides and so carved nothing real; these axes split on
 # what is actually being assessed instead.
 LABEL_COLUMNS: dict[str, str] = {
-    "evaluated": "evaluated",      # what is assessed: knowledge, commonsense, ...
-    "task": "task_labels",         # what the model does
-    "subject": "subject",          # what it is about, when about something specific
-    "language": "language",        # conditions of administration
+    # What the benchmark is about or measures: capabilities AND content domains,
+    # multi-label, so `reading_comprehension` and `medical` coexist on one row.
+    # A separate "what is assessed" axis was tried and merged back in: once task
+    # carries the mechanism, it only restated subject (math x mathematics,
+    # code x programming) or restated task (translation x machine_translation).
+    "subject": "subject",
+    # HOW the test is administered -- the shape of the interaction, not the
+    # capability and not the scoring method (Chatbot Arena is `conversation`;
+    # its Elo is just how it is scored).
+    "task": "task_labels",
+    "language": "language",
 }
 AXIS_ORDER = tuple(LABEL_COLUMNS)
+# Labels are identified as "<axis>:<label>". The same display name can then
+# live on several axes -- `miscellaneous` as a catch-all is the motivating case
+# -- and stay distinct, which matters because "misc subject" and "misc language"
+# are different sets and must be highlighted and scored separately.
+LABEL_SEP = ":"
 
 
 type Cell = tuple[str, np.ndarray, list[str], list[str]]
@@ -348,11 +361,11 @@ def split_labels(raw: str | None) -> list[str]:
 
 def load_labels(
     data_root: Path,
-) -> tuple[dict[str, list[str]], dict[str, str], dict[str, list[str]]]:
-    """(benchmark -> flat labels, label -> axis, axis -> labels by descending count).
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """(benchmark -> qualified label ids, axis -> ids by descending count).
 
-    Axis membership is derived from which column a label sits in, so the
-    vocabulary lives entirely in the data.
+    Ids are "<axis>:<label>", derived from which column a label sits in, so the
+    vocabulary lives entirely in the data and a label name may repeat across axes.
     """
     path = data_root / "benchmarks.csv"
     if not path.exists():
@@ -365,23 +378,22 @@ def load_labels(
         )
 
     labels: dict[str, list[str]] = defaultdict(list)
-    label_axis: dict[str, str] = {}
     counts: dict[str, dict[str, int]] = {ax: defaultdict(int) for ax in LABEL_COLUMNS}
     for axis, col in LABEL_COLUMNS.items():
         for bid, cell in zip(df["benchmark_id"], df[col]):
             for lab in split_labels(cell):
-                prior = label_axis.setdefault(lab, axis)
-                if prior != axis:
+                if LABEL_SEP in lab:
                     raise SystemExit(
-                        f"label {lab!r} appears on two axes ({prior}, {axis}); "
-                        "a label must belong to exactly one"
+                        f"{bid}: label {lab!r} in `{col}` contains the reserved "
+                        f"separator {LABEL_SEP!r}"
                     )
-                labels[bid].append(lab)
-                counts[axis][lab] += 1
+                qid = f"{axis}{LABEL_SEP}{lab}"
+                labels[bid].append(qid)
+                counts[axis][qid] += 1
     axis_labels = {
         ax: sorted(c, key=lambda l: (-c[l], l)) for ax, c in counts.items() if c
     }
-    return dict(labels), label_axis, axis_labels
+    return dict(labels), axis_labels
 
 
 def dump_labels(data_root: Path, out: Path) -> None:
@@ -654,7 +666,7 @@ def main() -> None:
     cells = load_cells(results_root, legacy_names=args.legacy_names)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")
-    categories, label_axis, axis_labels = load_labels(resolve(args.data_root))
+    categories, axis_labels = load_labels(resolve(args.data_root))
     model_coverage = load_coverage(resolve(args.data_root))
     rng = np.random.default_rng(42)
 
@@ -731,7 +743,7 @@ def main() -> None:
                     "min_samples": args.hdbscan_min_samples,
                     "cluster_selection_method": args.hdbscan_selection,
                 },
-                "label_axis": label_axis,
+                "label_sep": LABEL_SEP,
                 "axis_order": [a for a in AXIS_ORDER if a in axis_labels],
                 "axis_labels": axis_labels,
             },

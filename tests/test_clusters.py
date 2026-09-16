@@ -112,31 +112,61 @@ def test_silhouette_excludes_noise():
     assert clean is not None and cp.silhouette(d, noisy) is not None
 
 
-def test_ari_excludes_blanks():
-    bench = [f"b{i}" for i in range(6)]
-    labels = np.array([0, 0, 0, 1, 1, 1])
-    cats = {"b0": "math", "b1": "math", "b3": "code", "b4": "code"}
-    ari, n = cp.agreement(labels, bench, cats)
-    # b2/b5 have no category: excluded, so only ari_n moves.
-    ari2, n2 = cp.agreement(labels, bench + ["b9"], {**cats})
-    assert n == 4 and ari == 1.0
-    assert ari2 == ari and n2 == n
+def _write_benchmarks(tmp_path, rows):
+    """Minimal benchmarks.csv with the three label columns."""
+    cols = ["benchmark_id", "subject", "task_labels", "language"]
+    lines = [",".join(cols)] + [",".join(r) for r in rows]
+    (tmp_path / "benchmarks.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return tmp_path
 
 
-def test_agreement_degenerate():
-    bench = ["a", "b"]
-    assert cp.agreement(np.array([0, 0]), bench, {}) == (None, 0)
-    assert cp.agreement(np.array([-1, -1]), bench, {"a": "math", "b": "code"}) == (None, 0)
+def test_split_labels():
+    assert cp.split_labels("math; multilingual ;") == ["math", "multilingual"]
+    assert cp.split_labels("") == []
+    assert cp.split_labels(None) == []
 
 
-def test_normalize_category():
-    assert cp.normalize_category("General Knowledge") == "general_knowledge"
-    assert cp.normalize_category("general_knowledge") == "general_knowledge"
-    assert cp.normalize_category("  CODING ") == "code"
-    assert cp.normalize_category("") is None
-    assert cp.normalize_category(None) is None
-    with pytest.raises(ValueError, match="unmapped"):
-        cp.normalize_category("quantum_basketball")
+def test_load_labels_derives_axis_from_column(tmp_path):
+    root = _write_benchmarks(
+        tmp_path,
+        [
+            ["mgsm", "math;reasoning", "long_reasoning", "multilingual"],
+            ["squad", "reading_comprehension;encyclopedic", "extraction", ""],
+        ],
+    )
+    labels, axis_labels = cp.load_labels(root)
+    assert labels["mgsm"] == [
+        "subject:math", "subject:reasoning", "task:long_reasoning", "language:multilingual"
+    ]
+    # a capability and a content domain coexist on the one merged subject axis
+    assert labels["squad"] == [
+        "subject:reading_comprehension", "subject:encyclopedic", "task:extraction"
+    ]
+    assert set(axis_labels) == {"subject", "task", "language"}
+
+
+def test_load_labels_same_name_on_two_axes_stays_distinct(tmp_path):
+    """`miscellaneous` as a catch-all on several axes must be separate sets."""
+    root = _write_benchmarks(
+        tmp_path,
+        [["odd", "miscellaneous", "short_qa", "miscellaneous"]],
+    )
+    labels, axis_labels = cp.load_labels(root)
+    assert "subject:miscellaneous" in labels["odd"]
+    assert "language:miscellaneous" in labels["odd"]
+    assert axis_labels["subject"] != axis_labels["language"]
+
+
+def test_load_labels_rejects_reserved_separator(tmp_path):
+    root = _write_benchmarks(tmp_path, [["x", "a:b", "short_qa", ""]])
+    with pytest.raises(SystemExit, match="reserved separator"):
+        cp.load_labels(root)
+
+
+def test_load_labels_requires_label_columns(tmp_path):
+    (tmp_path / "benchmarks.csv").write_text("benchmark_id,category\nx,math\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="missing label columns"):
+        cp.load_labels(tmp_path)
 
 
 def test_cluster_records_sizes_descending_no_noise_row():

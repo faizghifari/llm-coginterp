@@ -114,10 +114,21 @@ const colorFor = (value, dimmed) => {
   return dimmed ? CLUSTER_DIM[value % CLUSTER.length] : CLUSTER[value % CLUSTER.length];
 };
 
-const AXIS_LABEL = { topic: "Topic", task: "Task", axis: "Axis" };
+// Label ids are "<axis>:<label>", so the same display name (e.g. miscellaneous)
+// can live on several axes and still be a distinct, separately scored set.
+function labelSep(d) {
+  return d.clusters?.params?.label_sep ?? null;
+}
 
 function axisOf(d, label) {
-  return d.clusters?.params?.label_axis?.[label] ?? "other";
+  const sep = labelSep(d);
+  if (sep && label.includes(sep)) return label.slice(0, label.indexOf(sep));
+  return d.clusters?.params?.label_axis?.[label] ?? "other";   // pre-qualified payloads
+}
+
+function displayOf(d, label) {
+  const sep = labelSep(d);
+  return sep && label.includes(sep) ? label.slice(label.indexOf(sep) + sep.length) : label;
 }
 
 function axisOrder(d) {
@@ -168,12 +179,13 @@ function groupRows(d) {
       const stat = c
         ? `${c.z <= 0 ? "tighter" : "looser"} than chance: z=${c.z}, p=${c.p}`
         : "no cohesion score (too few members)";
+      const name = displayOf(d, label);
       return {
         value: label,
         members,
-        label,
+        label: name,
         size: members.length,
-        title: `${label}: ${members.length} benchmarks — ${stat}`,
+        title: `${name}: ${members.length} benchmarks — ${stat}`,
       };
     });
     rows.sort((a, b) => b.size - a.size || a.label.localeCompare(b.label));
@@ -242,13 +254,7 @@ function drawLegend(d) {
   // Category mode groups rows under Topic / Task / Axis so a subject-matter
   // label is never read as though it were a capability.
   const groups = [[null, rows]];
-  for (const [ax, group] of groups) {
-    if (ax) {
-      const h = document.createElement("div");
-      h.className = "axis-head";
-      h.textContent = AXIS_LABEL[ax] ?? ax;
-      legend.appendChild(h);
-    }
+  for (const [, group] of groups) {
   for (const row of group) {
     const el = document.createElement("div");
     el.dataset.value = String(row.value);
@@ -382,12 +388,12 @@ function clusterMeta(d) {
         const verdict =
           co.p < 0.05 ? "tighter than chance" : "not tighter than chance";
         parts.push(
-          `${state.category}: n=${co.n} · ${verdict} (z=${co.z}, p=${co.p}, ${g}, coverage-matched)`
+          `${displayOf(d, state.category)}: n=${co.n} · ${verdict} (z=${co.z}, p=${co.p}, ${g}, coverage-matched)`
         );
       } else if (d.category_cohesion) {
-        parts.push(`${state.category}: too few members to score`);
+        parts.push(`${displayOf(d, state.category)}: too few members to score`);
       } else {
-        parts.push(`${state.category}: no cohesion score in this payload`);
+        parts.push(`${displayOf(d, state.category)}: no cohesion score in this payload`);
       }
     } else {
       parts.push("pick a category to highlight");
@@ -546,7 +552,9 @@ canvas.addEventListener("mousemove", (ev) => {
   if (best) {
     tooltip.hidden = false;
     // textContent, never innerHTML: these strings come from CSV data.
-    const labs = best.cats.length ? best.cats.join(", ") : "no category";
+    const labs = best.cats.length
+      ? best.cats.map((l) => `${axisOf(d, l)}: ${displayOf(d, l)}`).join(", ")
+      : "no category";
     tooltip.textContent = [best.b, groupText(d, best), labs].join("\n");
     tooltip.style.left = `${ev.clientX + 12}px`;
     tooltip.style.top = `${ev.clientY - 20}px`;
@@ -562,7 +570,8 @@ function groupText(d, p) {
   }
   if (inCategoryMode()) {
     if (!state.category) return "no category highlighted";
-    return p.g >= 0 ? `in ${state.category}` : `not in ${state.category}`;
+    const name = displayOf(d, state.category);
+    return p.g >= 0 ? `in ${name}` : `not in ${name}`;
   }
   if (p.g === null || p.g === undefined) return "unassigned";
   if (p.g === -1) return "noise";
