@@ -27,11 +27,24 @@ independently runnable.
 
 ## Running
 
-```bash
-# One-time environment setup (Python via uv, R via renv, Julia via Project.toml)
-make deps    # apt install r-base, install julia + uv
-make env     # env-py (uv sync) + env-r (Rscript install.R) + env-jl (Pkg.instantiate)
+Use the docker container to have a replicable environment.
 
+```bash
+# Example
+docker build -t machineg .
+```
+
+The container does not copy data/ or results/, so build them first in host:
+
+```bash
+make preproc
+docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make runall
+```
+
+
+### Scripts
+
+```bash
 # Dataset maintenance (Python, from repo root or anywhere — scripts anchor to repo root)
 python3 scripts/verify_data.py                 # integrity checks; run after every data edit
 python3 scripts/manage_data.py --help           # dupes, dedup, find-aliases, apply-aliases,

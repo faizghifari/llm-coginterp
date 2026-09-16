@@ -227,12 +227,8 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
 
     # ── diagnostic print ───────────────────────────────────────────────────
     print(
-        f"[{densifier}] {strategy:16} "
-        f"{orig_models}x{orig_bench} "
-        f"({orig_filled} cells, {100*orig_filled/(orig_models*orig_bench):.1f}%) -> "
-        f"{out.height}x{len(out_value_cols)} "
-        f"({100*density:.1f}%)  retained {100*kept_filled/orig_filled:.0f}%"
-        f"  out obs={MIN_OBS}: {out_obs2}"
+        f"| {densifier} | `{strategy}` | {out.height} × {len(out_value_cols)} | {100*density:.1f}% | "
+        f"{100*kept_filled/orig_filled:.0f}% |"
     )
     # parts = []
     # if raw_obs2: parts.append(f"raw obs=2: {raw_obs2}")
@@ -252,19 +248,20 @@ def main(peek: bool = False):
     all_rows = []
 
     # ── raw table column-obs diagnostics (undensified inputs) ──────────────
+    print("| Densifier | Strategy | Shape | Density | Retained |")
+    print("| --------- | -------- | ---------- | ------: | -------: |")
     for strategy in STRATEGIES:
         rdf = pl.read_csv(SRC / strategy / "model_benchmark_table.csv")
         rvc = [c for c in rdf.columns if c != KEY]
         raw_obs = col_obs_counts(rdf, rvc)
+        raw_filled = sum(raw_obs)
+        raw_pct = 100 * raw_filled / (rdf.height * len(rvc))
         raw_obs2 = sum(1 for n in raw_obs if n == 2)
         raw_degen = sum(1 for n in raw_obs if n < MIN_OBS)
         raw_const = sum(1 for c, n in zip(rvc, raw_obs)
                         if n >= MIN_OBS and rdf[c].drop_nulls().n_unique() == 1)
         print(
-            f"[raw] {strategy:16} "
-            f"{rdf.height}x{len(rvc)} "
-            # f"| raw obs=2: {raw_obs2}  raw <{MIN_OBS}: {raw_degen}"
-            # + (f"  raw zero-var: {raw_const}" if raw_const else "")
+            f"| raw | `{strategy}` | {rdf.height} × {len(rvc)} | {raw_pct:.1f}% |  |"
         )
 
     for densifier in DENSIFIERS:

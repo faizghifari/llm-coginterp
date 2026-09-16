@@ -64,5 +64,8 @@ scripts/archive/models_research_findings.json
 # Local tooling configs
 CLAUDE.md
 
-# output
-results/*
+# mounted at runtime, never baked into the image
+data/
+results/
+
+Dockerfile
