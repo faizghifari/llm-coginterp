@@ -35,7 +35,7 @@ const state = {
   k: null,
   colorBy: "cluster",   // "cluster" or an axis name from the payload
   variant: "with_g",
-  category: null,   // single-select highlight in category mode
+  highlights: new Set(),  // multi-select highlight: label ids and/or NO_LABEL
 };
 
 const $ = (id) => document.getElementById(id);
@@ -43,10 +43,35 @@ const canvas = $("plot");
 const ctx = canvas.getContext("2d");
 const tooltip = $("tooltip");
 
-// selection key: aggregate is "dz|tag", a year cohort appends "|y<year>".
+// selection key: aggregate is "dz|tag", a year cohort appends "|y<year>", and a
+// per-imputer view inserts "|m<method>" before the year segment.
 function keyOf() {
   const y = $("year").value;
-  return `${$("dz").value}|${$("tag").value}${y === "all" ? "" : `|y${y}`}`;
+  const imp = $("imputer").value;
+  return (
+    `${$("dz").value}|${$("tag").value}` +
+    (imp === "aggregate" ? "" : `|m${imp}`) +
+    (y === "all" ? "" : `|y${y}`)
+  );
+}
+
+// Imputation methods available for the current dz x tag x cohort. Derived from
+// the key set: per-method keys carry a "|m<method>" segment.
+function imputerOptions() {
+  const prefix = `${$("dz").value}|${$("tag").value}`;
+  const y = $("year").value;
+  const methods = new Set(["aggregate"]);
+  for (const k of Object.keys(state.data)) {
+    if (!k.startsWith(prefix)) continue;
+    let method = "aggregate";
+    let year = "all";
+    for (const seg of k.split("|").slice(2)) {
+      if (seg.startsWith("y")) year = seg.slice(1);
+      else method = seg.slice(1);
+    }
+    if (year === y) methods.add(method);
+  }
+  return [...methods].sort();
 }
 
 // years that exist for the current dz x tag; aggregate ("all") always offered.
@@ -85,26 +110,46 @@ function clusterLabels(d) {
 }
 
 // Per-point group value. Cluster mode: the cluster id (-1 = noise). Category
-// mode: 0 if the point carries the selected category, else -1. Category mode is
-// deliberately one-at-a-time -- a multi-label point has no single colour, and
-// one highlighted set needs one colour, which sidesteps the palette's
-// all-pairs CVD limit entirely.
+// mode: the color index of the FIRST selected label the point carries (legend
+// order), -1 if none. Multi-highlight deliberately reuses the cluster palette
+// slots only up to the number of selected labels; a multi-label point has no
+// single colour, so overlaps resolve to the first match and the tooltip names
+// every selected label the point carries -- colour is never the sole carrier
+// of identity.
 function groupValues(d) {
   if (!d.clusters && !d.categories) return null;
   if (inCategoryMode()) {
     if (!d.categories) return null;
-    if (!state.category) return d.categories.map(() => -1);
-    if (state.category === NO_LABEL) {
-      return d.categories.map((_, i) => (axisLabelsAt(d, i).length ? -1 : 0));
-    }
-    return d.categories.map((_, i) =>
-      labelsOf(d, i).includes(state.category) ? 0 : -1
-    );
+    if (!state.highlights.size) return d.categories.map(() => -1);
+    const idx = highlightMap(d).idx;
+    return d.categories.map((_, i) => {
+      const labs = axisLabelsAt(d, i);
+      if (!labs.length) return idx.get(NO_LABEL) ?? -1;
+      for (const l of labs) {
+        const c = idx.get(l);
+        if (c !== undefined) return c;
+      }
+      return -1;
+    });
   }
   const cl = d.clusters ? clusterLabels(d) : null;
   // Cluster mode: selecting the noise row promotes noise to the highlighted set.
-  if (cl && state.category === NO_LABEL) return cl.map((v) => (v < 0 ? 0 : -1));
+  if (cl && state.highlights.has(NO_LABEL)) return cl.map((v) => (v < 0 ? 0 : -1));
   return cl;
+}
+
+// Color index per selected label, in legend order, plus the NO_LABEL sentinel
+// when selected. One shared map keeps the legend swatches and the point colors
+// consistent.
+function highlightMap(d) {
+  const [rows] = groupRows(d);
+  const idx = new Map();
+  let next = 0;
+  for (const r of rows) {
+    if (state.highlights.has(r.value)) idx.set(r.value, next++);
+  }
+  if (state.highlights.has(NO_LABEL)) idx.set(NO_LABEL, next++);
+  return { idx, labels: [...idx.keys()] };
 }
 
 const colorFor = (value, dimmed) => {
@@ -219,15 +264,20 @@ function groupRows(d) {
 }
 
 // Cluster mode: a row toggles its members into the checkbox highlight.
-// Category mode: a row is a single-select highlight, independent of checkboxes.
+// Category mode: a row toggles in/out of the multi-select highlight, each
+// selected row keeping its own color.
 function onLegendClick(d, value) {
   if (value === NO_LABEL) {
-    state.category = state.category === NO_LABEL ? null : NO_LABEL;
+    state.highlights.has(NO_LABEL)
+      ? state.highlights.delete(NO_LABEL)
+      : state.highlights.add(NO_LABEL);
     rebuild();
     return;
   }
   if (inCategoryMode()) {
-    state.category = state.category === value ? null : value;
+    state.highlights.has(value)
+      ? state.highlights.delete(value)
+      : state.highlights.add(value);
     rebuild();
     return;
   }
@@ -254,6 +304,7 @@ function drawLegend(d) {
   // Category mode groups rows under Topic / Task / Axis so a subject-matter
   // label is never read as though it were a capability.
   const groups = [[null, rows]];
+  const hidx = cat ? highlightMap(d).idx : null;
   for (const [, group] of groups) {
   for (const row of group) {
     const el = document.createElement("div");
@@ -261,16 +312,16 @@ function drawLegend(d) {
     el.title = row.title;
     const sw = document.createElement("span");
     sw.className = "swatch";
-    sw.style.background = colorFor(cat ? (row.value === state.category ? 0 : -1) : row.value, false);
+    sw.style.background = cat
+      ? hidx.has(row.value) ? colorFor(hidx.get(row.value), false) : NOISE
+      : colorFor(row.value, false);
     const name = document.createElement("span");
     name.textContent = row.label;
     const n = document.createElement("span");
     n.className = "n";
     n.textContent = row.size;
     el.append(sw, name, n);
-    const on = cat
-      ? row.value === state.category
-      : row.members.every((i) => state.checked.has(d.benchmarks[i]));
+    const on = cat ? hidx.has(row.value) : row.members.every((i) => state.checked.has(d.benchmarks[i]));
     if (on) el.classList.add("on");
     legend.appendChild(el);
   }
@@ -279,14 +330,14 @@ function drawLegend(d) {
     const el = document.createElement("div");
     el.className = "unassigned";
     el.dataset.value = NO_LABEL;
-    const on = state.category === NO_LABEL;
+    const on = state.highlights.has(NO_LABEL);
     if (on) el.classList.add("on");
     el.title = cat
       ? `${unassigned} benchmarks carry no ${state.colorBy} label — click to highlight`
       : `${unassigned} benchmarks the clusterer declined to place — click to highlight`;
     const sw = document.createElement("span");
     sw.className = "swatch";
-    sw.style.background = on ? colorFor(0, false) : NOISE;
+    sw.style.background = on ? colorFor(cat ? hidx.get(NO_LABEL) : 0, false) : NOISE;
     const name = document.createElement("span");
     name.textContent = cat ? "unlabelled" : "noise";
     const n = document.createElement("span");
@@ -333,6 +384,7 @@ function rebuild() {
   const cohort = d.year === undefined ? "all years" : `cohort ${d.year}`;
   $("meta").textContent =
     `${cohort} · ${d.benchmarks.length} benchmarks · averaged over ${d.n_cells} cells · ` +
+    (d.method ? `imputer ${d.method} · ` : "") +
     tagDesc +
     clusterMeta(d);
   draw();
@@ -347,8 +399,10 @@ function syncColorBy(d) {
   if (!opts.includes(state.colorBy)) state.colorBy = "cluster";
   setOptions($("colorby"), opts, state.colorBy);
   const labels = inCategoryMode() ? axisLabels(d, state.colorBy) : [];
-  if (state.category && state.category !== NO_LABEL && !labels.includes(state.category)) {
-    state.category = null;
+  // A label from the old axis is meaningless on the new one; "carries no label
+  // here" survives every axis.
+  for (const h of [...state.highlights]) {
+    if (h !== NO_LABEL && !labels.includes(h)) state.highlights.delete(h);
   }
 }
 
@@ -378,25 +432,29 @@ function clusterMeta(d) {
       `${state.colorBy}: ${rows.length} labels here`,
       `${unlabelled} with none`
     );
-    if (state.category === NO_LABEL) {
-      const [, un] = groupRows(d);
-      parts.push(`highlighting the ${un} with no ${state.colorBy} label (not scored)`);
-    } else if (state.category) {
-      const co = cohesionOf(d, state.category);
-      const g = state.variant === "with_g" ? "with g" : "without g";
-      if (co) {
-        const verdict =
-          co.p < 0.05 ? "tighter than chance" : "not tighter than chance";
-        parts.push(
-          `${displayOf(d, state.category)}: n=${co.n} · ${verdict} (z=${co.z}, p=${co.p}, ${g}, coverage-matched)`
-        );
-      } else if (d.category_cohesion) {
-        parts.push(`${displayOf(d, state.category)}: too few members to score`);
-      } else {
-        parts.push(`${displayOf(d, state.category)}: no cohesion score in this payload`);
-      }
-    } else {
+    if (state.highlights.has(NO_LABEL)) {
+      parts.push(`highlighting the ${unlabelled} with no ${state.colorBy} label (not scored)`);
+    }
+    if (!state.highlights.size) {
       parts.push("pick a category to highlight");
+    } else {
+      const g = state.variant === "with_g" ? "with g" : "without g";
+      for (const h of state.highlights) {
+        if (h === NO_LABEL) continue;
+        const co = cohesionOf(d, h);
+        const name = displayOf(d, h);
+        if (co) {
+          const verdict =
+            co.p < 0.05 ? "tighter than chance" : "not tighter than chance";
+          parts.push(
+            `${name}: n=${co.n} · ${verdict} (z=${co.z}, p=${co.p}, ${g}, coverage-matched)`
+          );
+        } else if (d.category_cohesion) {
+          parts.push(`${name}: too few members to score`);
+        } else {
+          parts.push(`${name}: no cohesion score in this payload`);
+        }
+      }
     }
   } else {
     const v = variantOf(d);
@@ -564,14 +622,21 @@ canvas.addEventListener("mousemove", (ev) => {
 });
 
 function groupText(d, p) {
-  if (state.category === NO_LABEL) {
-    const what = inCategoryMode() ? `no ${state.colorBy} label` : "noise";
-    return p.g >= 0 ? what : `has a ${inCategoryMode() ? state.colorBy : "cluster"}`;
-  }
   if (inCategoryMode()) {
-    if (!state.category) return "no category highlighted";
-    const name = displayOf(d, state.category);
-    return p.g >= 0 ? `in ${name}` : `not in ${name}`;
+    if (!state.highlights.size) return "no category highlighted";
+    // Name EVERY selected label the point carries; the dot only shows the
+    // first match's colour, so the tooltip carries the overlap.
+    const hmap = highlightMap(d);
+    const carried = p.cats.filter((l) => hmap.idx.has(l)).map((l) => displayOf(d, l));
+    const unl =
+      hmap.idx.has(NO_LABEL) &&
+      !p.cats.some((l) => axisOf(d, l) === state.colorBy);
+    if (unl && !carried.length) return `no ${state.colorBy} label`;
+    if (unl) carried.push(`no ${state.colorBy} label`);
+    return carried.length ? carried.join(" · ") : "not highlighted";
+  }
+  if (state.highlights.has(NO_LABEL)) {
+    return p.g >= 0 ? "noise" : "has a cluster";
   }
   if (p.g === null || p.g === undefined) return "unassigned";
   if (p.g === -1) return "noise";
@@ -609,12 +674,20 @@ function init(data) {
   const keys = Object.keys(data);
   const dzs = [...new Set(keys.map((k) => k.split("|")[0]))];
   const tags = [...new Set(keys.map((k) => k.split("|")[1]))];
-  state.key = keys[0];
-  setOptions($("dz"), dzs, dzs[0]);
-  setOptions($("tag"), tags, tags[0]);
+  // Prefer the pa tag as the default view; fall back to insertion order.
+  const defaultDz = dzs.includes("C") ? "C" : dzs[0];
+  const defaultTag = tags.includes("pa") ? "pa" : tags[0];
+  state.key = `${defaultDz}|${defaultTag}`;
+  setOptions($("dz"), dzs, defaultDz);
+  setOptions($("tag"), tags, defaultTag);
   setOptions($("year"), ["all"], "all");
 
   const apply = () => {
+    // The imputer list depends on dz x tag x cohort, so it is resynced here;
+    // an imputer absent from the new view falls back to the aggregate.
+    const cur = $("imputer").value;
+    const opts = imputerOptions();
+    setOptions($("imputer"), opts, opts.includes(cur) ? cur : "aggregate");
     state.key = keyOf();
     if (!state.data[state.key]) return; // stale selection: keep last valid view
     rebuild();
@@ -644,22 +717,26 @@ function init(data) {
   });
   $("colorby").addEventListener("change", () => {
     state.colorBy = $("colorby").value;
-    // A label from the old axis is meaningless on the new one, but "carries no
-    // label here" is meaningful on every axis, so that selection survives.
-    if (state.category !== NO_LABEL) state.category = null;
+    // Stale labels are dropped inside syncColorBy; NO_LABEL survives there.
     rebuild();
   });
+  $("imputer").addEventListener("change", apply);
 
   // An old positions.js has no clusters; hide the whole apparatus rather than
-  // showing dead controls.
+  // showing dead controls. The imputer dropdown is hidden when the payload has
+  // no per-method keys (a pre-method positions.js).
   const hasClusters = Object.values(data).some((c) => c.clusters);
   for (const id of ["algo", "k", "variant", "colorby"]) {
     $(id).closest("label").hidden = !hasClusters;
   }
+  const hasMethods = Object.keys(data).some((k) =>
+    k.split("|").some((seg) => /^m./.test(seg))
+  );
+  $("imputer").closest("label").hidden = !hasMethods;
   $("legend-head").hidden = !hasClusters;
   $("legend").hidden = !hasClusters;
 
-  rebuild();
+  apply();   // not rebuild(): apply() seeds the imputer dropdown on first load
   requestAnimationFrame(draw);
   window.addEventListener("load", draw);
 }

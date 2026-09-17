@@ -119,6 +119,10 @@ type CellKey = tuple[str, str, int | None]
 """(densifier, tag, release-year cohort or None for the all-years aggregate)."""
 
 
+CELL_KEY_RE = re.compile(r"^(?P<method>.+)_(?:C|R|S|raw)_(?:all_standard|all_aggressive)$")
+"""Recovers the method name from a cell key ("<method>_<dz>_<st>")."""
+
+
 def load_cells(
     results_root: Path, *, legacy_names: bool = False
 ) -> dict[CellKey, list[Cell]]:
@@ -671,11 +675,30 @@ def main() -> None:
     rng = np.random.default_rng(42)
 
     out = {}
+    # One job per composite matrix: the aggregate over every imputation method
+    # (key "dz|tag", unchanged for backwards compatibility) plus one per method
+    # (key "dz|tag|m<method>"). A loadings filename is
+    # <method>_<dz>_<st>_bifactor_...; method names may contain underscores, so
+    # the trailing "_<dz>_<st>" fields are stripped exactly.
+    jobs: list[tuple[str, list[Cell], str | None]] = []
     for (dz, tag, year), cell_list in sorted(
         cells.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2] is not None, kv[0][2] or 0)
     ):
-        # aggregate key stays "dz|tag" (backwards compatible); cohorts get |y<year>
-        key = f"{dz}|{tag}" if year is None else f"{dz}|{tag}|y{year}"
+        jobs.append((f"{dz}|{tag}" if year is None else f"{dz}|{tag}|y{year}", cell_list, None))
+        by_method: dict[str, list[Cell]] = defaultdict(list)
+        for cell in cell_list:
+            # A cell key is "<method>_<dz>_<st>" where <st> itself contains an
+            # underscore (all_standard / all_aggressive), so the method cannot
+            # be recovered by counting fields -- anchor on the known tail.
+            m = CELL_KEY_RE.match(cell[0])
+            if m is None:
+                raise RuntimeError(f"unparsable cell key {cell[0]!r}")
+            by_method[m.group(1)].append(cell)
+        for method, method_cells in sorted(by_method.items()):
+            base = f"{dz}|{tag}|m{method}"
+            jobs.append((base if year is None else f"{base}|y{year}", method_cells, method))
+
+    for key, cell_list, method in jobs:
         old = prior.get(key) if args.relabel else None
         dist, bench = composite_distance(cell_list)
         dist_ng, bench_ng = composite_distance(cell_list, drop_g=True)
@@ -701,6 +724,7 @@ def main() -> None:
         entry = {
             "densifier": dz,
             "tag": tag,
+            **({} if method is None else {"method": method}),
             **({} if year is None else {"year": year}),
             "n_cells": len(cell_list),
             "benchmarks": bench,
