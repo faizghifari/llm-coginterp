@@ -542,15 +542,13 @@ function draw() {
 
   d.screen = pts.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy }));
 
-  const anyHighlight = state.checked.size > 0;
-  const r = anyHighlight ? 2.5 : 5;
-
   // Base layer, batched one path per color: a per-point fillStyle change would
-  // cost a state flush per dot at 820 points.
+  // cost a state flush per dot at 820 points. Checkbox highlighting never
+  // dims or recolors anything; every dot keeps its group color.
+  const r = 5;
   const buckets = new Map();
   for (const p of d.screen) {
-    if (anyHighlight && state.checked.has(p.b)) continue;
-    const col = labels ? colorFor(p.g, anyHighlight) : anyHighlight ? NOISE_DIM : NOISE;
+    const col = labels ? colorFor(p.g, false) : NOISE;
     if (!buckets.has(col)) buckets.set(col, []);
     buckets.get(col).push(p);
   }
@@ -564,8 +562,9 @@ function draw() {
     ctx.fill();
   }
 
-  // Highlight layer: the point's own group color plus a white ring. Size and
-  // ring carry "selected", not hue -- hue is already spent on group identity.
+  // Highlight layer: the dot's already-decided group color, enlarged, plus a
+  // white ring and its name. Ring and size carry "selected", never hue --
+  // hue is already spent on group identity.
   const showLabels = state.checked.size <= 25;
   ctx.font = "12px system-ui";
   ctx.lineJoin = "round";
@@ -573,16 +572,54 @@ function draw() {
     if (!state.checked.has(p.b)) continue;
     ctx.beginPath();
     ctx.arc(p.x, p.y, 7, 0, 2 * Math.PI);
-    ctx.fillStyle = labels && p.g >= 0 ? colorFor(p.g, false) : CLUSTER[0];
+    ctx.fillStyle = labels ? colorFor(p.g, false) : NOISE;
     ctx.fill();
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
     ctx.stroke();
     if (showLabels) {
-      ctx.lineWidth = 3;
-      ctx.strokeText(p.b, p.x + 9, p.y - 8);
+      const tw = ctx.measureText(p.b).width;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(p.x + 7, p.y - 8 - 11, tw + 4, 14);
       ctx.fillStyle = "rgba(34, 34, 42, 0.92)";
       ctx.fillText(p.b, p.x + 9, p.y - 8);
+    }
+  }
+
+  // In-plot legend for color-by highlight colors, drawn on the canvas itself
+  // (not the side panel) so right-click "Copy image" retains the mapping.
+  // Swatches read the same highlightMap the dots and panel swatches use.
+  if (inCategoryMode() && d.categories && state.highlights.size) {
+    const hmap = highlightMap(d);
+    const [groupRows_] = groupRows(d);
+    const sizeOf = (label) =>
+      label === NO_LABEL
+        ? d.categories.filter((_, i) => !axisLabelsAt(d, i).length).length
+        : groupRows_.find((r) => r.value === label)?.size ?? 0;
+    const rows = [...hmap.idx.entries()].map(([label, ci]) => ({
+      col: colorFor(ci, false),
+      text: `${label === NO_LABEL ? "unlabelled" : displayOf(d, label)} (${sizeOf(label)})`,
+    }));
+    if (rows.length) {
+      const pad = 8;
+      const lineH = 18;
+      const sw = 10;
+      ctx.font = "12px system-ui";
+      const tw = Math.max(...rows.map((row) => ctx.measureText(row.text).width));
+      const bw = pad * 2 + sw + 6 + tw;
+      const bh = pad * 2 + rows.length * lineH - 6;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fillRect(8, 8, bw, bh);
+      ctx.strokeStyle = "#d9d9e0";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(8.5, 8.5, bw - 1, bh - 1);
+      rows.forEach((row, i) => {
+        const y = 8 + pad + i * lineH + 9;
+        ctx.fillStyle = row.col;
+        ctx.fillRect(8 + pad, y - 9, sw, sw);
+        ctx.fillStyle = "#22222a";
+        ctx.fillText(row.text, 8 + pad + sw + 6, y);
+      });
     }
   }
 }

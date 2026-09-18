@@ -36,10 +36,10 @@ def main(db_path):
         print("No rows in imputation table.")
         return
 
-    print(f"{'dataset':24s} {'method':14s} {'rmse':>8s} {'r2':>8s}  desc")
-    print("-" * 90)
+    print("| dataset | method | rmse | r2 | desc |")
+    print("|---|---|---:|---:|---|")
     for r in rows:
-        print(f"{r['dataset']:24s} {r['method']:14s} {r['rmse']:8.4f} {r['r2']:8.3f}  {r['desc']}")
+        print(f"| {r['dataset']} | {r['method']} | {r['rmse']:.4f} | {r['r2']:.3f} | {r['desc']} |")
 
 
 if __name__ == "__main__":

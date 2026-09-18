@@ -28,31 +28,31 @@ def main(db_path):
         SELECT dataset, method, run, nf, var_explained, var_factors, var_avg,
                omega_t, omega_h, omega_hs, phi_avg, phi
         FROM factoring
-        ORDER BY phi_avg DESC
+        ORDER BY omega_h DESC
     """)
-    rows = cur.fetchall()
+    rows = [r for r in cur.fetchall()
+            if "_y20" not in (r["run"] or "") and str(r["run"]) == "pa"]
     con.close()
 
     if not rows:
         print("No rows in factoring table.")
         return
 
-    hdr = (
-        f"{'dataset':24s} {'method':14s} {'run':>8s} {'nf':>3s} "
-        f"{'var%':>8s} {'var% avg':>8s} {'ωt':>8s} {'ωh':>8s}  "
-        f"{'φ_avg':>6s}"
-    )
-    print(hdr)
-    print("-" * 120)
+    cols = ["dataset", "method", "run", "nf", "var%", "var% avg",
+            "ωt", "ωh", "φ_avg"]
+    print("| " + " | ".join(cols) + " |")
+    print("|" + "|".join(["---"] * len(cols)) + "|")
     for r in rows:
-        print(
-            f"{r['dataset']:24s} {r['method']:14s} {r['run']:>8s} "
-            f"{r['nf']:3d} "
-            f"{r['var_explained'] or 0:8.3f} "
-            f"{r['var_avg'] or 0:8.3f} "
-            f"{r['omega_t'] or 0:8.3f} {r['omega_h'] or 0:8.3f}  "
-            f"{r['phi_avg'] or 0:6.3f}  "
-        )
+        vals = [
+            r["dataset"], r["method"], r["run"],
+            str(r["nf"]),
+            f"{(r['var_explained'] or 0) * 100:.1f}%",
+            f"{(r['var_avg'] or 0) * 100:.1f}%",
+            f"{r['omega_t'] or 0:.3f}",
+            f"{r['omega_h'] or 0:.3f}",
+            f"{r['phi_avg'] or 0:.3f}",
+        ]
+        print("| " + " | ".join(str(v) for v in vals) + " |")
 
 
 if __name__ == "__main__":

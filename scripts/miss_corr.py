@@ -217,16 +217,16 @@ def plot_grid(values_by_cell, title, xlabel, out_path):
 
 def print_summary_header():
     print(
-        f"{'source/strategy':22s} {'#bench':>7s} {'#uncomp':>8s} |"
+        f"{'source/strategy':22s} {'#bench':>7s} {'#comp>0':>8s} |"
         f" {'n_corr min':>10s} {'n_corr mean':>11s} {'n_corr max':>10s} |"
         f" {'avg_n min':>9s} {'avg_n mean':>10s} {'avg_n max':>9s}"
     )
 
 
 def print_summary(label, n_computable, avg_n):
-    n_uncomputable = int((n_computable == 0).sum())
+    n_with_computable = int((n_computable > 0).sum())
     print(
-        f"{label:22s} {len(n_computable):7d} {n_uncomputable:8d} |"
+        f"{label:22s} {len(n_computable):7d} {n_with_computable:8d} |"
         f" {n_computable.min():10.0f} {n_computable.mean():11.1f} {n_computable.max():10.0f} |"
         f" {avg_n.min():9.1f} {avg_n.mean():10.1f} {avg_n.max():9.1f}"
     )
@@ -236,7 +236,7 @@ def print_pair_summary_header():
     print(
         f"\n{'source/strategy':22s} {'#pairs':>8s} {'#observed':>10s} {'%observed':>10s} |"
         f" {'n/pair min':>10s} {'n/pair mean':>11s} {'n/pair max':>10s} |"
-        f" {'|r| min':>8s} {'|r| mean':>9s} {'|r| sd':>8s} {'|r| max':>8s}"
+        f" {'|r| min':>9s} {'|r| mean':>10s} {'|r| sd':>9s} {'|r| max':>9s}"
     )
 
 
@@ -246,13 +246,13 @@ def print_pair_summary(label, total_pairs, n_observed, pair_n, pair_r_abs):
         print(
             f"{label:22s} {total_pairs:8d} {n_observed:10d} {pct_observed:9.1f}% |"
             f" {'--':>10s} {'--':>11s} {'--':>10s} |"
-            f" {'--':>8s} {'--':>9s} {'--':>8s} {'--':>8s}"
+            f" {'--':>9s} {'--':>10s} {'--':>9s} {'--':>9s}"
         )
         return
     print(
         f"{label:22s} {total_pairs:8d} {n_observed:10d} {pct_observed:9.1f}% |"
         f" {pair_n.min():10.0f} {pair_n.mean():11.1f} {pair_n.max():10.0f} |"
-        f" {pair_r_abs.min():8.3f} {pair_r_abs.mean():9.3f} {pair_r_abs.std():8.3f} {pair_r_abs.max():8.3f}"
+        f" {pair_r_abs.min():9.4f} {pair_r_abs.mean():10.4f} {pair_r_abs.std():9.4f} {pair_r_abs.max():9.4f}"
     )
 
 
@@ -261,12 +261,13 @@ def main():
     avg_n_cells = {}
     pair_n_cells = {}
     pair_summaries = []  # (label, total_pairs, n_observed, pair_n, pair_r_abs)
+    r1_hits = []  # (label, [(bench_a, bench_b, n), ...]) pairs with r == 1
 
     print_summary_header()
     for row_idx, (label, src_dir) in enumerate(SOURCES):
         for col_idx, strat in enumerate(STRATEGIES):
             csv_path = DATA / src_dir / strat / "model_benchmark_table.csv"
-            _cols, corr, n_pairs, computable = compute_matrices(csv_path)
+            cols, corr, n_pairs, computable = compute_matrices(csv_path)
             cell_label = f"{label}/{strat.replace('all_', '')}"
 
             n_computable, avg_n = benchmark_level_stats(n_pairs, computable)
@@ -277,6 +278,14 @@ def main():
             total_pairs, n_observed, pair_n, pair_r_abs = pair_level_stats(corr, n_pairs, computable)
             pair_n_cells[(row_idx, col_idx)] = pair_n
             pair_summaries.append((cell_label, total_pairs, n_observed, pair_n, pair_r_abs))
+
+            # collect pairs that round to r = 1 at 3 decimals (same rounding as the summary table)
+            iu = np.triu_indices(corr.shape[0], k=1)
+            hits = []
+            for i, j in zip(*iu):
+                if computable[i, j] and round(float(corr[i, j]), 4) == 1.0:
+                    hits.append((cols[i], cols[j], int(n_pairs[i, j]), float(corr[i, j])))
+            r1_hits.append((cell_label, hits))
 
     print_pair_summary_header()
     for cell_label, total_pairs, n_observed, pair_n, pair_r_abs in pair_summaries:
@@ -300,6 +309,60 @@ def main():
         "n (shared non-missing observations)",
         RESULTS / "density_pair_n.png",
     )
+
+    # ── markdown summary of the plotted data ────────────────────────────
+    print("\n## Pairwise-correlation computability (plotted data)\n")
+    print(f"### Table 1 — Per-benchmark: # benchmarks it has a computable Pearson r with (unit = benchmark column)\n")
+    print(f"A correlation counts as computable when pairwise-complete n >= {MIN_N}. "
+          "avg_n = mean # models per computable correlation.\n")
+    print("| Dataset/Strategy combo | #benchmarks | #benchmarks with computable corr "
+          "| min #corr | mean #corr | max #corr | min avg_n | mean avg_n | max avg_n |")
+    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+    for row_idx, (label, _src_dir) in enumerate(SOURCES):
+        for col_idx, strat in enumerate(STRATEGIES):
+            n_comp = n_computable_cells[(row_idx, col_idx)]
+            avg_n = avg_n_cells[(row_idx, col_idx)]
+            n_comp_bench = int((n_comp > 0).sum())
+            print(
+                f"| {label}_{strat} | {len(n_comp)} | {n_comp_bench} "
+                f"| {n_comp.min():.0f} | {n_comp.mean():.1f} | {n_comp.max():.0f} "
+                f"| {avg_n.min():.1f} | {avg_n.mean():.1f} | {avg_n.max():.1f} |"
+            )
+
+    print("\n### Table 2 — Per-benchmark-pair: shared n and |r| of computable correlations (unit = benchmark pair)\n")
+    print(f"Each row aggregates the benchmark-pair statistics from the upper triangle (each pair once). "
+          f"'computable' = pairwise-complete n >= {MIN_N}. n/pair = shared non-missing models; "
+          "|r| = absolute Pearson r.\n")
+    print("| Dataset/Strategy combo | #pairs total | #pairs computable | %pairs computable "
+          "| min n/pair | mean n/pair | max n/pair | min \\|r\\| | mean \\|r\\| | sd \\|r\\| | max \\|r\\| |")
+    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    for cell_label, total_pairs, n_observed, pair_n, pair_r_abs in pair_summaries:
+        label, strat = cell_label.split("/", 1)
+        strat = "all_" + strat
+        pct = 100.0 * n_observed / total_pairs if total_pairs else 0.0
+        if len(pair_n) == 0:
+            print(f"| {label}_{strat} | {total_pairs} | {n_observed} | {pct:.1f} "
+                  f"| -- | -- | -- | -- | -- | -- | -- |")
+        else:
+            print(
+                f"| {label}_{strat} | {total_pairs} | {n_observed} | {pct:.1f} "
+                f"| {pair_n.min():.0f} | {pair_n.mean():.1f} | {pair_n.max():.0f} "
+                f"| {pair_r_abs.min():.4f} | {pair_r_abs.mean():.4f} "
+                f"| {pair_r_abs.std():.4f} | {pair_r_abs.max():.4f} |"
+            )
+
+    # ── benchmarks with pairwise r exactly 1 ────────────────────────────
+    print(f"\n### Benchmarks with pairwise Pearson r == 1 (rounded to 4 decimals, n >= {MIN_N})\n")
+    any_hits = False
+    for cell_label, hits in r1_hits:
+        print(f"\n{cell_label}: {len(hits)} pair(s) with r = 1")
+        for a, b, n, r in hits:
+            print(f"  {a}  ~  {b}   (n={n}, r={r:.10f})")
+            any_hits = True
+        if not hits:
+            print("  (none)")
+    if not any_hits:
+        print("(no dataset combo has any r = 1 pair)")
 
 
 def parse_args():

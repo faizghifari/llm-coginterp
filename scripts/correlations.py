@@ -84,6 +84,24 @@ def main(db_path):
             f"{r['omega_h']:8.3f} {r['r2']:8.3f}"
         )
 
+    # ── markdown summary of the correlated data ─────────────────────────
+    print("\n## omega_h / r2 correlations (plotted data)\n")
+    print("### Per run: overall Pearson r between omega_h (factoring) and r2 (imputation)\n")
+    print("| Run | n | r (Pearson) |")
+    print("|---|---:|---:|")
+    for run in sorted(by_run):
+        pairs = by_run[run]
+        r_val = pearson([p[0] for p in pairs], [p[1] for p in pairs])
+        print(f"| {run} | {len(pairs)} | {r_val:+.3f} |")
+    if len(by_run) > 1:
+        print(f"| **overall** | {len(all_x)} | {pearson(all_x, all_y):+.3f} |")
+    print("\n### Per dataset/method pair: omega_h vs r2 (paired rows from factoring and imputation tables)\n")
+    print("| Run | Dataset | Method | omega_h | r2 |")
+    print("|---|---|---|---:|---:|")
+    for r in rows:
+        print(f"| {r['run']} | {r['dataset']} | {r['method']} "
+              f"| {r['omega_h']:.3f} | {r['r2']:.3f} |")
+
 
 if __name__ == "__main__":
     main(Path(parse_args().results_root) / "database.db")

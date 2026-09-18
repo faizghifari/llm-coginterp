@@ -291,7 +291,7 @@ MIT — see [LICENSE](LICENSE).
 If you are interested in the work, anything from a simple feedback to any forms of
 collaboration, feel free to reach us:
 - Faiz Ghifari Haznitrama ([haznitrama@kaist.ac.kr](mailto:haznitrama@kaist.ac.kr))
-- Afrizal Hasbi Azizy ([letter.afrizal@gmail.com](mailto:letter.afrizal@gmail.com))
+- Afrizal Hasbi Azizy ([afrizalhasbi.azi@gmail.com](mailto:afrizalhasbi.azi@gmail.com))
 - Faeyza Rishad Ardi ([faeyza.rishad@gmail.com](mailto:faeyza.rishad@gmail.com))
 
 ## Citation

@@ -95,18 +95,17 @@ def main():
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved {out_path}")
-    # ── top 10 / bottom 10 per source+strategy ──────────────────────────
+    # ── markdown summary of the plotted data ────────────────────────────
+    print("\n## Benchmark observation counts (plotted data)\n")
+    print("| Dataset combo | Strategy | n | μ | min | max |")
+    print("|---|---|---:|---:|---:|---:|")
     for label, src_dir in SOURCES:
         for strat in STRATEGIES:
             csv_path = DATA / src_dir / strat / "model_benchmark_table.csv"
-            pairs, _ = benchmark_obs_counts(csv_path)
-            print(f"\n── {label} / {strat} ({len(pairs)} benchmarks) ──")
-            print("  Top 10 most observed:")
-            for c, n in pairs[-40:][::-1]:
-                print(f"    {c:50s} {n:4d}")
-            print("  Bottom 10 least observed:")
-            for c, n in pairs[:40]:
-                print(f"    {c:50s} {n:4d}")
+            _, counts = benchmark_obs_counts(csv_path)
+            print(f"| {label} | {strat} | {len(counts)} "
+                  f"| {counts.mean():.0f} | {counts.min():.0f} "
+                  f"| {counts.max():.0f} |")
 def parse_args():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
