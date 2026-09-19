@@ -1,93 +1,93 @@
 benchmark_id,benchmark_name,category,subject,task_labels,language
-ChipBench,ChipBench,coding,code;industrial,long_form_generation,english
-DarkBench,DarkBench,alignment/safety,safety,long_form_generation,english
-DeceptionBench,DeceptionBench,alignment/safety,safety,long_form_generation,english
+ChipBench,ChipBench,coding,code;industrial;specialized_domain,long_form_generation,english
+DarkBench,DarkBench,alignment/safety,safety;alignment,long_form_generation,english
+DeceptionBench,DeceptionBench,alignment/safety,safety;alignment,long_form_generation,english
 FlashInfer-Bench,FlashInfer-Bench,coding,code,long_form_generation,english
-HistRev,Historical Revisionism Detection,alignment/safety,safety;society_culture,long_form_generation,english
-LegalEval-Q,LegalEval-Q,domain-specific,professional_writing;legal,long_form_generation,monolingual_non_english
-LemmaBench,LemmaBench,math,math,long_reasoning,english
-MenatQA,MenatQA,reasoning,reading_comprehension;encyclopedic;temporal_reasoning,extraction,english
-MoralMachine,Moral Machine Cross-Language,alignment/safety,cognitive_science;safety;society_culture,likelihood_probe,multilingual
-NormAd,NormAd,alignment/safety,safety;society_culture,multiple_choice,english
-ProphetArena,Prophet Arena,reasoning,news;forecasting,short_qa,english
-RealMath,RealMath,math,math,long_reasoning,english
+HistRev,Historical Revisionism Detection,alignment/safety,society_culture;factuality;specialized_domain;alignment,long_form_generation,english
+LegalEval-Q,LegalEval-Q,domain-specific,professional_writing;legal;generation;specialized_domain,long_form_generation,monolingual_non_english
+LemmaBench,LemmaBench,math,math;reasoning,long_reasoning,english
+MenatQA,MenatQA,reasoning,reading_comprehension;encyclopedic;temporal_reasoning;language_processing;source_genre;reasoning,extraction,english
+MoralMachine,Moral Machine Cross-Language,alignment/safety,society_culture;moral_values;specialized_domain;alignment,likelihood_probe,multilingual
+NormAd,NormAd,alignment/safety,society_culture;moral_values;specialized_domain;alignment,multiple_choice,english
+ProphetArena,Prophet Arena,reasoning,news;forecasting;source_genre,short_qa,english
+RealMath,RealMath,math,math;reasoning,long_reasoning,english
 ReasonBENCH,ReasonBENCH,general_knowledge,reasoning;multi_subject,long_reasoning;long_form_generation,english
-ShoppingMMLU,Shopping MMLU,domain-specific,knowledge;e_commerce,multiple_choice;short_qa,multilingual
-SocialStigmaQA,SocialStigmaQA,alignment/safety,safety;society_culture,multiple_choice,english
-SpiralBench,LLM Spirals of Delusion,alignment/safety,safety,conversation,english
-StatEval,StatEval,general_knowledge,math,multiple_choice;long_reasoning,english
-StrongREJECT,StrongREJECT,alignment/safety,safety,long_form_generation,english
-SuperGPQA,SuperGPQA,academic,knowledge;multi_subject,multiple_choice,english
+ShoppingMMLU,Shopping MMLU,domain-specific,recall;e_commerce;specialized_domain,multiple_choice;short_qa,multilingual
+SocialStigmaQA,SocialStigmaQA,alignment/safety,society_culture;bias_fairness;specialized_domain;alignment,multiple_choice,english
+SpiralBench,LLM Spirals of Delusion,alignment/safety,safety;alignment,conversation,english
+StatEval,StatEval,general_knowledge,math;reasoning,multiple_choice;long_reasoning,english
+StrongREJECT,StrongREJECT,alignment/safety,safety;alignment,long_form_generation,english
+SuperGPQA,SuperGPQA,academic,recall;multi_subject;specialized_domain,multiple_choice,english
 Vericoding,Vericoding Benchmark,coding,code,long_form_generation,english
-abceval,ABC-Eval: Benchmarking LLMs on Symbolic Music Understanding,audio/speech,music;instruction_following;reasoning,multiple_choice,english
-aci_bench,ACI-Bench,Medical,summarization;medical;dialogue,long_form_generation,english
-afrobench,AfroBench,multilingual,language_understanding;translation;summarization;knowledge;math;multi_subject,multiple_choice;classification;long_form_generation;long_reasoning,multilingual
-agentif,AgentIF: Agentic Instruction Following,alignment/safety,instruction_following;multi_subject;agentic,long_form_generation,english
-agieval,AGIEval,academic,knowledge;multi_subject,multiple_choice,multilingual
-aime,AIME 2024,Math,math,long_reasoning,english
-aime25,AIME 2025,Math,math,long_reasoning,english
-aime_2025,AIME 2025,math,math,long_reasoning,english
-akata_games_2023,Akata Games (2023),general_knowledge,cognitive_science;games,interactive,english
-alghafa,AlGhafa,"Multilingual, Crosslingual, Cultural",knowledge;multi_subject,multiple_choice,monolingual_non_english
-alpacaeval,AlpacaEval,alignment/safety,instruction_following;multi_subject,long_form_generation,english
-alrage,ALRAGE,"Multilingual, Crosslingual, Cultural",reading_comprehension;multi_subject,long_form_generation,monolingual_non_english
-americasnli,AmericasNLI,multilingual,natural_language_inference;multi_subject,classification,multilingual
-anthropic_red_team,Anthropic Red Team,Alignment & Safety,safety,long_form_generation,english
-arabic_exams,Arabic EXAMS,"Multilingual, Crosslingual, Cultural",knowledge;multi_subject,multiple_choice,monolingual_non_english
-arabicmmlu,ArabicMMLU: Massive Multitask Language Understanding in Arabic,multilingual,knowledge;multi_subject,multiple_choice,monolingual_non_english
-aratrust,AraTrust,Alignment & Safety,safety,multiple_choice,monolingual_non_english
-arc,AI2 Reasoning Challenge,general_knowledge,commonsense;science,multiple_choice,english
-arena_hard_auto,Arena-Hard-Auto,alignment/safety,instruction_following;multi_subject,long_form_generation,english
-artificial_analysis_intelligence,Artificial Analysis Intelligence Index,general_knowledge,agentic;code;knowledge;science;multi_subject,interactive;long_form_generation;short_qa,english
-babi_qa,bAbI,Reasoning,commonsense,short_qa,english
-banking77,BANKING77,General Knowledge,text_classification;finance,classification,english
-batayan,Batayan: Filipino NLP Benchmark,multilingual,language_understanding;summarization;translation;multi_subject,long_form_generation;classification,monolingual_non_english
-bbh,Big Bench Hard,general_knowledge,multi_subject;reasoning,multiple_choice;short_qa,english
-bbq,BBQ (Bias Benchmark for Question Answering),Alignment & Safety,safety;society_culture,multiple_choice,english
-belebele,The Belebele Benchmark,multilingual,reading_comprehension;encyclopedic,multiple_choice,multilingual
-benchmax,BenchMAX: Comprehensive Multilingual Evaluation Suite,multilingual,instruction_following;math;science;reasoning;code;agentic;translation;multi_subject,multiple_choice;long_reasoning;long_form_generation,multilingual
+abceval,ABC-Eval: Benchmarking LLMs on Symbolic Music Understanding,audio/speech,music;instruction_following;reasoning;specialized_domain;alignment,multiple_choice,english
+aci_bench,ACI-Bench,Medical,summarization;medical;dialogue;generation;specialized_domain,long_form_generation,english
+afrobench,AfroBench,multilingual,language_understanding;translation;summarization;recall;math;multi_subject;language_processing;generation;reasoning,multiple_choice;classification;long_form_generation;long_reasoning,multilingual
+agentif,AgentIF: Agentic Instruction Following,alignment/safety,instruction_following;multi_subject;agentic;alignment,long_form_generation,english
+agieval,AGIEval,academic,recall;multi_subject,multiple_choice,multilingual
+aime,AIME 2024,Math,math;reasoning,long_reasoning,english
+aime25,AIME 2025,Math,math;reasoning,long_reasoning,english
+aime_2025,AIME 2025,math,math;reasoning,long_reasoning,english
+akata_games_2023,Akata Games (2023),general_knowledge,games;theory_of_mind;specialized_domain;cognitive,interactive,english
+alghafa,AlGhafa,"Multilingual, Crosslingual, Cultural",recall;multi_subject,multiple_choice,monolingual_non_english
+alpacaeval,AlpacaEval,alignment/safety,instruction_following;multi_subject;alignment,long_form_generation,english
+alrage,ALRAGE,"Multilingual, Crosslingual, Cultural",reading_comprehension;multi_subject;language_processing,long_form_generation,monolingual_non_english
+americasnli,AmericasNLI,multilingual,natural_language_inference;multi_subject;language_processing,classification,multilingual
+anthropic_red_team,Anthropic Red Team,Alignment & Safety,safety;alignment,long_form_generation,english
+arabic_exams,Arabic EXAMS,"Multilingual, Crosslingual, Cultural",recall;multi_subject,multiple_choice,monolingual_non_english
+arabicmmlu,ArabicMMLU: Massive Multitask Language Understanding in Arabic,multilingual,recall;multi_subject,multiple_choice,monolingual_non_english
+aratrust,AraTrust,Alignment & Safety,safety;alignment,multiple_choice,monolingual_non_english
+arc,AI2 Reasoning Challenge,general_knowledge,science;recall,multiple_choice,english
+arena_hard_auto,Arena-Hard-Auto,alignment/safety,instruction_following;multi_subject;alignment,long_form_generation,english
+artificial_analysis_intelligence,Artificial Analysis Intelligence Index,general_knowledge,agentic;code;recall;science;multi_subject,interactive;long_form_generation;short_qa,english
+babi_qa,bAbI,Reasoning,logical_reasoning;reasoning,short_qa,english
+banking77,BANKING77,General Knowledge,text_classification;finance;language_processing;specialized_domain,classification,english
+batayan,Batayan: Filipino NLP Benchmark,multilingual,language_understanding;summarization;translation;multi_subject;language_processing;generation,long_form_generation;classification,monolingual_non_english
+bbh,Big Bench Hard,general_knowledge,multi_subject;reasoning;logical_reasoning;temporal_reasoning;commonsense;math,multiple_choice;short_qa,english
+bbq,BBQ (Bias Benchmark for Question Answering),Alignment & Safety,society_culture;bias_fairness;specialized_domain;alignment,multiple_choice,english
+belebele,The Belebele Benchmark,multilingual,reading_comprehension;encyclopedic;language_processing;source_genre,multiple_choice,multilingual
+benchmax,BenchMAX: Comprehensive Multilingual Evaluation Suite,multilingual,instruction_following;math;science;reasoning;code;agentic;translation;multi_subject;alignment;generation,multiple_choice;long_reasoning;long_form_generation,multilingual
 bfcl,BFCL: Berkeley Function Calling Leaderboard,alignment/safety,code;agentic,long_form_generation,english
-bharatbench,BharatBench,multilingual,knowledge;multi_subject,multiple_choice,multilingual
-bhasa,BHASA,multilingual,language_understanding;translation;linguistics;society_culture;multi_subject,long_form_generation;classification;extraction,multilingual
+bharatbench,BharatBench,multilingual,language_understanding;multi_subject;language_processing,classification;extraction;long_form_generation,multilingual
+bhasa,BHASA,multilingual,language_understanding;translation;society_culture;multi_subject;linguistic_competence;language_processing;generation;specialized_domain,long_form_generation;classification;extraction,multilingual
 bigcodebench,BigCodeBench,coding,code,long_form_generation,english
-blend,BLEND,multilingual,knowledge;society_culture,multiple_choice;short_qa,multilingual
-blimp,BLiMP (The Benchmark of Linguistic Minimal Pairs for English),Cognitive Science,cognitive_science;linguistics,likelihood_probe,english
-bold,BOLD (Bias in Open-Ended Language Generation Dataset),Alignment & Safety,safety;society_culture,sentence_completion,english
-boolq,BoolQ,General Knowledge,reading_comprehension;encyclopedic,multiple_choice,english
-burmesesan,BURMESE-SAN: Burmese NLP Benchmark,multilingual,language_understanding;summarization;translation;multi_subject,classification;multiple_choice;long_form_generation,monolingual_non_english
-cac,CAC: Cultural Association Contexts,cross-cultural,society_culture;dialogue,multiple_choice,miscellaneous
-chatbot_arena,Chatbot Arena,alignment/safety,instruction_following;multi_subject,conversation,multilingual
-chw_care_plan,NoteExtract,Medical,information_extraction;medical,long_form_generation,english
-civil_comments,CivilComments,Alignment & Safety,safety;social_media,classification,english
-clear,CLEAR,Medical,medical,classification,english
-cmmlu,Chinese MMLU,multilingual,knowledge;multi_subject,multiple_choice,monolingual_non_english
+blend,BLEND,multilingual,recall;society_culture;specialized_domain,multiple_choice;short_qa,multilingual
+blimp,BLiMP (The Benchmark of Linguistic Minimal Pairs for English),Cognitive Science,linguistic_competence;language_processing,likelihood_probe,english
+bold,BOLD (Bias in Open-Ended Language Generation Dataset),Alignment & Safety,society_culture;bias_fairness;toxicity;specialized_domain;alignment,sentence_completion,english
+boolq,BoolQ,General Knowledge,reading_comprehension;encyclopedic;language_processing;source_genre,multiple_choice,english
+burmesesan,BURMESE-SAN: Burmese NLP Benchmark,multilingual,language_understanding;summarization;translation;multi_subject;language_processing;generation,classification;multiple_choice;long_form_generation,monolingual_non_english
+cac,CAC: Cultural Association Contexts,cross-cultural,society_culture;dialogue;specialized_domain;generation,multiple_choice,miscellaneous
+chatbot_arena,Chatbot Arena,alignment/safety,instruction_following;multi_subject;alignment,conversation,multilingual
+chw_care_plan,NoteExtract,Medical,information_extraction;medical;language_processing;specialized_domain,long_form_generation,english
+civil_comments,CivilComments,Alignment & Safety,social_media;toxicity;source_genre;alignment,classification,english
+clear,CLEAR,Medical,medical;specialized_domain,classification,english
+cmmlu,Chinese MMLU,multilingual,recall;multi_subject,multiple_choice,monolingual_non_english
 code_humaneval,HumanEval (Code),Coding,code,long_form_generation,english
-cogbench,CogBench,general_knowledge,cognitive_science,interactive;multiple_choice,english
-complexbench,ComplexBench,general_knowledge,instruction_following;multi_subject,long_form_generation,multilingual
-copyright_code,Copyright (code),Alignment & Safety,code;safety,sentence_completion,english
-copyright_text,Copyright (text),Alignment & Safety,safety;fiction,sentence_completion,english
-creativityprism,CreativityPrism,creative,creativity;cognitive_science;multi_subject,long_form_generation,english
-criticbench,"CriticBench: Evaluating Generation, Critique and Correction in LLMs",reasoning,reasoning;output_evaluation;multi_subject,long_form_generation,english
+cogbench,CogBench,general_knowledge,cognitive,interactive;multiple_choice,english
+complexbench,ComplexBench,general_knowledge,instruction_following;multi_subject;alignment,long_form_generation,multilingual
+copyright_code,Copyright (code),Alignment & Safety,code;safety;alignment,sentence_completion,english
+copyright_text,Copyright (text),Alignment & Safety,safety;fiction;alignment;source_genre,sentence_completion,english
+creativityprism,CreativityPrism,creative,creativity;cognitive;multi_subject;generation,long_form_generation,english
+criticbench,"CriticBench: Evaluating Generation, Critique and Correction in LLMs",reasoning,reasoning;output_evaluation;multi_subject;alignment,long_form_generation,english
 cruxeval,"CRUXEval: A Benchmark for Code Reasoning, Understanding and Execution",coding,code,short_qa,english
-culemo,CuleMo,cross-cultural,cognitive_science;society_culture,classification,multilingual
-culturalbench,CulturalBench,cross-cultural,knowledge;society_culture,multiple_choice,english
-culturescope,CultureScope,cross-cultural,knowledge;society_culture,multiple_choice,multilingual
+culemo,CuleMo,cross-cultural,society_culture;emotional_intelligence;specialized_domain;cognitive,classification,multilingual
+culturalbench,CulturalBench,cross-cultural,recall;society_culture;specialized_domain,multiple_choice,english
+culturescope,CultureScope,cross-cultural,recall;society_culture;specialized_domain,multiple_choice,multilingual
 debugbench,DebugBench,coding,code,long_form_generation,english
-dialectbench,DialectBench,multilingual,language_understanding;multi_subject,classification;extraction,multilingual
-dialogbench,DialogBench,alignment/safety,dialogue,multiple_choice;long_form_generation,multilingual
-dischargeme,DischargeMe,Medical,professional_writing;medical,long_form_generation,english
-disinformation_reiteration,Disinformation (reiteration),Alignment & Safety,safety;news,long_form_generation,english
-disinformation_wedging,Disinformation (wedging),Alignment & Safety,safety;news,long_form_generation,english
-do_not_answer,Do-Not-Answer,alignment/safety,safety,long_form_generation,english
-dyck_language,Dyck,Reasoning,logical_reasoning,sentence_completion,english
-ehr_sql,EHRSQL,Medical,code;medical,long_form_generation,english
-ehrshot,EHRSHOT,Medical,structured_data;medical,classification,english
-eifbench,EIFBench,instruction-following,instruction_following;multi_subject,long_form_generation,monolingual_non_english
-emobench,EmoBench,general_knowledge,cognitive_science,multiple_choice,multilingual
-engibench,EngiBench: Evaluating Engineering Instruction Following in LLMs,coding,reasoning;math;industrial,long_reasoning;long_form_generation,english
-entity_data_imputation,Data imputation,General Knowledge,structured_data;multi_subject,short_qa,english
-entity_matching,Entity matching,General Knowledge,structured_data;multi_subject,classification,english
-eqbench,EQ-Bench,general_knowledge,cognitive_science,short_qa,english
+dialectbench,DialectBench,multilingual,language_understanding;multi_subject;language_processing,classification;extraction,multilingual
+dialogbench,DialogBench,alignment/safety,dialogue;generation,multiple_choice;long_form_generation,multilingual
+dischargeme,DischargeMe,Medical,professional_writing;medical;generation;specialized_domain,long_form_generation,english
+disinformation_reiteration,Disinformation (reiteration),Alignment & Safety,safety;news;alignment;source_genre,long_form_generation,english
+disinformation_wedging,Disinformation (wedging),Alignment & Safety,safety;news;alignment;source_genre,long_form_generation,english
+do_not_answer,Do-Not-Answer,alignment/safety,safety;alignment,long_form_generation,english
+dyck_language,Dyck,Reasoning,logical_reasoning;reasoning,sentence_completion,english
+ehr_sql,EHRSQL,Medical,code;medical;specialized_domain,long_form_generation,english
+ehrshot,EHRSHOT,Medical,structured_data;medical;source_genre;specialized_domain,classification,english
+eifbench,EIFBench,instruction-following,instruction_following;multi_subject;alignment,long_form_generation,monolingual_non_english
+emobench,EmoBench,general_knowledge,emotional_intelligence;cognitive,multiple_choice,multilingual
+engibench,EngiBench: Evaluating Engineering Instruction Following in LLMs,coding,reasoning;math;industrial;specialized_domain,long_reasoning;long_form_generation,english
+entity_data_imputation,Data imputation,General Knowledge,structured_data;multi_subject;source_genre,short_qa,english
+entity_matching,Entity matching,General Knowledge,structured_data;multi_subject;source_genre,classification,english
+eqbench,EQ-Bench,general_knowledge,emotional_intelligence;cognitive,short_qa,english
 evalplus,EvalPlus (HumanEval+),coding,code,long_form_generation,english
 ewok,EWoK,Cognitive Science,commonsense,likelihood_probe;multiple_choice,english
 ewok_agent_properties,Agent Properties,Cognitive Science,commonsense,likelihood_probe;multiple_choice,english
@@ -101,357 +101,357 @@ ewok_social_interactions,Social Interactions,Cognitive Science,commonsense,likel
 ewok_social_properties,Social Properties,Cognitive Science,commonsense,likelihood_probe;multiple_choice,english
 ewok_social_relations,Social Relations,Cognitive Science,commonsense,likelihood_probe;multiple_choice,english
 ewok_spatial_relations,Spatial Relations,Cognitive Science,commonsense,likelihood_probe;multiple_choice,english
-facts_grounding,FACTS Grounding,general_knowledge,safety;multi_subject,long_form_generation,english
-facts_parametric,FACTS Parametric,general_knowledge,knowledge;safety;encyclopedic,short_qa,english
-facts_search,FACTS Search,general_knowledge,safety;encyclopedic;agentic,interactive,english
-fever,FEVER,alignment/safety,knowledge;encyclopedic;fact_verification,classification,english
-filbench,FilBench: Filipino LLM Evaluation Suite,multilingual,knowledge;reading_comprehension;translation;multi_subject,multiple_choice;long_form_generation,multilingual
-fin_qa,FinQA,Reasoning,math;finance;structured_data,long_reasoning,english
-financebench,FinanceBench,Reasoning,reading_comprehension;finance,short_qa,english
-financial_scenarios,Financial Scenarios,General Knowledge,finance,miscellaneous,english
-flores_200,FLORES-200: Multilingual Machine Translation Benchmark,multilingual,translation;encyclopedic,long_form_generation,crosslingual
-flores_en_id,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-flores_en_ta,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-flores_en_th,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-flores_en_vi,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-flores_id_en,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-flores_ta_en,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-flores_th_en,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-flores_vi_en,Flores,Machine Translation,translation;encyclopedic,long_form_generation,crosslingual
-followbench,FollowBench,alignment/safety,instruction_following;multi_subject,long_form_generation,english
-freshqa,FreshQA,general_knowledge,knowledge;safety;encyclopedic,short_qa,english
+facts_grounding,FACTS Grounding,general_knowledge,multi_subject;factuality;alignment,long_form_generation,english
+facts_parametric,FACTS Parametric,general_knowledge,encyclopedic;factuality;world_knowledge;source_genre;alignment,short_qa,english
+facts_search,FACTS Search,general_knowledge,encyclopedic;agentic;factuality;source_genre;alignment,interactive,english
+fever,FEVER,alignment/safety,encyclopedic;fact_verification;source_genre;alignment,classification,english
+filbench,FilBench: Filipino LLM Evaluation Suite,multilingual,recall;reading_comprehension;translation;multi_subject;language_processing;generation,multiple_choice;long_form_generation,multilingual
+fin_qa,FinQA,Reasoning,math;finance;structured_data;reasoning;specialized_domain;source_genre,long_reasoning,english
+financebench,FinanceBench,Reasoning,reading_comprehension;finance;language_processing;specialized_domain,short_qa,english
+financial_scenarios,Financial Scenarios,General Knowledge,finance;specialized_domain,miscellaneous,english
+flores_200,FLORES-200: Multilingual Machine Translation Benchmark,multilingual,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_en_id,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_en_ta,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_en_th,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_en_vi,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_id_en,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_ta_en,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_th_en,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+flores_vi_en,Flores,Machine Translation,translation;encyclopedic;generation;source_genre,long_form_generation,crosslingual
+followbench,FollowBench,alignment/safety,instruction_following;multi_subject;alignment,long_form_generation,english
+freshqa,FreshQA,general_knowledge,encyclopedic;factuality;world_knowledge;source_genre;alignment,short_qa,english
 global_piqa,Global PIQA,multilingual,commonsense,multiple_choice,multilingual
-gpqa,GPQA,math,knowledge;science;reasoning,multiple_choice,english
-gpqa_diamond,GPQA Diamond,reasoning,knowledge;science;reasoning,multiple_choice,english
-gsm,GSM8K (Grade school math word problems),Math,math,long_reasoning,english
-gsm8k,Grade School Math 8K,math,math,long_reasoning,english
-gtbench,GTBench,reasoning,games,interactive,english
-hagendorff_biases_2023,Hagendorff Biases (2023),alignment/safety,cognitive_science,short_qa,english
-harmbench,HarmBench,alignment/safety,safety,long_form_generation,english
-head_qa,HeadQA,Medical,knowledge;medical,multiple_choice,monolingual_non_english
+gpqa,GPQA,math,recall;science;reasoning,multiple_choice,english
+gpqa_diamond,GPQA Diamond,reasoning,recall;science;reasoning,multiple_choice,english
+gsm,GSM8K (Grade school math word problems),Math,math;reasoning,long_reasoning,english
+gsm8k,Grade School Math 8K,math,math;reasoning,long_reasoning,english
+gtbench,GTBench,reasoning,games;specialized_domain,interactive,english
+hagendorff_biases_2023,Hagendorff Biases (2023),alignment/safety,cognitive,short_qa,english
+harmbench,HarmBench,alignment/safety,safety;alignment,long_form_generation,english
+head_qa,HeadQA,Medical,recall;medical;specialized_domain,multiple_choice,monolingual_non_english
 hellaswag,HellaSwag: Can a Machine Really Finish Your Sentence?,general_knowledge,commonsense,multiple_choice,english
-helm,HELM,alignment/safety,knowledge;reasoning;reading_comprehension;summarization;retrieval;sentiment;language_modelling;safety;multi_subject,multiple_choice;short_qa;extraction;classification;long_form_generation;ranking;likelihood_probe,english
+helm,HELM,alignment/safety,recall;reasoning;reading_comprehension;summarization;retrieval;sentiment;language_modelling;safety;multi_subject;language_processing;generation;alignment,multiple_choice;short_qa;extraction;classification;long_form_generation;ranking;likelihood_probe,english
 humaneval,HumanEval,coding,code,long_form_generation,english
-humanitys_last_exam,Humanity's Last Exam,general_knowledge,knowledge;multi_subject,multiple_choice;short_qa,english
-humorbench,HumorBench,creative,humour;reasoning,long_form_generation,english
-ice,ICE (International Corpus of English),General Knowledge,language_modelling;multi_subject,likelihood_probe,english
-ifeval,IFEval,alignment/safety,instruction_following;multi_subject,long_form_generation,english
-ilakkanam,ILAKKANAM: Tamil Linguistic Benchmark,multilingual,knowledge;linguistics,multiple_choice,monolingual_non_english
-imdb,IMDB,General Knowledge,sentiment,classification,english
-include,INCLUDe,multilingual,knowledge;multi_subject,multiple_choice,multilingual
-indicgenbench,IndicGenBench: Multilingual Benchmark for Indic Languages,multilingual,translation;multi_subject;summarization,long_form_generation;extraction,crosslingual
-indicqa,IndicQA,"Multilingual, Crosslingual, Cultural",reading_comprehension;encyclopedic,extraction,multilingual
-indicsentiment,IndicSentiment,"Multilingual, Crosslingual, Cultural",sentiment,classification,multilingual
-indoculture,IndoCulture: Indonesian Cultural Commonsense Reasoning,cross-cultural,commonsense;society_culture,multiple_choice,monolingual_non_english
-indommlu,IndoMMLU,multilingual,knowledge;multi_subject,multiple_choice,monolingual_non_english
-indonli,IndoNLI,"Multilingual, Crosslingual, Cultural",natural_language_inference;multi_subject,classification,monolingual_non_english
-irokobench,IrokoBench,multilingual,knowledge;math;multi_subject;natural_language_inference,multiple_choice;long_reasoning;classification,multilingual
-jailbreakbench,JailbreakBench,alignment/safety,safety,long_form_generation,english
-kaggle_aminmohamedmohami_browsecomp,BrowseComp,agentic/tool-use,agentic;retrieval;encyclopedic,interactive,english
-kaggle_aminmohamedmohami_indic_gen_bench,IndicGen Benchmark,multilingual,translation;multi_subject;summarization,long_form_generation;extraction,crosslingual
-kaggle_andrewmingwang_asset_ops_bench,FailureSensorIQ,domain-specific,knowledge;industrial,multiple_choice,english
+humanitys_last_exam,Humanity's Last Exam,general_knowledge,recall;multi_subject;math;science;reasoning,multiple_choice;short_qa,english
+humorbench,HumorBench,creative,humour;reasoning;specialized_domain,long_form_generation,english
+ice,ICE (International Corpus of English),General Knowledge,language_modelling;multi_subject;language_processing,likelihood_probe,english
+ifeval,IFEval,alignment/safety,instruction_following;multi_subject;alignment,long_form_generation,english
+ilakkanam,ILAKKANAM: Tamil Linguistic Benchmark,multilingual,recall;linguistics;specialized_domain,multiple_choice,monolingual_non_english
+imdb,IMDB,General Knowledge,sentiment;language_processing,classification,english
+include,INCLUDe,multilingual,recall;multi_subject,multiple_choice,multilingual
+indicgenbench,IndicGenBench: Multilingual Benchmark for Indic Languages,multilingual,translation;multi_subject;summarization;generation,long_form_generation;extraction,crosslingual
+indicqa,IndicQA,"Multilingual, Crosslingual, Cultural",reading_comprehension;encyclopedic;language_processing;source_genre,extraction,multilingual
+indicsentiment,IndicSentiment,"Multilingual, Crosslingual, Cultural",sentiment;language_processing,classification,multilingual
+indoculture,IndoCulture: Indonesian Cultural Commonsense Reasoning,cross-cultural,commonsense;society_culture;specialized_domain,multiple_choice,monolingual_non_english
+indommlu,IndoMMLU,multilingual,recall;multi_subject,multiple_choice,monolingual_non_english
+indonli,IndoNLI,"Multilingual, Crosslingual, Cultural",natural_language_inference;multi_subject;language_processing,classification,monolingual_non_english
+irokobench,IrokoBench,multilingual,recall;math;multi_subject;natural_language_inference;reasoning;language_processing,multiple_choice;long_reasoning;classification,multilingual
+jailbreakbench,JailbreakBench,alignment/safety,safety;alignment,long_form_generation,english
+kaggle_aminmohamedmohami_browsecomp,BrowseComp,agentic/tool-use,agentic;retrieval;encyclopedic;source_genre,interactive,english
+kaggle_aminmohamedmohami_indic_gen_bench,IndicGen Benchmark,multilingual,translation;multi_subject;summarization;generation,long_form_generation;extraction,crosslingual
+kaggle_andrewmingwang_asset_ops_bench,FailureSensorIQ,domain-specific,recall;industrial;specialized_domain,multiple_choice,english
 kaggle_andrewmingwang_dsqa,DeepSearchQA,agentic/tool-use,agentic;retrieval;multi_subject,interactive,english
-kaggle_andrewmingwang_facts,FACTS,alignment/safety,safety;encyclopedic,short_qa;long_form_generation;interactive,english
+kaggle_andrewmingwang_facts,FACTS,alignment/safety,encyclopedic;factuality;source_genre;alignment,short_qa;long_form_generation;interactive,english
 kaggle_andrewmingwang_scicode_main_standard,SciCode Main,coding,code;science,long_form_generation,english
 kaggle_andrewmingwang_scicode_main_with_background,SciCode Main With Background,coding,code;science,long_form_generation,english
 kaggle_andrewmingwang_scicode_subproblem_standard,SciCode Subproblem,coding,code;science,long_form_generation,english
 kaggle_andrewmingwang_scicode_subproblem_with_background,SciCode Subproblem With Background,coding,code;science,long_form_generation,english
-kaggle_andrewmingwang_simpleqa_verified,SimpleQA Verified,alignment/safety,knowledge;safety;encyclopedic,short_qa,english
-kaggle_jonlipovetz_chess_suite,Chess Suite,game-playing,games,interactive,english
-kaggle_jonlipovetz_game_arena,Game Arena,game-playing,games,interactive,english
-kaggle_nanliao7_enterprise_ops,Enterprise Ops,agentic/tool-use,agentic;industrial,interactive,english
-kaggle_nanliao7_itbench,ITBench,agentic/tool-use,agentic;industrial,interactive,english
-kaggle_olamysiak_eclektic,ECLeKTic,multilingual,knowledge;encyclopedic,short_qa,crosslingual
+kaggle_andrewmingwang_simpleqa_verified,SimpleQA Verified,alignment/safety,encyclopedic;factuality;world_knowledge;source_genre;alignment,short_qa,english
+kaggle_jonlipovetz_chess_suite,Chess Suite,game-playing,games;specialized_domain,interactive,english
+kaggle_jonlipovetz_game_arena,Game Arena,game-playing,games;specialized_domain,interactive,english
+kaggle_nanliao7_enterprise_ops,Enterprise Ops,agentic/tool-use,agentic;industrial;specialized_domain,interactive,english
+kaggle_nanliao7_itbench,ITBench,agentic/tool-use,agentic;industrial;specialized_domain,interactive,english
+kaggle_olamysiak_eclektic,ECLeKTic,multilingual,encyclopedic;world_knowledge;source_genre,short_qa,crosslingual
 kaggle_sjmikler_livecodebench,LiveCodeBench,coding,code,long_form_generation,english
-kaggle_sripalthilakraj_global_mmlu_lite_english,Global MMLU Lite English,general_knowledge,knowledge;multi_subject,multiple_choice,english
-kaggle_vijitsingh1_mgsm_english,MGSM English,math,math,long_reasoning,english
-kaggle_yulongt_facts_parametric,Facts V2 Parametric,alignment/safety,knowledge;safety;encyclopedic,short_qa,english
-kalahi,Kalahi: Filipino Cultural LLM Evaluation,cross-cultural,knowledge;society_culture,multiple_choice,monolingual_non_english
+kaggle_sripalthilakraj_global_mmlu_lite_english,Global MMLU Lite English,general_knowledge,recall;multi_subject,multiple_choice,english
+kaggle_vijitsingh1_mgsm_english,MGSM English,math,math;reasoning,long_reasoning,english
+kaggle_yulongt_facts_parametric,Facts V2 Parametric,alignment/safety,encyclopedic;factuality;world_knowledge;source_genre;alignment,short_qa,english
+kalahi,Kalahi: Filipino Cultural LLM Evaluation,cross-cultural,recall;society_culture;specialized_domain,multiple_choice,monolingual_non_english
 kernelbench,KernelBench: Evaluating LLMs on Kernel Development,coding,code,long_form_generation,english
-kmmlu,Korean MMLU,multilingual,knowledge;multi_subject,multiple_choice,monolingual_non_english
-lawbench,LawBench,alignment/safety,knowledge;legal,classification;extraction;short_qa;long_form_generation,monolingual_non_english
-legal_support,LegalSupport,Reasoning,natural_language_inference;legal,multiple_choice,english
-legalbench,LegalBench,alignment/safety,knowledge;legal,classification,english
-lindsea_pragmatics_presuppositions_id,LINDSEA Pragmatics Presuppositions,"Multilingual, Crosslingual, Cultural",cognitive_science;linguistics,multiple_choice,monolingual_non_english
-lindsea_pragmatics_scalar_implicatures_id,LINDSEA Pragmatics Scalar Implicatures,"Multilingual, Crosslingual, Cultural",cognitive_science;linguistics,multiple_choice,monolingual_non_english
-lindsea_syntax_minimal_pairs_id,LINDSEA Syntax Minimal Pairs,"Multilingual, Crosslingual, Cultural",cognitive_science;linguistics,multiple_choice,monolingual_non_english
-litbench,LitBench,creative,creativity;fiction;output_evaluation,multiple_choice,english
-livebench,"LiveBench: A Challenging, Contamination-Free LLM Benchmark",general_knowledge,math;code;logical_reasoning;structured_data;instruction_following;language_understanding;multi_subject,short_qa;long_reasoning;long_form_generation,english
+kmmlu,Korean MMLU,multilingual,recall;multi_subject;specialized_domain,multiple_choice,monolingual_non_english
+lawbench,LawBench,alignment/safety,recall;legal;specialized_domain,classification;extraction;short_qa;long_form_generation,monolingual_non_english
+legal_support,LegalSupport,Reasoning,natural_language_inference;legal;language_processing;specialized_domain,multiple_choice,english
+legalbench,LegalBench,alignment/safety,legal;reasoning;specialized_domain,classification,english
+lindsea_pragmatics_presuppositions_id,LINDSEA Pragmatics Presuppositions,"Multilingual, Crosslingual, Cultural",linguistic_competence;language_processing,multiple_choice,monolingual_non_english
+lindsea_pragmatics_scalar_implicatures_id,LINDSEA Pragmatics Scalar Implicatures,"Multilingual, Crosslingual, Cultural",linguistic_competence;language_processing,multiple_choice,monolingual_non_english
+lindsea_syntax_minimal_pairs_id,LINDSEA Syntax Minimal Pairs,"Multilingual, Crosslingual, Cultural",linguistic_competence;language_processing,multiple_choice,monolingual_non_english
+litbench,LitBench,creative,creativity;fiction;output_evaluation;generation;source_genre;alignment,multiple_choice,english
+livebench,"LiveBench: A Challenging, Contamination-Free LLM Benchmark",general_knowledge,math;code;logical_reasoning;structured_data;instruction_following;language_understanding;multi_subject;reasoning;source_genre;alignment;language_processing,short_qa;long_reasoning;long_form_generation,english
 livecodebench,LiveCodeBench,coding,code,long_form_generation,english
-llmchess,LLM Chess,reasoning,games;instruction_following;reasoning,interactive,english
-lsat_qa,LSAT,Reasoning,logical_reasoning,multiple_choice,english
-madinah_qa,MadinahQA,"Multilingual, Crosslingual, Cultural",knowledge;linguistics,multiple_choice,monolingual_non_english
-maliciousinstruct,MaliciousInstruct: A Benchmark for Measuring and Improving LLM Robustness against Malicious Use,alignment/safety,safety,long_form_generation,english
-math,MATH Dataset (Measuring Mathematical Problem Solving),math,math,long_reasoning,english
-math500,MATH-500,Math,math,long_reasoning,english
-math_chain_of_thought,MATH (chain-of-thoughts),Math,math,long_reasoning,english
-math_regular,MATH,Math,math,long_reasoning,english
+llmchess,LLM Chess,reasoning,games;instruction_following;reasoning;specialized_domain;alignment,interactive,english
+lsat_qa,LSAT,Reasoning,logical_reasoning;reasoning,multiple_choice,english
+madinah_qa,MadinahQA,"Multilingual, Crosslingual, Cultural",recall;linguistics;specialized_domain,multiple_choice,monolingual_non_english
+maliciousinstruct,MaliciousInstruct: A Benchmark for Measuring and Improving LLM Robustness against Malicious Use,alignment/safety,safety;alignment,long_form_generation,english
+math,MATH Dataset (Measuring Mathematical Problem Solving),math,math;reasoning,long_reasoning,english
+math500,MATH-500,Math,math;reasoning,long_reasoning,english
+math_chain_of_thought,MATH (chain-of-thoughts),Math,math;reasoning,long_reasoning,english
+math_regular,MATH,Math,math;reasoning,long_reasoning,english
 mbpp,MBPP,coding,code,long_form_generation,english
 mceval,MCEval,alignment/safety,code,long_form_generation,english
-mclm,MCLM,multilingual,math,long_reasoning,multilingual
-med_dialog,MedDialog,Medical,summarization;medical;dialogue,long_form_generation,english
-medal,MEDAL,domain-specific,dialogue;output_evaluation,classification,multilingual
-medalign,MedAlign,Medical,instruction_following;medical,long_form_generation,english
-medbullets,Medbullets,Medical,knowledge;medical,multiple_choice,english
-medcalc_bench,MedCalc-Bench,Medical,math;medical,long_reasoning,english
-medec,Medec,Medical,safety;medical,long_form_generation;classification,english
-medhallu,MedHallu,Medical,safety;fact_verification;medical,classification,english
-medi_qa,MEDIQA,Medical,knowledge;medical,long_form_generation,english
-medication_qa,MedicationQA,Medical,knowledge;medical,long_form_generation,english
-medmcqa,MedMCQA,domain-specific,knowledge;medical,multiple_choice,english
-medqa,MedQA,domain-specific,knowledge;medical,multiple_choice,english
-mega,Multilingual Evaluation of Generative AI,multilingual,language_understanding;multi_subject,long_form_generation;classification;extraction,multilingual
-mena_bench,MENA-Bench,multilingual,safety;cognitive_science;society_culture,multiple_choice,multilingual
-mental_health,MentalHealth,Medical,dialogue;medical,long_form_generation,english
-mexa,MEXA,multilingual,language_understanding,likelihood_probe,crosslingual
-mgsm,Multilingual Grade School Math,math,math,long_reasoning,multilingual
-milu,MILU,multilingual,knowledge;multi_subject,multiple_choice,multilingual
-mimic_bhc,MIMIC-IV-BHC,Medical,summarization;medical,long_form_generation,english
-mimic_rrs,MIMIC-RRS,Medical,summarization;medical,long_form_generation,english
-mimiciv_billing_code,MIMIC-IV Billing Code,Medical,text_classification;medical,classification,english
-mlhsd,MLHSD,Alignment & Safety,safety;social_media,classification,monolingual_non_english
-mmedbench,MMedBench,domain-specific,knowledge;medical,multiple_choice,multilingual
-mmlu,Measuring Massive Multitask Language Understanding,general_knowledge,knowledge;multi_subject,multiple_choice,english
-mmlu_pro,MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark,general_knowledge,knowledge;multi_subject,multiple_choice,english
-mmlu_prox,MMLU-Pro,general_knowledge,knowledge;multi_subject,multiple_choice,miscellaneous
-moralbench,MoralBench,alignment/safety,safety;cognitive_science;society_culture,multiple_choice,english
+mclm,MCLM,multilingual,math;reasoning,long_reasoning,multilingual
+med_dialog,MedDialog,Medical,summarization;medical;dialogue;generation;specialized_domain,long_form_generation,english
+medal,MEDAL,domain-specific,dialogue;output_evaluation;medical;generation;alignment;specialized_domain,classification,multilingual
+medalign,MedAlign,Medical,instruction_following;medical;alignment;specialized_domain,long_form_generation,english
+medbullets,Medbullets,Medical,recall;medical;specialized_domain,multiple_choice,english
+medcalc_bench,MedCalc-Bench,Medical,math;medical;reasoning;specialized_domain,long_reasoning,english
+medec,Medec,Medical,safety;medical;alignment;specialized_domain,long_form_generation;classification,english
+medhallu,MedHallu,Medical,fact_verification;medical;factuality;alignment;specialized_domain,classification,english
+medi_qa,MEDIQA,Medical,recall;medical;specialized_domain,long_form_generation,english
+medication_qa,MedicationQA,Medical,recall;medical;specialized_domain,long_form_generation,english
+medmcqa,MedMCQA,domain-specific,recall;medical;specialized_domain,multiple_choice,english
+medqa,MedQA,domain-specific,recall;medical;specialized_domain,multiple_choice,english
+mega,Multilingual Evaluation of Generative AI,multilingual,language_understanding;multi_subject;language_processing,long_form_generation;classification;extraction,multilingual
+mena_bench,MENA-Bench,multilingual,safety;cognitive;society_culture;alignment;specialized_domain,multiple_choice,multilingual
+mental_health,MentalHealth,Medical,dialogue;medical;generation;specialized_domain,long_form_generation,english
+mexa,MEXA,multilingual,language_understanding;language_processing,likelihood_probe,crosslingual
+mgsm,Multilingual Grade School Math,math,math;reasoning,long_reasoning,multilingual
+milu,MILU,multilingual,recall;multi_subject,multiple_choice,multilingual
+mimic_bhc,MIMIC-IV-BHC,Medical,summarization;medical;generation;specialized_domain,long_form_generation,english
+mimic_rrs,MIMIC-RRS,Medical,summarization;medical;generation;specialized_domain,long_form_generation,english
+mimiciv_billing_code,MIMIC-IV Billing Code,Medical,text_classification;medical;language_processing;specialized_domain,classification,english
+mlhsd,MLHSD,Alignment & Safety,social_media;toxicity;source_genre;alignment,classification,monolingual_non_english
+mmedbench,MMedBench,domain-specific,recall;medical;specialized_domain,multiple_choice,multilingual
+mmlu,Measuring Massive Multitask Language Understanding,general_knowledge,recall;multi_subject,multiple_choice,english
+mmlu_pro,MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark,general_knowledge,recall;multi_subject,multiple_choice,english
+mmlu_prox,MMLU-Pro,general_knowledge,recall;multi_subject,multiple_choice,miscellaneous
+moralbench,MoralBench,alignment/safety,society_culture;moral_values;specialized_domain;alignment,multiple_choice,english
 msmarco_regular,MS MARCO (regular track),General Knowledge,retrieval;multi_subject,ranking,english
 msmarco_trec,MS MARCO (TREC track),General Knowledge,retrieval;multi_subject,ranking,english
-mt_bench,MT-Bench,alignment/safety,instruction_following;multi_subject,conversation,english
-mtrag,MTRAG,multilingual,reading_comprehension;retrieval;multi_subject,conversation,english
-mtsamples_procedures,MTSamples Procedures,Medical,professional_writing;medical,long_form_generation,english
-mtsamples_replicate,MTSamples,Medical,professional_writing;medical,long_form_generation,english
-multi_if,Multi-IF,multilingual,instruction_following;multi_subject,conversation,multilingual
-multichallenge,MultiChallenge,multilingual,instruction_following;multi_subject,conversation,english
-multiloko,MultiLoKo,cross-cultural,knowledge;society_culture,short_qa,multilingual
+mt_bench,MT-Bench,alignment/safety,instruction_following;multi_subject;alignment,conversation,english
+mtrag,MTRAG,multilingual,reading_comprehension;retrieval;multi_subject;language_processing,conversation,english
+mtsamples_procedures,MTSamples Procedures,Medical,professional_writing;medical;generation;specialized_domain,long_form_generation,english
+mtsamples_replicate,MTSamples,Medical,professional_writing;medical;generation;specialized_domain,long_form_generation,english
+multi_if,Multi-IF,multilingual,instruction_following;multi_subject;alignment,conversation,multilingual
+multichallenge,MultiChallenge,multilingual,instruction_following;multi_subject;alignment,conversation,english
+multiloko,MultiLoKo,cross-cultural,recall;society_culture;specialized_domain,short_qa,multilingual
 multipl_e,Multiple-E,coding,code,long_form_generation,english
-musr,MuSR: Testing the Limits of Chain-of-thought with Multistep Soft Reasoning,general_knowledge,commonsense,multiple_choice,english
-n2c2_ct_matching,N2C2-CT Matching,Medical,text_classification;medical,classification,english
-narrative_qa,NarrativeQA,General Knowledge,reading_comprehension;fiction,short_qa,english
-natural_qa_closedbook,NaturalQuestions (closed-book),General Knowledge,knowledge;encyclopedic,short_qa,english
-natural_qa_openbook_longans,NaturalQuestions (open-book),General Knowledge,reading_comprehension;encyclopedic,extraction,english
-naturalquestions,Natural Questions,general_knowledge,knowledge;encyclopedic,short_qa,english
-neuro_eval,NeuroEval,general_knowledge,cognitive_science,interactive,english
-numeric_nlg,NumericNLG,Reasoning,data_to_text;science;structured_data,long_form_generation,english
-nusamt,NusaMT: Indonesian Local Language Machine Translation,multilingual,translation,long_form_generation,crosslingual
-nusax,NusaX,multilingual,sentiment,classification,multilingual
-oogiri,Oogiri LLM Benchmark,general_knowledge,creativity;humour,long_form_generation,monolingual_non_english
+musr,MuSR: Testing the Limits of Chain-of-thought with Multistep Soft Reasoning,general_knowledge,commonsense;reasoning,multiple_choice,english
+n2c2_ct_matching,N2C2-CT Matching,Medical,text_classification;medical;language_processing;specialized_domain,classification,english
+narrative_qa,NarrativeQA,General Knowledge,reading_comprehension;fiction;language_processing;source_genre,short_qa,english
+natural_qa_closedbook,NaturalQuestions (closed-book),General Knowledge,encyclopedic;world_knowledge;source_genre,short_qa,english
+natural_qa_openbook_longans,NaturalQuestions (open-book),General Knowledge,reading_comprehension;encyclopedic;language_processing;source_genre,extraction,english
+naturalquestions,Natural Questions,general_knowledge,encyclopedic;world_knowledge;source_genre,short_qa,english
+neuro_eval,NeuroEval,general_knowledge,cognitive,interactive,english
+numeric_nlg,NumericNLG,Reasoning,data_to_text;science;structured_data;generation;source_genre,long_form_generation,english
+nusamt,NusaMT: Indonesian Local Language Machine Translation,multilingual,translation;generation,long_form_generation,crosslingual
+nusax,NusaX,multilingual,sentiment;language_processing,classification,multilingual
+oogiri,Oogiri LLM Benchmark,general_knowledge,creativity;humour;generation;specialized_domain,long_form_generation,monolingual_non_english
 openbookqa,OpenbookQA,General Knowledge,commonsense;science,multiple_choice,english
-opencompass,OpenCompass,general_knowledge,knowledge;language_understanding;reasoning;safety;code;agentic;multi_subject,multiple_choice;short_qa;long_form_generation,multilingual
-parsiNLU,ParsiNLU,multilingual,language_understanding;multi_subject,classification;extraction,monolingual_non_english
-pinocchio,Pinocchio,general_knowledge,knowledge;safety;encyclopedic,multiple_choice,multilingual
-pubmedqa,PubMedQA,domain-specific,knowledge;medical,multiple_choice,english
-pwc_abstractive_text_summarization_from_fanpage,Abstractive Text Summarization from Fanpage,Abstractive Text Summarization,summarization;news,long_form_generation,monolingual_non_english
-pwc_abstractive_text_summarization_from_il_post,Abstractive Text Summarization from Il Post,Abstractive Text Summarization,summarization;news,long_form_generation,monolingual_non_english
-pwc_ace_2005,ACE 2005,Named Entity Recognition (NER),information_extraction;news,extraction,english
-pwc_acos,ACOS,Aspect-Based Sentiment Analysis (ABSA),sentiment,extraction,english
-pwc_ag_news,AG News,Text Classification,text_classification;news,classification,english
-pwc_aime24,AIME24,Mathematical Reasoning,math,long_reasoning,english
-pwc_anatem,AnatEM,Named Entity Recognition (NER),information_extraction;medical,extraction,english
-pwc_anli_test,ANLI test,Natural Language Inference,natural_language_inference;encyclopedic,classification,english
+opencompass,OpenCompass,general_knowledge,recall;language_understanding;reasoning;safety;code;agentic;multi_subject;language_processing;alignment,multiple_choice;short_qa;long_form_generation,multilingual
+parsiNLU,ParsiNLU,multilingual,language_understanding;multi_subject;language_processing,classification;extraction,monolingual_non_english
+pinocchio,Pinocchio,general_knowledge,encyclopedic;factuality;world_knowledge;source_genre;alignment,multiple_choice,multilingual
+pubmedqa,PubMedQA,domain-specific,medical;reading_comprehension;specialized_domain;language_processing,multiple_choice,english
+pwc_abstractive_text_summarization_from_fanpage,Abstractive Text Summarization from Fanpage,Abstractive Text Summarization,summarization;news;generation;source_genre,long_form_generation,monolingual_non_english
+pwc_abstractive_text_summarization_from_il_post,Abstractive Text Summarization from Il Post,Abstractive Text Summarization,summarization;news;generation;source_genre,long_form_generation,monolingual_non_english
+pwc_ace_2005,ACE 2005,Named Entity Recognition (NER),information_extraction;news;language_processing;source_genre,extraction,english
+pwc_acos,ACOS,Aspect-Based Sentiment Analysis (ABSA),sentiment;language_processing,extraction,english
+pwc_ag_news,AG News,Text Classification,text_classification;news;language_processing;source_genre,classification,english
+pwc_aime24,AIME24,Mathematical Reasoning,math;reasoning,long_reasoning,english
+pwc_anatem,AnatEM,Named Entity Recognition (NER),information_extraction;medical;language_processing;specialized_domain,extraction,english
+pwc_anli_test,ANLI test,Natural Language Inference,natural_language_inference;encyclopedic;reasoning;language_processing;source_genre,classification,english
 pwc_apps,APPS,Code Generation,code,long_form_generation,english
-pwc_arc_challenge,ARC (Challenge),Common Sense Reasoning,commonsense;science,multiple_choice,english
-pwc_arc_easy,ARC (Easy),Common Sense Reasoning,commonsense;science,multiple_choice,english
-pwc_arxiv_hep_th_citation_graph,Arxiv HEP-TH citation graph,Language Modelling,science;summarization,long_form_generation,english
-pwc_arxiv_summarization_dataset,arXiv Summarization Dataset,Text Summarization,summarization;science,long_form_generation,english
-pwc_asdiv_a,ASDiv-A,Math Word Problem Solving,math,long_reasoning,english
-pwc_asqp,ASQP,Aspect-Based Sentiment Analysis (ABSA),sentiment,extraction,english
-pwc_aste,ASTE,Aspect-Based Sentiment Analysis (ABSA),sentiment,extraction,english
-pwc_average_on_nlp_datasets,Average on NLP datasets,Few-Shot Text Classification,text_classification;multi_subject,classification,miscellaneous
-pwc_bamboogle,Bamboogle,Question Answering,knowledge;encyclopedic;reasoning,short_qa,english
-pwc_bc2gm,BC2GM,Named Entity Recognition (NER),information_extraction;medical,extraction,english
-pwc_bc4chemd,BC4CHEMD,Named Entity Recognition (NER),information_extraction;medical,extraction,english
-pwc_bc5cdr,BC5CDR,Named Entity Recognition (NER),information_extraction;medical,extraction,english
-pwc_big_bench_causal_judgment,BIG-bench (Causal Judgment),Common Sense Reasoning,commonsense,multiple_choice,english
-pwc_big_bench_date_understanding,BIG-bench (Date Understanding),Common Sense Reasoning,commonsense;temporal_reasoning,multiple_choice,english
+pwc_arc_challenge,ARC (Challenge),Common Sense Reasoning,science;recall,multiple_choice,english
+pwc_arc_easy,ARC (Easy),Common Sense Reasoning,science;recall,multiple_choice,english
+pwc_arxiv_hep_th_citation_graph,Arxiv HEP-TH citation graph,Language Modelling,science;language_modelling;language_processing,likelihood_probe,english
+pwc_arxiv_summarization_dataset,arXiv Summarization Dataset,Text Summarization,summarization;science;generation,long_form_generation,english
+pwc_asdiv_a,ASDiv-A,Math Word Problem Solving,math;reasoning,long_reasoning,english
+pwc_asqp,ASQP,Aspect-Based Sentiment Analysis (ABSA),sentiment;language_processing,extraction,english
+pwc_aste,ASTE,Aspect-Based Sentiment Analysis (ABSA),sentiment;language_processing,extraction,english
+pwc_average_on_nlp_datasets,Average on NLP datasets,Few-Shot Text Classification,text_classification;multi_subject;language_processing,classification,miscellaneous
+pwc_bamboogle,Bamboogle,Question Answering,encyclopedic;reasoning;world_knowledge;source_genre,short_qa,english
+pwc_bc2gm,BC2GM,Named Entity Recognition (NER),information_extraction;medical;language_processing;specialized_domain,extraction,english
+pwc_bc4chemd,BC4CHEMD,Named Entity Recognition (NER),information_extraction;medical;language_processing;specialized_domain,extraction,english
+pwc_bc5cdr,BC5CDR,Named Entity Recognition (NER),information_extraction;medical;language_processing;specialized_domain,extraction,english
+pwc_big_bench_causal_judgment,BIG-bench (Causal Judgment),Common Sense Reasoning,commonsense;reasoning,multiple_choice,english
+pwc_big_bench_date_understanding,BIG-bench (Date Understanding),Common Sense Reasoning,commonsense;temporal_reasoning;reasoning,multiple_choice,english
 pwc_big_bench_disambiguation_qa,BIG-bench (Disambiguation QA),Common Sense Reasoning,commonsense,multiple_choice,english
-pwc_big_bench_formal_fallacies_syllogisms_negation,BIG-bench (Formal Fallacies Syllogisms Negation),Logical Reasoning,logical_reasoning,multiple_choice,english
-pwc_big_bench_logic_grid_puzzle,BIG-bench (Logic Grid Puzzle),Logical Reasoning,logical_reasoning,multiple_choice,english
-pwc_big_bench_penguins_in_a_table,BIG-bench (Penguins In A Table),Logical Reasoning,logical_reasoning,multiple_choice,english
-pwc_big_bench_reasoning_about_colored_objects,BIG-bench (Reasoning About Colored Objects),Logical Reasoning,commonsense,multiple_choice,english
-pwc_big_bench_sports_understanding,BIG-bench (Sports Understanding),Common Sense Reasoning,commonsense;sports,multiple_choice,english
-pwc_big_bench_strategyqa,BIG-bench (StrategyQA),Logical Reasoning,knowledge;encyclopedic;reasoning,multiple_choice,english
-pwc_big_bench_temporal_sequences,BIG-bench (Temporal Sequences),Logical Reasoning,commonsense;temporal_reasoning,multiple_choice,english
+pwc_big_bench_formal_fallacies_syllogisms_negation,BIG-bench (Formal Fallacies Syllogisms Negation),Logical Reasoning,logical_reasoning;reasoning,multiple_choice,english
+pwc_big_bench_logic_grid_puzzle,BIG-bench (Logic Grid Puzzle),Logical Reasoning,logical_reasoning;reasoning,multiple_choice,english
+pwc_big_bench_penguins_in_a_table,BIG-bench (Penguins In A Table),Logical Reasoning,logical_reasoning;structured_data;reasoning;source_genre,multiple_choice,english
+pwc_big_bench_reasoning_about_colored_objects,BIG-bench (Reasoning About Colored Objects),Logical Reasoning,commonsense;reasoning,multiple_choice,english
+pwc_big_bench_sports_understanding,BIG-bench (Sports Understanding),Common Sense Reasoning,commonsense;sports;specialized_domain,multiple_choice,english
+pwc_big_bench_strategyqa,BIG-bench (StrategyQA),Logical Reasoning,encyclopedic;reasoning;world_knowledge;source_genre,multiple_choice,english
+pwc_big_bench_temporal_sequences,BIG-bench (Temporal Sequences),Logical Reasoning,commonsense;temporal_reasoning;reasoning,multiple_choice,english
 pwc_big_bench_winowhy,BIG-bench (Winowhy),Common Sense Reasoning,commonsense,multiple_choice,english
-pwc_bioasq,BioASQ,Question Answering,knowledge;medical,multiple_choice,english
-pwc_c4,C4,Language Modelling,language_modelling;multi_subject,likelihood_probe,english
-pwc_carb,CaRB,Open Information Extraction,information_extraction;encyclopedic,extraction,english
-pwc_cc3m_tagmask,CC3M-TagMask,Multi-Label Text Classification,text_classification,classification,english
-pwc_citesum,CiteSum,Extreme Summarization,summarization;science,long_form_generation,english
-pwc_climate_fever_beir,CLIMATE-FEVER (BEIR),Fact Checking,knowledge;science;fact_verification;retrieval,ranking,english
-pwc_cnn_daily_mail_anonymized,CNN / Daily Mail (Anonymized),Text Summarization,summarization;news,long_form_generation,english
+pwc_bioasq,BioASQ,Question Answering,recall;medical;specialized_domain,multiple_choice,english
+pwc_c4,C4,Language Modelling,language_modelling;multi_subject;language_processing,likelihood_probe,english
+pwc_carb,CaRB,Open Information Extraction,information_extraction;encyclopedic;language_processing;source_genre,extraction,english
+pwc_cc3m_tagmask,CC3M-TagMask,Multi-Label Text Classification,text_classification;language_processing,classification,english
+pwc_citesum,CiteSum,Extreme Summarization,summarization;science;generation,long_form_generation,english
+pwc_climate_fever_beir,CLIMATE-FEVER (BEIR),Fact Checking,science;fact_verification;retrieval;alignment,ranking,english
+pwc_cnn_daily_mail_anonymized,CNN / Daily Mail (Anonymized),Text Summarization,summarization;news;generation;source_genre,long_form_generation,english
 pwc_codecontests,CodeContests,Code Generation,code,long_form_generation,english
-pwc_commitmentbank,CommitmentBank,Natural Language Inference,natural_language_inference;multi_subject,classification,english
+pwc_commitmentbank,CommitmentBank,Natural Language Inference,natural_language_inference;multi_subject;language_processing,classification,english
 pwc_commonsenseqa,CommonsenseQA,Common Sense Reasoning,commonsense,multiple_choice,english
 pwc_conala,CoNaLa,Code Generation,code,long_form_generation,english
-pwc_conll03,CoNLL03,Named Entity Recognition (NER),information_extraction;news,extraction,english
+pwc_conll03,CoNLL03,Named Entity Recognition (NER),information_extraction;news;language_processing;source_genre,extraction,english
 pwc_copa,COPA,Question Answering,commonsense,multiple_choice,english
-pwc_coqa,CoQA,Question Answering,reading_comprehension;multi_subject,extraction,english
-pwc_cr,CR,Sentiment Analysis,sentiment,classification,english
-pwc_cronquestions,CronQuestions,Question Answering,knowledge;encyclopedic;temporal_reasoning,short_qa,english
-pwc_danetqa,DaNetQA,Question Answering,reading_comprehension;encyclopedic,multiple_choice,monolingual_non_english
+pwc_coqa,CoQA,Question Answering,reading_comprehension;multi_subject;language_processing,extraction,english
+pwc_cr,CR,Sentiment Analysis,sentiment;language_processing,classification,english
+pwc_cronquestions,CronQuestions,Question Answering,encyclopedic;temporal_reasoning;world_knowledge;source_genre;reasoning,short_qa,english
+pwc_danetqa,DaNetQA,Question Answering,reading_comprehension;encyclopedic;language_processing;source_genre,multiple_choice,monolingual_non_english
 pwc_django,Django,Code Generation,code,long_form_generation,english
-pwc_drop,DROP,Question Answering,reading_comprehension;encyclopedic;reasoning,short_qa,english
-pwc_drop_test,DROP Test,Question Answering,reading_comprehension;encyclopedic;reasoning,short_qa,english
-pwc_dynasent,DynaSent,Sentiment Analysis,sentiment,classification,english
-pwc_enwik8,enwik8,Language Modelling,language_modelling;encyclopedic,likelihood_probe,english
-pwc_fever_beir,FEVER (BEIR),Fact Checking,knowledge;encyclopedic;fact_verification;retrieval,ranking,english
-pwc_fiqa_2018_beir,FiQA-2018 (BEIR),Question Answering,retrieval;finance,ranking,english
-pwc_frontiermath,FrontierMath,Mathematical Reasoning,math,long_reasoning,english
-pwc_gem_xsum,GEM-XSum,Extreme Summarization,summarization;news,long_form_generation,english
-pwc_genia,GENIA,Named Entity Recognition (NER),information_extraction;medical,extraction,english
-pwc_gigaword,GigaWord,Text Summarization,summarization;news,long_form_generation,english
-pwc_hotpotqa_beir,HotpotQA (BEIR),Question Answering,retrieval;encyclopedic,ranking,english
-pwc_kilt_eli5,KILT: ELI5,Question Answering,knowledge;encyclopedic,long_form_generation,english
-pwc_kvret,Kvret,Task-Oriented Dialogue Systems,instruction_following,conversation,english
-pwc_lambada,LAMBADA,Language Modelling,language_modelling;fiction,sentence_completion,english
-pwc_lidirus,LiDiRus,Natural Language Inference,natural_language_inference;multi_subject,classification,monolingual_non_english
-pwc_lila_iid,Lila (IID),Mathematical Reasoning,math,long_reasoning,english
-pwc_lila_ood,Lila (OOD),Mathematical Reasoning,math,long_reasoning,english
-pwc_math23k,Math23K,Math Word Problem Solving,math,long_reasoning,monolingual_non_english
-pwc_mawps,MAWPS,Math Word Problem Solving,math,long_reasoning,english
-pwc_mlsum_it,MLSum-it,Abstractive Text Summarization,summarization;news,long_form_generation,monolingual_non_english
-pwc_mr,MR,Sentiment Analysis,sentiment,classification,english
+pwc_drop,DROP,Question Answering,reading_comprehension;encyclopedic;reasoning;language_processing;source_genre,short_qa,english
+pwc_drop_test,DROP Test,Question Answering,reading_comprehension;encyclopedic;reasoning;language_processing;source_genre,short_qa,english
+pwc_dynasent,DynaSent,Sentiment Analysis,sentiment;language_processing,classification,english
+pwc_enwik8,enwik8,Language Modelling,language_modelling;encyclopedic;language_processing;source_genre,likelihood_probe,english
+pwc_fever_beir,FEVER (BEIR),Fact Checking,encyclopedic;fact_verification;retrieval;source_genre;alignment,ranking,english
+pwc_fiqa_2018_beir,FiQA-2018 (BEIR),Question Answering,retrieval;finance;specialized_domain,ranking,english
+pwc_frontiermath,FrontierMath,Mathematical Reasoning,math;reasoning,long_reasoning,english
+pwc_gem_xsum,GEM-XSum,Extreme Summarization,summarization;news;generation;source_genre,long_form_generation,english
+pwc_genia,GENIA,Named Entity Recognition (NER),information_extraction;medical;language_processing;specialized_domain,extraction,english
+pwc_gigaword,GigaWord,Text Summarization,summarization;news;generation;source_genre,long_form_generation,english
+pwc_hotpotqa_beir,HotpotQA (BEIR),Question Answering,retrieval;encyclopedic;source_genre,ranking,english
+pwc_kilt_eli5,KILT: ELI5,Question Answering,encyclopedic;world_knowledge;source_genre,long_form_generation,english
+pwc_kvret,Kvret,Task-Oriented Dialogue Systems,dialogue;generation,conversation,english
+pwc_lambada,LAMBADA,Language Modelling,language_modelling;fiction;language_processing;source_genre,sentence_completion,english
+pwc_lidirus,LiDiRus,Natural Language Inference,natural_language_inference;multi_subject;language_processing,classification,monolingual_non_english
+pwc_lila_iid,Lila (IID),Mathematical Reasoning,math;reasoning,long_reasoning,english
+pwc_lila_ood,Lila (OOD),Mathematical Reasoning,math;reasoning,long_reasoning,english
+pwc_math23k,Math23K,Math Word Problem Solving,math;reasoning,long_reasoning,monolingual_non_english
+pwc_mawps,MAWPS,Math Word Problem Solving,math;reasoning,long_reasoning,english
+pwc_mlsum_it,MLSum-it,Abstractive Text Summarization,summarization;news;generation;source_genre,long_form_generation,monolingual_non_english
+pwc_mr,MR,Sentiment Analysis,sentiment;language_processing,classification,english
 pwc_mteb,MTEB,Text Summarization,retrieval;multi_subject,ranking,english
-pwc_multinli,MultiNLI,Natural Language Inference,natural_language_inference;multi_subject,classification,english
-pwc_multirc,MultiRC,Question Answering,reading_comprehension;multi_subject,multiple_choice,english
-pwc_multitq,MultiTQ,Question Answering,knowledge;encyclopedic;temporal_reasoning,short_qa,english
-pwc_muserc,MuSeRC,Reading Comprehension,reading_comprehension;multi_subject,multiple_choice,monolingual_non_english
-pwc_ncbi_disease,NCBI-disease,Named Entity Recognition (NER),information_extraction;medical,extraction,english
-pwc_newsqa,NewsQA,Question Answering,reading_comprehension;news,extraction,english
-pwc_nq_beir,NQ (BEIR),Question Answering,retrieval;encyclopedic,ranking,english
+pwc_multinli,MultiNLI,Natural Language Inference,natural_language_inference;multi_subject;language_processing,classification,english
+pwc_multirc,MultiRC,Question Answering,reading_comprehension;multi_subject;language_processing,multiple_choice,english
+pwc_multitq,MultiTQ,Question Answering,encyclopedic;temporal_reasoning;world_knowledge;source_genre;reasoning,short_qa,english
+pwc_muserc,MuSeRC,Reading Comprehension,reading_comprehension;multi_subject;language_processing,multiple_choice,monolingual_non_english
+pwc_ncbi_disease,NCBI-disease,Named Entity Recognition (NER),information_extraction;medical;language_processing;specialized_domain,extraction,english
+pwc_newsqa,NewsQA,Question Answering,reading_comprehension;news;language_processing;source_genre,extraction,english
+pwc_nq_beir,NQ (BEIR),Question Answering,retrieval;encyclopedic;source_genre,ranking,english
 pwc_obqa,OBQA,Question Answering,commonsense;science,multiple_choice,english
-pwc_oie2016,OIE2016,Open Information Extraction,information_extraction;encyclopedic,extraction,english
-pwc_one_billion_word,One Billion Word,Language Modelling,language_modelling;news,likelihood_probe,english
+pwc_oie2016,OIE2016,Open Information Extraction,information_extraction;encyclopedic;language_processing;source_genre,extraction,english
+pwc_one_billion_word,One Billion Word,Language Modelling,language_modelling;news;language_processing;source_genre,likelihood_probe,english
 pwc_openapi_completion_refined,OpenAPI completion refined,OpenAPI code completion,code,sentence_completion,english
-pwc_openwebtext,OpenWebText,Language Modelling,language_modelling;multi_subject,likelihood_probe,english
-pwc_paramawps,ParaMAWPS,Math Word Problem Solving,math,long_reasoning,english
+pwc_openwebtext,OpenWebText,Language Modelling,language_modelling;multi_subject;language_processing,likelihood_probe,english
+pwc_paramawps,ParaMAWPS,Math Word Problem Solving,math;reasoning,long_reasoning,english
 pwc_parus,PARus,Common Sense Reasoning,commonsense,multiple_choice,monolingual_non_english
-pwc_pecc,PECC,Code Generation,code;math,long_form_generation,english
-pwc_peerqa,PeerQA,Question Answering,reading_comprehension;science,long_form_generation,english
-pwc_penn_treebank_word_level,Penn Treebank (Word Level),Language Modelling,language_modelling;news,likelihood_probe,english
+pwc_pecc,PECC,Code Generation,code;math;reasoning,long_form_generation,english
+pwc_peerqa,PeerQA,Question Answering,reading_comprehension;science;language_processing,long_form_generation,english
+pwc_penn_treebank_word_level,Penn Treebank (Word Level),Language Modelling,language_modelling;news;language_processing;source_genre,likelihood_probe,english
 pwc_piqa,PIQA,Question Answering,commonsense,multiple_choice,english
-pwc_pubmed,Pubmed,Text Summarization,summarization;medical,long_form_generation,english
-pwc_qnli,QNLI,Natural Language Inference,natural_language_inference;encyclopedic,classification,english
-pwc_quality,QuALITY,Question Answering,reading_comprehension;multi_subject,multiple_choice,english
-pwc_race,RACE,Reading Comprehension,reading_comprehension;multi_subject,multiple_choice,english
-pwc_rcb,RCB,Natural Language Inference,natural_language_inference;multi_subject,classification,monolingual_non_english
-pwc_reclor,ReClor,Reading Comprehension,logical_reasoning,multiple_choice,english
-pwc_record,ReCoRD,Common Sense Reasoning,commonsense;news,extraction,english
-pwc_reddit_tifu,Reddit TIFU,Text Summarization,summarization;social_media,long_form_generation,english
-pwc_rte,RTE,Natural Language Inference,natural_language_inference;multi_subject,classification,english
-pwc_rucos,RuCoS,Common Sense Reasoning,commonsense;news,extraction,monolingual_non_english
+pwc_pubmed,Pubmed,Text Summarization,summarization;medical;generation;specialized_domain,long_form_generation,english
+pwc_qnli,QNLI,Natural Language Inference,natural_language_inference;encyclopedic;language_processing;source_genre,classification,english
+pwc_quality,QuALITY,Question Answering,reading_comprehension;multi_subject;language_processing,multiple_choice,english
+pwc_race,RACE,Reading Comprehension,reading_comprehension;multi_subject;language_processing,multiple_choice,english
+pwc_rcb,RCB,Natural Language Inference,natural_language_inference;multi_subject;language_processing,classification,monolingual_non_english
+pwc_reclor,ReClor,Reading Comprehension,logical_reasoning;reading_comprehension;reasoning;language_processing,multiple_choice,english
+pwc_record,ReCoRD,Common Sense Reasoning,commonsense;news;reading_comprehension;source_genre;language_processing,extraction,english
+pwc_reddit_tifu,Reddit TIFU,Text Summarization,summarization;social_media;generation;source_genre,long_form_generation,english
+pwc_rte,RTE,Natural Language Inference,natural_language_inference;multi_subject;language_processing,classification,english
+pwc_rucos,RuCoS,Common Sense Reasoning,commonsense;news;reading_comprehension;source_genre;language_processing,extraction,monolingual_non_english
 pwc_rwsd,RWSD,Common Sense Reasoning,commonsense,multiple_choice,monolingual_non_english
 pwc_safim,SAFIM,Code Completion,code,sentence_completion,english
-pwc_samsum,SAMSum,Text Summarization,summarization;dialogue,long_form_generation,english
-pwc_scifact_beir,SciFact (BEIR),Fact Checking,knowledge;science;fact_verification;retrieval,ranking,english
-pwc_semeval_2014_task_4_subtask_1_2,SemEval 2014 Task 4 Subtask 1+2,Sentiment Analysis,sentiment,classification;extraction,english
-pwc_sentiment_merged,Sentiment Merged,Sentiment Analysis,sentiment,classification,english
+pwc_samsum,SAMSum,Text Summarization,summarization;dialogue;generation,long_form_generation,english
+pwc_scifact_beir,SciFact (BEIR),Fact Checking,science;fact_verification;retrieval;alignment,ranking,english
+pwc_semeval_2014_task_4_subtask_1_2,SemEval 2014 Task 4 Subtask 1+2,Sentiment Analysis,sentiment;language_processing,classification;extraction,english
+pwc_sentiment_merged,Sentiment Merged,Sentiment Analysis,sentiment;language_processing,classification,english
 pwc_siqa,SIQA,Question Answering,commonsense,multiple_choice,english
-pwc_snli,SNLI,Natural Language Inference,natural_language_inference,classification,english
-pwc_squad,SQuAD,Question Answering,reading_comprehension;encyclopedic,extraction,english
-pwc_squad1_1_dev,SQuAD1.1 dev,Question Answering,reading_comprehension;encyclopedic,extraction,english
-pwc_sst_2_binary_classification,SST-2 Binary classification,Sentiment Analysis,sentiment,classification,english
-pwc_sst_3,SST-3,Sentiment Analysis,sentiment,classification,english
-pwc_sst_5_fine_grained_classification,SST-5 Fine-grained classification,Sentiment Analysis,sentiment,classification,english
+pwc_snli,SNLI,Natural Language Inference,natural_language_inference;language_processing,classification,english
+pwc_squad,SQuAD,Question Answering,reading_comprehension;encyclopedic;language_processing;source_genre,extraction,english
+pwc_squad1_1_dev,SQuAD1.1 dev,Question Answering,reading_comprehension;encyclopedic;language_processing;source_genre,extraction,english
+pwc_sst_2_binary_classification,SST-2 Binary classification,Sentiment Analysis,sentiment;language_processing,classification,english
+pwc_sst_3,SST-3,Sentiment Analysis,sentiment;language_processing,classification,english
+pwc_sst_5_fine_grained_classification,SST-5 Fine-grained classification,Sentiment Analysis,sentiment;language_processing,classification,english
 pwc_storycloze,StoryCloze,Question Answering,commonsense,sentence_completion,english
-pwc_strategyqa,StrategyQA,Question Answering,knowledge;encyclopedic;reasoning,multiple_choice,english
-pwc_svamp,SVAMP,Math Word Problem Solving,math,long_reasoning,english
-pwc_tasd,TASD,Aspect-Based Sentiment Analysis (ABSA),sentiment,extraction,english
-pwc_tempquestions,TempQuestions,Question Answering,knowledge;encyclopedic;temporal_reasoning,short_qa,english
-pwc_terra,TERRa,Natural Language Inference,natural_language_inference;news,classification,monolingual_non_english
-pwc_text8,Text8,Language Modelling,language_modelling;encyclopedic,likelihood_probe,english
-pwc_threatgram_101_extreme_telegram_data,ThreatGram 101 - Extreme Telegram Data,Text Classification,safety;social_media,classification,miscellaneous
-pwc_timequestions,TimeQuestions,Question Answering,knowledge;encyclopedic;temporal_reasoning,short_qa,english
-pwc_tiq,TIQ,Question Answering,knowledge;encyclopedic;temporal_reasoning,short_qa,english
+pwc_strategyqa,StrategyQA,Question Answering,encyclopedic;reasoning;world_knowledge;source_genre,multiple_choice,english
+pwc_svamp,SVAMP,Math Word Problem Solving,math;reasoning,long_reasoning,english
+pwc_tasd,TASD,Aspect-Based Sentiment Analysis (ABSA),sentiment;language_processing,extraction,english
+pwc_tempquestions,TempQuestions,Question Answering,encyclopedic;temporal_reasoning;world_knowledge;source_genre;reasoning,short_qa,english
+pwc_terra,TERRa,Natural Language Inference,natural_language_inference;news;language_processing;source_genre,classification,monolingual_non_english
+pwc_text8,Text8,Language Modelling,language_modelling;encyclopedic;language_processing;source_genre,likelihood_probe,english
+pwc_threatgram_101_extreme_telegram_data,ThreatGram 101 - Extreme Telegram Data,Text Classification,social_media;toxicity;source_genre;alignment,classification,miscellaneous
+pwc_timequestions,TimeQuestions,Question Answering,encyclopedic;temporal_reasoning;world_knowledge;source_genre;reasoning,short_qa,english
+pwc_tiq,TIQ,Question Answering,encyclopedic;temporal_reasoning;world_knowledge;source_genre;reasoning,short_qa,english
 pwc_turbulence,Turbulence,Code Generation,code,long_form_generation,english
-pwc_vietnews,vietnews,Abstractive Text Summarization,summarization;news,long_form_generation,monolingual_non_english
+pwc_vietnews,vietnews,Abstractive Text Summarization,summarization;news;generation;source_genre,long_form_generation,monolingual_non_english
 pwc_webapp1k_duo_react,WebApp1k-Duo-React,Code Generation,code,long_form_generation,english
 pwc_webapp1k_react,WebApp1K-React,Code Generation,code,long_form_generation,english
-pwc_webquestions,WebQuestions,Question Answering,knowledge;encyclopedic,short_qa,english
-pwc_wikitext_103,WikiText-103,Language Modelling,language_modelling;encyclopedic,likelihood_probe,english
-pwc_wikitext_2,WikiText-2,Language Modelling,language_modelling;encyclopedic,likelihood_probe,english
-pwc_wits,WITS,Abstractive Text Summarization,summarization;encyclopedic,long_form_generation,monolingual_non_english
-pwc_wmt2014_english_french,WMT2014 English-French,Machine Translation,translation;news,long_form_generation,crosslingual
-pwc_wmt2014_english_german,WMT2014 English-German,Machine Translation,translation;news,long_form_generation,crosslingual
-pwc_wmt2016_english_german,WMT2016 English-German,Machine Translation,translation;news,long_form_generation,crosslingual
-pwc_wmt2016_english_romanian,WMT2016 English-Romanian,Machine Translation,translation;news,long_form_generation,crosslingual
-pwc_wmt2016_german_english,WMT2016 German-English,Machine Translation,translation;news,long_form_generation,crosslingual
-pwc_wmt2016_romanian_english,WMT2016 Romanian-English,Machine Translation,translation;news,long_form_generation,crosslingual
+pwc_webquestions,WebQuestions,Question Answering,encyclopedic;world_knowledge;source_genre,short_qa,english
+pwc_wikitext_103,WikiText-103,Language Modelling,language_modelling;encyclopedic;language_processing;source_genre,likelihood_probe,english
+pwc_wikitext_2,WikiText-2,Language Modelling,language_modelling;encyclopedic;language_processing;source_genre,likelihood_probe,english
+pwc_wits,WITS,Abstractive Text Summarization,summarization;encyclopedic;generation;source_genre,long_form_generation,monolingual_non_english
+pwc_wmt2014_english_french,WMT2014 English-French,Machine Translation,translation;news;generation;source_genre,long_form_generation,crosslingual
+pwc_wmt2014_english_german,WMT2014 English-German,Machine Translation,translation;news;generation;source_genre,long_form_generation,crosslingual
+pwc_wmt2016_english_german,WMT2016 English-German,Machine Translation,translation;news;generation;source_genre,long_form_generation,crosslingual
+pwc_wmt2016_english_romanian,WMT2016 English-Romanian,Machine Translation,translation;news;generation;source_genre,long_form_generation,crosslingual
+pwc_wmt2016_german_english,WMT2016 German-English,Machine Translation,translation;news;generation;source_genre,long_form_generation,crosslingual
+pwc_wmt2016_romanian_english,WMT2016 Romanian-English,Machine Translation,translation;news;generation;source_genre,long_form_generation,crosslingual
 pwc_wnli,WNLI,Natural Language Inference,commonsense,classification,english
-qtsumm,QTSumm,Reasoning,summarization;encyclopedic;structured_data,long_form_generation,english
-quac,QuAC (Question Answering in Context),General Knowledge,reading_comprehension;encyclopedic,extraction,english
-race_based_med,RaceBias,Medical,safety;medical,classification,english
-raft,RAFT (Real-world Annotated Few-Shot),General Knowledge,text_classification;multi_subject,classification,english
-real_toxicity_prompts,RealToxicityPrompts,Alignment & Safety,safety,sentence_completion,english
-rpgbench,RPGBench,reasoning,creativity;games,long_form_generation;interactive,english
-scigen,SciGen,Reasoning,data_to_text;science;structured_data,long_form_generation,english
-sea_exam,SEA-Exam,multilingual,knowledge;multi_subject,multiple_choice,multilingual
-sea_helm,SEA-HELM,multilingual,language_understanding;instruction_following;linguistics;society_culture;safety;multi_subject,multiple_choice;classification;long_form_generation;conversation,multilingual
-shc_bmt_med,BMT-Status,domain-specific,reading_comprehension;medical,multiple_choice,english
-shc_cdi_med,CDI-QA,domain-specific,reading_comprehension;medical,multiple_choice,english
-shc_conf_med,MedConfInfo,domain-specific,text_classification;medical,classification,english
-shc_ent_med,ENT-Referral,domain-specific,text_classification;medical,classification,english
-shc_gip_med,HospiceReferral,domain-specific,text_classification;medical,classification,english
-shc_privacy_med,PrivacyDetection,domain-specific,safety;medical,classification,english
-shc_proxy_med,ProxySender,domain-specific,text_classification;medical,classification,english
-shc_ptbm_med,ADHD-Behavior,domain-specific,text_classification;medical,classification,english
-shc_sei_med,ADHD-MedEffects,domain-specific,text_classification;medical,classification,english
-shc_sequoia_med,ClinicReferral,domain-specific,text_classification;medical,classification,english
-sibench,SI-Bench,general_knowledge,cognitive_science;dialogue,long_form_generation,monolingual_non_english
-simple_safety_tests,SimpleSafetyTests,Alignment & Safety,safety,long_form_generation,english
-simpleqa,SimpleQA,general_knowledge,knowledge;safety;encyclopedic,short_qa,english
-sorry_bench,Sorry-Bench,alignment/safety,safety,long_form_generation,multilingual
-sotopia,SOTOPIA,general_knowledge,cognitive_science,conversation,english
-sportqa,SportQA: A Benchmark for Sports Understanding in LLMs,domain-specific,knowledge;sports,multiple_choice,english
-sportsmetrics,SportsMetrics: Blending Text and Numerical Data to Understand Information Fusion in LLMs,reasoning,math;sports,short_qa,english
-starr_patient_instructions,PatientInstruct,Medical,professional_writing;medical,long_form_generation,english
-summarization_cnndm,CNN/DailyMail,Reasoning,summarization;news,long_form_generation,english
-summarization_xsum,XSUM,Reasoning,summarization;news,long_form_generation,english
+qtsumm,QTSumm,Reasoning,summarization;encyclopedic;structured_data;generation;source_genre,long_form_generation,english
+quac,QuAC (Question Answering in Context),General Knowledge,reading_comprehension;encyclopedic;language_processing;source_genre,extraction,english
+race_based_med,RaceBias,Medical,medical;bias_fairness;specialized_domain;alignment,classification,english
+raft,RAFT (Real-world Annotated Few-Shot),General Knowledge,text_classification;multi_subject;language_processing,classification,english
+real_toxicity_prompts,RealToxicityPrompts,Alignment & Safety,toxicity;alignment,sentence_completion,english
+rpgbench,RPGBench,reasoning,creativity;games;generation;specialized_domain,long_form_generation;interactive,english
+scigen,SciGen,Reasoning,data_to_text;science;structured_data;generation;source_genre,long_form_generation,english
+sea_exam,SEA-Exam,multilingual,recall;multi_subject,multiple_choice,multilingual
+sea_helm,SEA-HELM,multilingual,language_understanding;instruction_following;society_culture;safety;multi_subject;linguistic_competence;language_processing;alignment;specialized_domain,multiple_choice;classification;long_form_generation;conversation,multilingual
+shc_bmt_med,BMT-Status,domain-specific,reading_comprehension;medical;language_processing;specialized_domain,multiple_choice,english
+shc_cdi_med,CDI-QA,domain-specific,reading_comprehension;medical;language_processing;specialized_domain,multiple_choice,english
+shc_conf_med,MedConfInfo,domain-specific,text_classification;medical;language_processing;specialized_domain,classification,english
+shc_ent_med,ENT-Referral,domain-specific,text_classification;medical;language_processing;specialized_domain,classification,english
+shc_gip_med,HospiceReferral,domain-specific,text_classification;medical;language_processing;specialized_domain,classification,english
+shc_privacy_med,PrivacyDetection,domain-specific,safety;medical;alignment;specialized_domain,classification,english
+shc_proxy_med,ProxySender,domain-specific,text_classification;medical;language_processing;specialized_domain,classification,english
+shc_ptbm_med,ADHD-Behavior,domain-specific,text_classification;medical;language_processing;specialized_domain,classification,english
+shc_sei_med,ADHD-MedEffects,domain-specific,text_classification;medical;language_processing;specialized_domain,classification,english
+shc_sequoia_med,ClinicReferral,domain-specific,text_classification;medical;language_processing;specialized_domain,classification,english
+sibench,SI-Bench,general_knowledge,dialogue;social_intelligence;generation;cognitive,long_form_generation,monolingual_non_english
+simple_safety_tests,SimpleSafetyTests,Alignment & Safety,safety;alignment,long_form_generation,english
+simpleqa,SimpleQA,general_knowledge,encyclopedic;factuality;world_knowledge;source_genre;alignment,short_qa,english
+sorry_bench,Sorry-Bench,alignment/safety,safety;alignment,long_form_generation,multilingual
+sotopia,SOTOPIA,general_knowledge,social_intelligence;cognitive,conversation,english
+sportqa,SportQA: A Benchmark for Sports Understanding in LLMs,domain-specific,recall;sports;specialized_domain,multiple_choice,english
+sportsmetrics,SportsMetrics: Blending Text and Numerical Data to Understand Information Fusion in LLMs,reasoning,math;sports;reasoning;specialized_domain,short_qa,english
+starr_patient_instructions,PatientInstruct,Medical,professional_writing;medical;generation;specialized_domain,long_form_generation,english
+summarization_cnndm,CNN/DailyMail,Reasoning,summarization;news;generation;source_genre,long_form_generation,english
+summarization_xsum,XSUM,Reasoning,summarization;news;generation;source_genre,long_form_generation,english
 swe_bench,SWE-Bench,coding,code;agentic,long_form_generation;interactive,english
-swiss_legal_bench,Swiss-LegalBench,alignment/safety,knowledge;legal,multiple_choice,multilingual
-synthetic_reasoning,Synthetic reasoning (abstract symbols),Reasoning,logical_reasoning,short_qa,english
-synthetic_reasoning_natural,Synthetic reasoning (natural language),Reasoning,logical_reasoning,short_qa,english
-tab_fact,TabFact,Reasoning,knowledge;encyclopedic;fact_verification;structured_data,classification,english
-tablebench_data_analysis,Tablebench Data Analysis,Reasoning,structured_data;multi_subject,long_form_generation,english
-tablebench_fact_checking,Tablebench Fact Checking,Reasoning,knowledge;multi_subject;fact_verification;structured_data,long_reasoning,english
-tablebench_numerical_reasoning,Tablebench Numerical Reasoning,Reasoning,math;multi_subject;structured_data,long_reasoning,english
-thai_exam_a_level,A-Level,General Knowledge,knowledge;multi_subject,multiple_choice,monolingual_non_english
-thai_exam_tgat,TGAT,General Knowledge,knowledge;multi_subject,multiple_choice,monolingual_non_english
-thai_exam_tpat1,TPAT-1,General Knowledge,knowledge;multi_subject,multiple_choice,monolingual_non_english
-thaiexam,ThaiExam: Thai Language Benchmark,multilingual,knowledge;multi_subject,multiple_choice,monolingual_non_english
-thaih6,Thai-H6: Thai Cultural & Knowledge Evaluation,cross-cultural,knowledge;commonsense;math;safety;multi_subject,likelihood_probe;long_reasoning,monolingual_non_english
-thaitoxicitytweets,Thai Toxicity Tweets,Alignment & Safety,safety;social_media,classification,monolingual_non_english
-the_pile,The Pile,General Knowledge,language_modelling;multi_subject,likelihood_probe,english
-tombench,TomBench,multilingual,cognitive_science,multiple_choice,multilingual
-triangulating,Triangulating,general_knowledge,cognitive_science,multiple_choice;interactive,english
-triviaqa,TriviaQA,general_knowledge,knowledge;encyclopedic,short_qa,english
-trustllm,TrustLLM,alignment/safety,safety,classification;long_form_generation,english
-truthfulqa,TruthfulQA,alignment/safety,safety;multi_subject,multiple_choice,english
-ttcw,TTCW,general_knowledge,creativity;cognitive_science;fiction,long_form_generation,english
-turl_col_type,Turl Col Type,General Knowledge,structured_data;encyclopedic,classification,english
-twitter_aae,TwitterAAE,General Knowledge,safety;social_media;language_modelling,likelihood_probe,english
-tydiqa,TyDiQA,"Multilingual, Crosslingual, Cultural",reading_comprehension;encyclopedic,extraction,multilingual
-uitvsfc,UIT-VSFC,"Multilingual, Crosslingual, Cultural",sentiment,classification,monolingual_non_english
-ullman_tom_2023,Ullman ToM (2023),general_knowledge,cognitive_science,sentence_completion,english
-vectara,Vectara Hallucination Leaderboard,alignment/safety,safety;news;summarization,long_form_generation,english
-vietnamese_glue,Vietnamese GLUE,multilingual,language_understanding;multi_subject,classification,monolingual_non_english
-vihsd,ViHSD,Alignment & Safety,safety;social_media,classification,monolingual_non_english
-vmlu,VMLU,multilingual,knowledge;multi_subject,multiple_choice,monolingual_non_english
-wikifact,WikiFact,General Knowledge,knowledge;encyclopedic,sentence_completion,english
-wikitq,WikiTableQuestions,Reasoning,structured_data;encyclopedic;reasoning,short_qa,english
-wildbench,WildBench,alignment/safety,instruction_following;multi_subject,long_form_generation,english
+swiss_legal_bench,Swiss-LegalBench,alignment/safety,recall;legal;specialized_domain,multiple_choice,multilingual
+synthetic_reasoning,Synthetic reasoning (abstract symbols),Reasoning,logical_reasoning;reasoning,short_qa,english
+synthetic_reasoning_natural,Synthetic reasoning (natural language),Reasoning,logical_reasoning;reasoning,short_qa,english
+tab_fact,TabFact,Reasoning,encyclopedic;fact_verification;structured_data;source_genre;alignment,classification,english
+tablebench_data_analysis,Tablebench Data Analysis,Reasoning,structured_data;multi_subject;source_genre,long_form_generation,english
+tablebench_fact_checking,Tablebench Fact Checking,Reasoning,multi_subject;fact_verification;structured_data;alignment;source_genre,classification,english
+tablebench_numerical_reasoning,Tablebench Numerical Reasoning,Reasoning,math;multi_subject;structured_data;reasoning;source_genre,short_qa,english
+thai_exam_a_level,A-Level,General Knowledge,recall;multi_subject,multiple_choice,monolingual_non_english
+thai_exam_tgat,TGAT,General Knowledge,recall;multi_subject,multiple_choice,monolingual_non_english
+thai_exam_tpat1,TPAT-1,General Knowledge,recall;multi_subject;medical;specialized_domain,multiple_choice,monolingual_non_english
+thaiexam,ThaiExam: Thai Language Benchmark,multilingual,recall;multi_subject,multiple_choice,monolingual_non_english
+thaih6,Thai-H6: Thai Cultural & Knowledge Evaluation,cross-cultural,recall;commonsense;math;safety;multi_subject;reasoning;alignment,likelihood_probe;long_reasoning,monolingual_non_english
+thaitoxicitytweets,Thai Toxicity Tweets,Alignment & Safety,social_media;toxicity;source_genre;alignment,classification,monolingual_non_english
+the_pile,The Pile,General Knowledge,language_modelling;multi_subject;language_processing,likelihood_probe,english
+tombench,TomBench,multilingual,theory_of_mind;cognitive,multiple_choice,multilingual
+triangulating,Triangulating,general_knowledge,cognitive,multiple_choice;interactive,english
+triviaqa,TriviaQA,general_knowledge,encyclopedic;world_knowledge;source_genre,short_qa,english
+trustllm,TrustLLM,alignment/safety,safety;alignment,classification;long_form_generation,english
+truthfulqa,TruthfulQA,alignment/safety,multi_subject;factuality;world_knowledge;alignment,multiple_choice,english
+ttcw,TTCW,general_knowledge,creativity;cognitive;fiction;generation;source_genre,long_form_generation,english
+turl_col_type,Turl Col Type,General Knowledge,structured_data;encyclopedic;source_genre,classification,english
+twitter_aae,TwitterAAE,General Knowledge,social_media;language_modelling;bias_fairness;source_genre;language_processing;alignment,likelihood_probe,english
+tydiqa,TyDiQA,"Multilingual, Crosslingual, Cultural",reading_comprehension;encyclopedic;language_processing;source_genre,extraction,multilingual
+uitvsfc,UIT-VSFC,"Multilingual, Crosslingual, Cultural",sentiment;language_processing,classification,monolingual_non_english
+ullman_tom_2023,Ullman ToM (2023),general_knowledge,theory_of_mind;cognitive,sentence_completion,english
+vectara,Vectara Hallucination Leaderboard,alignment/safety,news;summarization;factuality;source_genre;generation;alignment,long_form_generation,english
+vietnamese_glue,Vietnamese GLUE,multilingual,language_understanding;multi_subject;language_processing,classification,monolingual_non_english
+vihsd,ViHSD,Alignment & Safety,social_media;toxicity;source_genre;alignment,classification,monolingual_non_english
+vmlu,VMLU,multilingual,recall;multi_subject,multiple_choice,monolingual_non_english
+wikifact,WikiFact,General Knowledge,encyclopedic;world_knowledge;source_genre,sentence_completion,english
+wikitq,WikiTableQuestions,Reasoning,structured_data;encyclopedic;reasoning;source_genre,short_qa,english
+wildbench,WildBench,alignment/safety,instruction_following;multi_subject;alignment,long_form_generation,english
 winogrande,WinoGrande: An Adversarial Winograd Schema Challenge,general_knowledge,commonsense,multiple_choice,english
-wisesight,Wisesight,"Multilingual, Crosslingual, Cultural",sentiment;social_media,classification,monolingual_non_english
-wmt,WMT,multilingual,translation;news,long_form_generation,crosslingual
-wmt_14,WMT 2014,Machine Translation,translation;news,long_form_generation,crosslingual
-workplacehumor,Not All Jokes Land,creative,cognitive_science;humour,classification,english
-worldvaluesbench,World Values Bench,cross-cultural,safety;cognitive_science;society_culture,multiple_choice,english
+wisesight,Wisesight,"Multilingual, Crosslingual, Cultural",sentiment;social_media;language_processing;source_genre,classification,monolingual_non_english
+wmt,WMT,multilingual,translation;news;generation;source_genre,long_form_generation,crosslingual
+wmt_14,WMT 2014,Machine Translation,translation;news;generation;source_genre,long_form_generation,crosslingual
+workplacehumor,Not All Jokes Land,creative,cognitive;humour;specialized_domain,classification,english
+worldvaluesbench,World Values Bench,cross-cultural,society_culture;moral_values;specialized_domain;alignment,multiple_choice,english
 xcopa,Cross-lingual Choice of Plausible Alternatives,multilingual,commonsense,multiple_choice,multilingual
-xcr_bench,XCR-Bench,cross-cultural,society_culture;reasoning,extraction;short_qa;long_form_generation,multilingual
-xifbench,XIF-Bench,multilingual,instruction_following;multi_subject,long_form_generation,multilingual
-xnli,Cross-lingual Natural Language Inference,multilingual,natural_language_inference;multi_subject,classification,multilingual
-xquad,Cross-lingual Question Answering Dataset,multilingual,reading_comprehension;encyclopedic,extraction,multilingual
-xstest,XSTest,alignment/safety,safety,long_form_generation,english
-xtreme,Cross-lingual Transfer Evaluation of Multilingual Encoders,multilingual,language_understanding;multi_subject,classification;extraction,multilingual
-ziqi_eval,ZIQI-Eval: A Massive Music Evaluation Benchmark for LLMs,audio/speech,knowledge;music,multiple_choice;long_form_generation,english
+xcr_bench,XCR-Bench,cross-cultural,society_culture;reasoning;specialized_domain,extraction;short_qa;long_form_generation,multilingual
+xifbench,XIF-Bench,multilingual,instruction_following;multi_subject;alignment,long_form_generation,multilingual
+xnli,Cross-lingual Natural Language Inference,multilingual,natural_language_inference;multi_subject;language_processing,classification,multilingual
+xquad,Cross-lingual Question Answering Dataset,multilingual,reading_comprehension;encyclopedic;language_processing;source_genre,extraction,multilingual
+xstest,XSTest,alignment/safety,safety;alignment,long_form_generation,english
+xtreme,Cross-lingual Transfer Evaluation of Multilingual Encoders,multilingual,language_understanding;multi_subject;language_processing,classification;extraction,multilingual
+ziqi_eval,ZIQI-Eval: A Massive Music Evaluation Benchmark for LLMs,audio/speech,recall;music;specialized_domain,multiple_choice;long_form_generation,english

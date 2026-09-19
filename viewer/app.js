@@ -36,6 +36,7 @@ const state = {
   colorBy: "cluster",   // "cluster" or an axis name from the payload
   variant: "with_g",
   highlights: new Set(),  // multi-select highlight: label ids and/or NO_LABEL
+  expanded: new Set(),    // broad labels whose narrow children are shown
 };
 
 const $ = (id) => document.getElementById(id);
@@ -171,6 +172,36 @@ function axisOf(d, label) {
   return d.clusters?.params?.label_axis?.[label] ?? "other";   // pre-qualified payloads
 }
 
+// Narrow label -> its broad parent. Parents are added to rows alongside their
+// children, so both levels are real labels and both stay selectable.
+function parentOf(d, label) {
+  return d.clusters?.params?.label_groups?.[label] ?? null;
+}
+
+// Parents first, each followed by its children (both by size); then labels
+// with no parent. Children carry depth 1 so the legend can nest and fold them.
+function nestRows(d, rows) {
+  const byValue = new Map(rows.map((r) => [r.value, r]));
+  const kids = new Map();
+  const top = [];
+  for (const r of rows) {
+    const p = parentOf(d, r.value);
+    if (p && byValue.has(p)) {
+      if (!kids.has(p)) kids.set(p, []);
+      kids.get(p).push({ ...r, depth: 1, parent: p });
+    } else {
+      top.push({ ...r, depth: 0, hasKids: false });
+    }
+  }
+  const out = [];
+  for (const r of top) {
+    const ch = kids.get(r.value) ?? [];
+    out.push({ ...r, hasKids: ch.length > 0 });
+    out.push(...ch);
+  }
+  return out;
+}
+
 function displayOf(d, label) {
   const sep = labelSep(d);
   return sep && label.includes(sep) ? label.slice(label.indexOf(sep) + sep.length) : label;
@@ -234,7 +265,7 @@ function groupRows(d) {
       };
     });
     rows.sort((a, b) => b.size - a.size || a.label.localeCompare(b.label));
-    return [rows, unlabelled];
+    return [nestRows(d, rows), unlabelled];
   }
   const labels = clusterLabels(d);
   if (!labels) return [[], 0];
@@ -307,9 +338,21 @@ function drawLegend(d) {
   const hidx = cat ? highlightMap(d).idx : null;
   for (const [, group] of groups) {
   for (const row of group) {
+    // a folded child still shows while highlighted, so no active selection hides
+    if (row.depth === 1 && !state.expanded.has(row.parent) && !state.highlights.has(row.value)) {
+      continue;
+    }
     const el = document.createElement("div");
     el.dataset.value = String(row.value);
     el.title = row.title;
+    const caret = document.createElement("span");
+    caret.className = "caret";
+    if (row.hasKids) {
+      caret.dataset.toggle = String(row.value);
+      caret.textContent = state.expanded.has(row.value) ? "▾" : "▸";
+      caret.title = "show / hide narrower labels";
+    }
+    if (row.depth === 1) el.classList.add("child");
     const sw = document.createElement("span");
     sw.className = "swatch";
     sw.style.background = cat
@@ -320,7 +363,7 @@ function drawLegend(d) {
     const n = document.createElement("span");
     n.className = "n";
     n.textContent = row.size;
-    el.append(sw, name, n);
+    el.append(caret, sw, name, n);
     const on = cat ? hidx.has(row.value) : row.members.every((i) => state.checked.has(d.benchmarks[i]));
     if (on) el.classList.add("on");
     legend.appendChild(el);
@@ -693,6 +736,13 @@ $("list").addEventListener("change", (ev) => {
   draw();
 });
 $("legend").addEventListener("click", (ev) => {
+  const toggle = ev.target.closest("[data-toggle]");
+  if (toggle) {
+    const v = toggle.dataset.toggle;
+    state.expanded.has(v) ? state.expanded.delete(v) : state.expanded.add(v);
+    drawLegend(current());
+    return;
+  }
   const row = ev.target.closest("div[data-value]");
   const d = current();
   if (row && d) onLegendClick(d, row.dataset.value);

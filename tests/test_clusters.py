@@ -169,6 +169,81 @@ def test_load_labels_requires_label_columns(tmp_path):
         cp.load_labels(tmp_path)
 
 
+def _write_groups(tmp_path, pairs):
+    path = tmp_path / "subject_groups.csv"
+    path.write_text("label,group\n" + "".join(f"{a},{b}\n" for a, b in pairs), encoding="utf-8")
+    return path
+
+
+def test_subject_groups_add_parent_and_keep_narrow_label(tmp_path):
+    root = _write_benchmarks(
+        tmp_path,
+        [
+            ["medqa", "recall;medical", "multiple_choice", "english"],
+            ["lsat", "logical_reasoning;reasoning", "multiple_choice", "english"],
+        ],
+    )
+    groups = cp.load_subject_groups(
+        _write_groups(tmp_path, [("medical", "specialized_domain"), ("logical_reasoning", "reasoning")])
+    )
+    labels, _ = cp.load_labels(root, groups)
+    assert labels["medqa"][:3] == ["subject:recall", "subject:medical", "subject:specialized_domain"]
+    # a row already carrying the parent gets it once, not twice
+    assert labels["lsat"].count("subject:reasoning") == 1
+    assert "subject:logical_reasoning" in labels["lsat"]
+
+
+def test_subject_groups_only_touch_subject_axis(tmp_path):
+    root = _write_benchmarks(tmp_path, [["x", "misc", "short_qa", "medical"]])
+    groups = cp.load_subject_groups(_write_groups(tmp_path, [("medical", "specialized_domain")]))
+    labels, _ = cp.load_labels(root, groups)
+    assert "subject:specialized_domain" not in labels["x"]
+
+
+def test_subject_groups_reject_chains_and_duplicates(tmp_path):
+    with pytest.raises(SystemExit, match="must not themselves be grouped"):
+        cp.load_subject_groups(_write_groups(tmp_path, [("a", "b"), ("b", "c")]))
+    with pytest.raises(SystemExit, match="mapped twice"):
+        cp.load_subject_groups(_write_groups(tmp_path, [("a", "b"), ("a", "c")]))
+
+
+def test_committed_subject_groups_are_valid():
+    groups = cp.load_subject_groups(cp.DEFAULT_SUBJECT_GROUPS)
+    assert groups["medical"] == "specialized_domain"
+
+
+def test_carry_forward_keeps_only_cohesion_whose_membership_is_unchanged():
+    prior = {
+        "benchmarks": ["a", "b", "c"],
+        "points": [{"benchmark": "a", "x": 0.0, "y": 0.0}],
+        "categories": [["subject:math"], ["subject:math"], ["subject:code"]],
+        "category_cohesion": {"with_g": [{"category": "subject:math"}, {"category": "subject:code"}]},
+        "clusters": {"params": {"label_sep": ":"}, "diagnostics": {"n_labelled": 3}},
+    }
+    cats = {
+        "a": ["subject:math", "subject:reasoning"],
+        "b": ["subject:math", "subject:reasoning"],
+        "c": [],  # code membership changed -> its score must go
+    }
+    out = cp.carry_forward(prior, cats, {"label_groups": {"subject:math": "subject:reasoning"}})
+    assert [r["category"] for r in out["category_cohesion"]["with_g"]] == ["subject:math"]
+    assert out["categories"][0] == ["subject:math", "subject:reasoning"]
+    assert out["clusters"]["params"]["label_groups"] == {"subject:math": "subject:reasoning"}
+    assert out["clusters"]["diagnostics"]["n_labelled"] == 2
+    assert out["points"] == prior["points"]
+    assert prior["categories"][0] == ["subject:math"]  # prior not mutated
+
+
+def test_same_inputs_detects_a_missing_loading_file():
+    cell = ("m1", np.ones((2, 3)), ["a", "b"], ["g", "F1*", "F2*"])
+    prior = {"n_cells": 2, "clusters": {"diagnostics": {"n_factors": [3, 3]}}}
+    assert cp.same_inputs(prior, [cell, cell])
+    assert not cp.same_inputs(prior, [cell])  # one imputer's files absent locally
+    other = ("m2", np.ones((2, 2)), ["a", "b"], ["g", "F1*"])
+    assert not cp.same_inputs(prior, [cell, other])  # same count, different factors
+    assert cp.same_inputs({"n_cells": 1}, [cell])  # unclustered cohort: count only
+
+
 def test_cluster_records_sizes_descending_no_noise_row():
     records = cp.cluster_records(np.array([0, 0, 0, 1, -1]))
     assert [r["id"] for r in records] == [0, 1]  # noise is never a record

@@ -89,6 +89,10 @@ aside {
 /* the residual row is selectable too -- "what does this axis say nothing about"
    is a real query -- but stays visually recessive since it is not a group */
 #legend div.unassigned { color: var(--dim); font-style: italic; }
+#legend .caret { width: 10px; flex: none; color: var(--dim); text-align: center; }
+#legend .caret[data-toggle] { cursor: pointer; }
+#legend .caret[data-toggle]:hover { color: var(--text); }
+#legend div.child { padding-left: 28px; }
 #legend .swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
 #legend .n { color: var(--dim); margin-left: auto; font-variant-numeric: tabular-nums; }
 label:has(select:disabled) { opacity: .45; }

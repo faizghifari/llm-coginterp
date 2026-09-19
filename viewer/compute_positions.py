@@ -42,6 +42,7 @@ benchmark content and never tuned against that score.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import re
@@ -110,6 +111,11 @@ AXIS_ORDER = tuple(LABEL_COLUMNS)
 # -- and stay distinct, which matters because "misc subject" and "misc language"
 # are different sets and must be highlighted and scored separately.
 LABEL_SEP = ":"
+# Broad subject labels are ADDED to rows, never substituted: a row tagged
+# `medical` also gets `specialized_domain`. The mapping is data, and deriving
+# parents here (not storing them in benchmarks.csv) means they cannot drift out
+# of sync with the narrow labels they summarise.
+DEFAULT_SUBJECT_GROUPS = REPO / "data" / "subject_groups.csv"
 
 
 type Cell = tuple[str, np.ndarray, list[str], list[str]]
@@ -363,13 +369,47 @@ def split_labels(raw: str | None) -> list[str]:
     return [x.strip() for x in (raw or "").split(";") if x.strip()]
 
 
+def load_subject_groups(path: Path) -> dict[str, str]:
+    """Narrow subject label -> broad subject label. One level only."""
+    if not path.exists():
+        raise SystemExit(f"subject groups file not found: {path}")
+    df = pl.read_csv(path, infer_schema_length=0)
+    if df.columns != ["label", "group"]:
+        raise SystemExit(f"{path}: expected columns [label, group], got {df.columns}")
+    groups: dict[str, str] = {}
+    for label, group in zip(df["label"], df["group"]):
+        if not label or not group:
+            raise SystemExit(f"{path}: blank label or group in row {label!r},{group!r}")
+        if LABEL_SEP in label or LABEL_SEP in group:
+            raise SystemExit(f"{path}: {label!r}/{group!r} contains {LABEL_SEP!r}")
+        if label in groups:
+            raise SystemExit(f"{path}: {label!r} is mapped twice")
+        groups[label] = group
+    chained = sorted(set(groups) & set(groups.values()))
+    if chained:
+        raise SystemExit(f"{path}: groups must not themselves be grouped: {chained}")
+    return groups
+
+
+def with_groups(subjects: list[str], groups: dict[str, str]) -> list[str]:
+    """Narrow labels first, then their broad parents, deduplicated."""
+    out = list(dict.fromkeys(subjects))
+    for lab in subjects:
+        parent = groups.get(lab)
+        if parent is not None and parent not in out:
+            out.append(parent)
+    return out
+
+
 def load_labels(
     data_root: Path,
+    groups: dict[str, str] | None = None,
 ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
     """(benchmark -> qualified label ids, axis -> ids by descending count).
 
     Ids are "<axis>:<label>", derived from which column a label sits in, so the
     vocabulary lives entirely in the data and a label name may repeat across axes.
+    `groups` adds broad parents to the subject axis alongside the narrow labels.
     """
     path = data_root / "benchmarks.csv"
     if not path.exists():
@@ -385,7 +425,10 @@ def load_labels(
     counts: dict[str, dict[str, int]] = {ax: defaultdict(int) for ax in LABEL_COLUMNS}
     for axis, col in LABEL_COLUMNS.items():
         for bid, cell in zip(df["benchmark_id"], df[col]):
-            for lab in split_labels(cell):
+            cell_labels = split_labels(cell)
+            if axis == "subject" and groups:
+                cell_labels = with_groups(cell_labels, groups)
+            for lab in cell_labels:
                 if LABEL_SEP in lab:
                     raise SystemExit(
                         f"{bid}: label {lab!r} in `{col}` contains the reserved "
@@ -400,9 +443,66 @@ def load_labels(
     return dict(labels), axis_labels
 
 
-def dump_labels(data_root: Path, out: Path) -> None:
+def carry_forward(
+    prior: dict,
+    categories: dict[str, list[str]],
+    label_params: dict,
+) -> dict:
+    """Relabel a prior cell whose loadings are not available locally.
+
+    Cohesion needs the distance matrix, which the payload does not store, so a
+    score survives only if its label's member set is unchanged; labels whose
+    membership changed (or are new) get no score rather than a stale one.
+    """
+    entry = copy.deepcopy(prior)
+    bench = entry["benchmarks"]
+    new_cats = [categories.get(b, []) for b in bench]
+
+    def members(cats: list) -> dict[str, frozenset[int]]:
+        m: dict[str, set[int]] = defaultdict(set)
+        for i, labs in enumerate(cats):
+            for lab in [labs] if isinstance(labs, str) else labs or []:
+                m[lab].add(i)
+        return {k: frozenset(v) for k, v in m.items()}
+
+    before, after = members(entry.get("categories") or []), members(new_cats)
+    if "categories" in entry:
+        entry["categories"] = new_cats
+    if "category_cohesion" in entry:
+        entry["category_cohesion"] = {
+            v: [r for r in rows if before.get(r["category"]) == after.get(r["category"])]
+            for v, rows in entry["category_cohesion"].items()
+        }
+    if "clusters" in entry:
+        entry["clusters"]["params"].update(label_params)
+        entry["clusters"]["diagnostics"]["n_labelled"] = sum(1 for c in new_cats if c)
+    return entry
+
+
+def same_inputs(prior: dict, cell_list: list[Cell]) -> bool:
+    """Was this prior cell built from the loadings available now?
+
+    Cohesion is recomputed from the local distance matrix, so a prior whose
+    geometry came from a different set of loadings (e.g. one imputer's files are
+    missing locally) must be carried forward, not rescored against a different
+    matrix than the one that produced its points and clusters.
+    """
+    if prior.get("n_cells") != len(cell_list):
+        return False
+    recorded = prior.get("clusters", {}).get("diagnostics", {}).get("n_factors")
+    return recorded is None or recorded == [len(cols) for _, _, _, cols in cell_list]
+
+
+def dump_labels(data_root: Path, out: Path, groups: dict[str, str]) -> None:
     """Write the applied benchmark -> label table. Derived; never hand-edited."""
     df = pl.read_csv(data_root / "benchmarks.csv", infer_schema_length=0)
+    col = LABEL_COLUMNS["subject"]
+    df = df.with_columns(
+        pl.col(col).map_elements(
+            lambda c: ";".join(with_groups(split_labels(c), groups)),
+            return_dtype=pl.String,
+        )
+    )
     cols = ["benchmark_id", "benchmark_name", "category"] + list(LABEL_COLUMNS.values())
     table = df.select([c for c in cols if c in df.columns]).sort("benchmark_id")
     table.write_csv(out)
@@ -598,6 +698,11 @@ def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--results-root", default="results/text_only")
     ap.add_argument("--data-root", default="data/text_only")
+    ap.add_argument(
+        "--subject-groups",
+        default=str(DEFAULT_SUBJECT_GROUPS),
+        help="CSV of narrow -> broad subject labels; parents are added, not substituted",
+    )
     ap.add_argument("--out", default=str(DEFAULT_OUT))
     ap.add_argument(
         "--legacy-names",
@@ -656,7 +761,11 @@ def main() -> None:
         print(LEGACY_BANNER)
 
     if args.dump_labels:
-        dump_labels(resolve(args.data_root), resolve(args.dump_labels))
+        dump_labels(
+            resolve(args.data_root),
+            resolve(args.dump_labels),
+            load_subject_groups(resolve(args.subject_groups)),
+        )
         return
 
     prior: dict = {}
@@ -670,7 +779,18 @@ def main() -> None:
     cells = load_cells(results_root, legacy_names=args.legacy_names)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")
-    categories, axis_labels = load_labels(resolve(args.data_root))
+    subject_groups = load_subject_groups(resolve(args.subject_groups))
+    categories, axis_labels = load_labels(resolve(args.data_root), subject_groups)
+    # qualified child id -> qualified parent id, for the viewer's nested legend
+    label_groups = {
+        f"subject{LABEL_SEP}{c}": f"subject{LABEL_SEP}{g}" for c, g in subject_groups.items()
+    }
+    label_params = {
+        "label_sep": LABEL_SEP,
+        "label_groups": label_groups,
+        "axis_order": [a for a in AXIS_ORDER if a in axis_labels],
+        "axis_labels": axis_labels,
+    }
     model_coverage = load_coverage(resolve(args.data_root))
     rng = np.random.default_rng(42)
 
@@ -700,6 +820,10 @@ def main() -> None:
 
     for key, cell_list, method in jobs:
         old = prior.get(key) if args.relabel else None
+        if old is not None and not same_inputs(old, cell_list):
+            out[key] = carry_forward(old, categories, label_params)
+            print(f"{key}: local loadings differ from the prior's -- carried forward")
+            continue
         dist, bench = composite_distance(cell_list)
         dist_ng, bench_ng = composite_distance(cell_list, drop_g=True)
         pristine, pristine_ng = dist.copy(), dist_ng.copy()
@@ -767,9 +891,7 @@ def main() -> None:
                     "min_samples": args.hdbscan_min_samples,
                     "cluster_selection_method": args.hdbscan_selection,
                 },
-                "label_sep": LABEL_SEP,
-                "axis_order": [a for a in AXIS_ORDER if a in axis_labels],
-                "axis_labels": axis_labels,
+                **label_params,
             },
             "diagnostics": {
                 "n_factors": [len(cols) for _, _, _, cols in cell_list],
@@ -788,6 +910,12 @@ def main() -> None:
             f"sil={hac['by_k'][str(hac['best_k'])]['silhouette']} | "
             f"HDBSCAN {hdb['n_clusters']} clusters, {hdb['noise_frac']:.0%} noise"
         )
+
+    # --relabel must never shrink the payload: cells whose loadings are not on
+    # this machine are carried forward rather than silently dropped.
+    for key in [k for k in prior if k not in out]:
+        out[key] = carry_forward(prior[key], categories, label_params)
+        print(f"{key}: no local loadings -- carried forward; changed labels have no cohesion")
 
     out_path.write_text(json.dumps(out, indent=1))
     print(f"wrote {out_path}")
