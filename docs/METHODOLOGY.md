@@ -473,9 +473,12 @@ Flags — `impute.R`: `--method`, `--data-root`, `--results-root`, `--raw`,
 `--results-root`, `--raw`, `--smoke`, `--loco`.
 
 - `--method <name>` — softimpute / softimpute_corr / knn / missforest / mice /
-  onesidedmc / optspace / usvt / cvxr / ggm; `factor.R` also takes `default` and
-  `zeros`, the no-imputation variants factored straight from a pairwise-complete
-  correlation matrix (no R² gate applies to those).
+  onesidedmc / optspace / usvt / cvxr / ggm / `default` / `zeros`. The last two
+  are the fill-smooth imputers: they complete the pairwise correlation matrix by
+  recipe (fill never-co-observed pairs with the mean off-diagonal, resp. with 0,
+  then PSD-smooth) and factor the cached smoothed correlation their imputation
+  persists. Every method — fill-smooth included — is gated on its held-out
+  imputation R² (>= 0.3).
 - `--raw` — run ONLY the undensified `raw` level (slow); default runs C/S/R.
 - `--reimpute` — force fresh imputation; **default reuses** an existing imputed CSV.
 - `--loco` (`factor.R`) — leave-one-benchmark-out Δω_h.

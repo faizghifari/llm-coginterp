@@ -68,7 +68,7 @@ make runall DATA_ROOT=data RESULTS_ROOT=results
 Rscript src/run/impute.R --method softimpute --data-root data --results-root results
 
 # methods: softimpute | softimpute_corr | knn | missforest | mice | onesidedmc
-#          | optspace | usvt | cvxr | ggm      (factor.R also: default | zeros)
+#          | optspace | usvt | cvxr | ggm | default | zeros (fill-smooth)
 # optionally, per run:
 # --reimpute      force fresh imputation (default reuses an existing imputed CSV)
 # --raw           run the slow undensified level instead of the C/S/R densifiers

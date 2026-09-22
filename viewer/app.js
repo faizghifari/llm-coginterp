@@ -49,8 +49,10 @@ const tooltip = $("tooltip");
 function keyOf() {
   const y = $("year").value;
   const imp = $("imputer").value;
+  // Tag dropdown removed: the pipeline only embeds the pa (parallel analysis)
+  // run, so the tag segment is fixed.
   return (
-    `${$("dz").value}|${$("tag").value}` +
+    `${$("dz").value}|pa` +
     (imp === "aggregate" ? "" : `|m${imp}`) +
     (y === "all" ? "" : `|y${y}`)
   );
@@ -59,7 +61,7 @@ function keyOf() {
 // Imputation methods available for the current dz x tag x cohort. Derived from
 // the key set: per-method keys carry a "|m<method>" segment.
 function imputerOptions() {
-  const prefix = `${$("dz").value}|${$("tag").value}`;
+  const prefix = `${$("dz").value}|pa`;
   const y = $("year").value;
   const methods = new Set(["aggregate"]);
   for (const k of Object.keys(state.data)) {
@@ -77,7 +79,8 @@ function imputerOptions() {
 
 // years that exist for the current dz x tag; aggregate ("all") always offered.
 function yearOptions() {
-  const dz = $("dz").value, tag = $("tag").value;
+  const dz = $("dz").value;
+  const tag = "pa";
   const years = Object.keys(state.data)
     .filter((k) => k.startsWith(`${dz}|${tag}|y`) && state.data[k].year !== undefined)
     .map((k) => String(state.data[k].year))
@@ -428,6 +431,9 @@ function rebuild() {
   $("meta").textContent =
     `${cohort} · ${d.benchmarks.length} benchmarks · averaged over ${d.n_cells} cells · ` +
     (d.method ? `imputer ${d.method} · ` : "") +
+    (d.imputation
+      ? `held-out R² ${d.imputation.r2.toFixed(3)} / RMSE ${d.imputation.rmse.toFixed(3)} (${d.imputation.method}) · `
+      : "") +
     tagDesc +
     clusterMeta(d);
   draw();
@@ -760,13 +766,15 @@ function init(data) {
   state.data = data;
   const keys = Object.keys(data);
   const dzs = [...new Set(keys.map((k) => k.split("|")[0]))];
-  const tags = [...new Set(keys.map((k) => k.split("|")[1]))];
+  // Tag dropdown removed: payload only ever carries the pa tag now.
+  // const tags = [...new Set(keys.map((k) => k.split("|")[1]))];
   // Prefer the pa tag as the default view; fall back to insertion order.
   const defaultDz = dzs.includes("C") ? "C" : dzs[0];
-  const defaultTag = tags.includes("pa") ? "pa" : tags[0];
+  // const defaultTag = tags.includes("pa") ? "pa" : tags[0];
+  const defaultTag = "pa";
   state.key = `${defaultDz}|${defaultTag}`;
   setOptions($("dz"), dzs, defaultDz);
-  setOptions($("tag"), tags, defaultTag);
+  // setOptions($("tag"), tags, defaultTag);
   setOptions($("year"), ["all"], "all");
 
   const apply = () => {
@@ -783,10 +791,10 @@ function init(data) {
     setOptions($("year"), yearOptions(), "all");
     apply();
   });
-  $("tag").addEventListener("change", () => {
-    setOptions($("year"), yearOptions(), "all");
-    apply();
-  });
+  // $("tag").addEventListener("change", () => {
+  //   setOptions($("year"), yearOptions(), "all");
+  //   apply();
+  // });
   $("year").addEventListener("change", apply);
   setOptions($("year"), yearOptions(), "all");
 

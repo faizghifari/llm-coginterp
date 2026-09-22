@@ -3,16 +3,20 @@
 # Imputation-only orchestrator.
 #
 # Runs imputation + held-out sweep for every (method × densifier × strategy)
-# cell. Saves completed CSVs and sweep curves. DOES NOT factor.
+# cell. Saves completed CSVs and sweep curves. DOES NOT factor. The fill-smooth
+# methods (default/zeros) additionally persist the exact smoothed correlation
+# their recipe produced (..._correlation.csv) — the matrix the EFA and the
+# conditional/prorated latent scoring run on.
 #
 # Output:
 #   data/imputed/<method>/<densifier>/<strategy>/  -> completed CSV + keys
 #   results/<method>/<method>_<dz>_<st>_rank_sweep.csv
+#   results/<method>/<method>_<dz>_<st>_correlation.csv   (default/zeros only)
 #   results/<prefix>/database.db -> imputation table rows
 #
 # Run from anywhere:
 #   Rscript src/run/impute.R [--method <name>] [--raw] [--reimpute]
-#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | cvxr | ggm | all
+#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | cvxr | ggm | default | zeros | all
 #     --raw          run ONLY the undensified "raw" level (default: C,S,R)
 #     --reimpute     force fresh imputation even if an imputed CSV exists
 #     --data-root    input tree, relative to repo root
@@ -39,7 +43,12 @@ source(file.path(SRC, "impute", "db.R"))
 
 ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "onesidedmc", "knn", "missforest", "mice",
-                 "optspace", "usvt", "cvxr", "ggm")
+                 "optspace", "usvt", "cvxr", "ggm",
+                 "default", "zeros")
+# Fill-smooth methods: their contract carries the extra smoothed correlation R,
+# persisted as ..._correlation.csv next to the flat results (the completed CSV
+# alone cannot recover it).
+RAW_METHODS <- c("default", "zeros")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
   reimpute <- FALSE; no_balance <- FALSE
@@ -126,6 +135,14 @@ impute_R <- function(method, x) {
     source(file.path(SRC, "impute", "corr_common.R"))
     source(file.path(SRC, "impute", "ggm", "method.R"))
     impute_ggm(x)
+  } else if (method == "default") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "default", "method.R"))
+    impute_default(x)
+  } else if (method == "zeros") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "zeros", "method.R"))
+    impute_zeros(x)
   } else stop("not an R imputer: ", method)
 }
 
@@ -193,8 +210,12 @@ run_cell <- function(method, dz, st) {
 
   imputed_csv <- file.path(out_dir, "imputed_model_benchmark_table.csv")
   sweep_csv   <- res_path(method, dz, st, "rank_sweep.csv")
+  # fill-smooth methods also persist the correlation cache; both artifacts must
+  # exist before imputation can be skipped.
+  cache_csv   <- res_path(method, dz, st, "correlation.csv")
 
-  if (!REIMPUTE && file.exists(imputed_csv)) {
+  if (!REIMPUTE && file.exists(imputed_csv) &&
+      (!(method %in% RAW_METHODS) || file.exists(cache_csv))) {
     cat("  reusing existing imputed CSV (skip imputation; use --reimpute to force)\n")
     return()
   }
@@ -204,6 +225,8 @@ run_cell <- function(method, dz, st) {
   if (is.null(res)) return()
 
   write_completed(out_dir, pm$keys, res$M)
+  if (method %in% RAW_METHODS && !is.null(res$R))
+    write_correlation_csv(res$R, cache_csv)
   write.csv(data.frame(param = res$params, param_name = res$param_name,
                        rmse = res$curve,
                        r2 = if (!is.null(res$curve_r2)) res$curve_r2 else NA),

@@ -6,7 +6,9 @@
 # methods and the only thing that varies is the imputed/surrogate input. For
 # onesidedmc the "completed" matrix is a synthetic surrogate whose covariance
 # equals the recovered Theta-hat = V V' (see impute/onesidedmc) — psych never
-# learns it is synthetic; it just factors a data matrix like any other.
+# learns it is synthetic; it just factors a data matrix like any other. The
+# fill-smooth methods (default/zeros) instead hand the CACHED correlation their
+# imputation recipe produced (factor_cached_R).
 #
 # Factoring choices (held constant across all methods):
 #   - minimum-residual factoring (fm = "minres")
@@ -101,116 +103,48 @@ efa_stats <- function(efa) {
   list(phi_avg = phi_avg, phi = phi, var_factors = pv, var_avg = var_avg)
 }
 
-# Load a correlation matrix written by write_correlation_csv: first column
-# `benchmark`, remaining columns the matrix; benchmarks become row/col names.
-read_correlation_csv <- function(path) {
-  if (!file.exists(path))
-    stop("cached correlation matrix not found: ", path,
-         " — run the non-LOCO factoring first to generate it")
-  df <- read.csv(path, check.names = FALSE, row.names = 1)
-  R <- as.matrix(df)
-  storage.mode(R) <- "double"
-  if (!is.matrix(R) || nrow(R) != ncol(R) || !identical(rownames(R), colnames(R)))
-    stop("cached correlation matrix is malformed: ", path)
-  R
-}
-
-# Pairwise-complete correlation from a sparse matrix (NAs allowed), PSD-smoothed.
-# Returns the smoothed correlation R, the raw dataset's row count as the effective
-# sample size (N), and eigenvalues of the RAW correlation (unsmoothed).
-#
-# We use nrow(M) directly rather than the harmonic mean of pairwise complete-case
-# counts. The harmonic mean is unreliable with zero-imputation sparse data because
-# a single column pair with zero overlapping non-NA observations sends 1/0 = Inf
-# and collapses the entire effective sample size to zero. The raw row count is a
-# stable, conservative estimate that avoids this singularity and is appropriate
-# for no-imputation pairwise-complete correlation analysis where every row
-# contributes at least some pairwise information.
-#
-# use_cache = TRUE skips the pairwise cor() + smoothing entirely and loads the
-# correlation matrix previously written by write_correlation_csv from cache_path
-# (eigenvalues then come from the cached smoothed matrix). Used by the LOCO run,
-# which would otherwise redo the (expensive) full-matrix correlation for no gain.
-prepare_raw_default <- function(M, use_cache = FALSE, cache_path = NULL) {
-  if (use_cache) {
-    R <- read_correlation_csv(cache_path)
-    return(list(R = R, n_eff = as.integer(nrow(M)),
-                eig_raw = sort(eigen(R, symmetric = TRUE,
-                                     only.values = TRUE)$values,
-                                decreasing = TRUE)))
-  }
-  R <- cor(M, use = "pairwise.complete.obs")
-  off_diag <- R[upper.tri(R)]
-  mu <- mean(off_diag[is.finite(off_diag)])
-  R[!is.finite(R)] <- mu
-  diag(R) <- 1
-
-  n_eff <- nrow(M)
-
-  eig_raw <- sort(eigen(R, symmetric = TRUE, only.values = TRUE)$values,
-                  decreasing = TRUE)
-  R_smooth <- psych::cor.smooth(R)
-
-  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
-}
-
-# Method "zeros": like "default" (pairwise-complete correlation) but fills
-# unobserved / non-finite off-diagonal pairs with 0 instead of the average
-# off-diagonal correlation. This treats absent co-observation as "no
-# association" rather than imputing the typical pairwise correlation.
-prepare_raw_zeros <- function(M, use_cache = FALSE, cache_path = NULL) {
-  if (use_cache) {
-    R <- read_correlation_csv(cache_path)
-    return(list(R = R, n_eff = as.integer(nrow(M)),
-                eig_raw = sort(eigen(R, symmetric = TRUE,
-                                     only.values = TRUE)$values,
-                                decreasing = TRUE)))
-  }
-  R <- cor(M, use = "pairwise.complete.obs")
-  R[!is.finite(R)] <- 0
-  diag(R) <- 1
-
-  n_eff <- nrow(M)
-
-  eig_raw <- sort(eigen(R, symmetric = TRUE, only.values = TRUE)$values,
-                  decreasing = TRUE)
-  R_smooth <- psych::cor.smooth(R)
-
-  list(R = R_smooth, n_eff = as.integer(n_eff), eig_raw = eig_raw)
-}
-
-# Factoring of sparse data via pairwise-complete correlation + PSD smoothing.
-# PA uses raw eigenvalues vs cutoffs at effective N. Returns the same shape
-# as factor_matrix plus R (smoothed correlation) and n_eff for downstream use.
-factor_raw <- function(M, pa_iter = 100L, pa_quantile = 0.95,
-                       method = c("default", "zeros"), min_n = 10L) {
-  method <- match.arg(method)
-  prep <- switch(method,
-    default = prepare_raw_default(M),
-    zeros   = prepare_raw_zeros(M))
-
-  cut <- pa_cutoffs(prep$n_eff, ncol(M), n.iter = pa_iter,
-                    quantile = pa_quantile)
-  nf_req <- max(2L, sum(prep$eig_raw > cut, na.rm = TRUE))
+# Factor count for a CACHED correlation matrix (the fill-smooth methods
+# default/zeros): Horn's PA cutoffs at effective N vs the eigenvalues of the
+# cached (smoothed) correlation, then the same caps as the other raw-path
+# numbers — min 2, max 20, bounded by matrix dims and the numeric rank.
+# The eigenvalues come from the smoothed matrix; PA counting is unaffected
+# (cor.smooth only alters eigenvalues below 1e-6, which never clear the
+# cutoffs) — same convention the LOCO cache path has always used.
+choose_nfactors_cached_R <- function(R, n_eff, pa_iter = 100L,
+                                     pa_quantile = 0.95) {
+  eig <- sort(eigen(R, symmetric = TRUE, only.values = TRUE)$values,
+              decreasing = TRUE)
+  cut <- pa_cutoffs(n_eff, ncol(R), n.iter = pa_iter, quantile = pa_quantile)
+  nf_req <- max(2L, sum(eig > cut, na.rm = TRUE))
   nf_req <- min(nf_req, 20L)
+  rk <- sum(eig > 1e-8, na.rm = TRUE)
+  nf <- max(2L, min(nf_req, ncol(R) - 1L, n_eff - 1L, rk - 1L))
+  list(nf = nf, nf_req = nf_req, eig = eig, cutoffs = cut)
+}
 
-  rk <- sum(prep$eig_raw > 1e-8, na.rm = TRUE)
-  nf <- max(2L, min(nf_req, ncol(M) - 1L, prep$n_eff - 1L, rk - 1L))
-  cat("  raw pa$nf =", nf_req, " capped nf =", nf, "\n")
+# Factoring of a cached correlation matrix R (fill-smooth methods). PA uses the
+# cached eigenvalues vs cutoffs at effective N, then minres + promax, degrading
+# gracefully down to nf = 2. Returns the same shape as factor_matrix plus R and
+# n_eff for downstream use.
+factor_cached_R <- function(R, n_eff, pa_iter = 100L, pa_quantile = 0.95) {
+  pa <- choose_nfactors_cached_R(R, n_eff, pa_iter = pa_iter,
+                                 pa_quantile = pa_quantile)
+  cat("  raw pa$nf =", pa$nf_req, " capped nf =", pa$nf, "\n")
 
+  nf <- pa$nf
   efa <- NULL
   for (k in seq.int(nf, 2L)) {
     cat("  trying nf =", k, "...\n"); t0 <- Sys.time()
-    efa <- fa_try(prep$R, k, n_obs = prep$n_eff)
+    efa <- fa_try(R, k, n_obs = n_eff)
     cat("  nf =", k, "took", Sys.time() - t0, "\n")
     if (!is.null(efa)) { nf <- k; break }
   }
   if (is.null(efa))
-    stop("raw factoring failed at every nf down to 2")
+    stop("cached-R factoring failed at every nf down to 2")
 
-  list(efa = efa, eig = prep$eig_raw, cutoffs = cut,
+  list(efa = efa, eig = pa$eig, cutoffs = pa$cutoffs,
        nf = ncol(unclass(efa$loadings)),
-       R = prep$R, n_eff = prep$n_eff)
+       R = R, n_eff = as.integer(n_eff))
 }
 
 # One-shot factoring of a completed matrix: cached parallel analysis picks the
@@ -235,15 +169,6 @@ factor_matrix <- function(M, pa_iter = 100L, pa_quantile = 0.95,
 
   list(efa = efa, eig = pa$observed, cutoffs = pa$cutoffs,
        nf = ncol(unclass(efa$loadings)))
-}
-
-# Persist the smoothed correlation matrix that raw factoring ran on, so
-# downstream scorers (scripts/latent_scores.py) can reuse the exact fill+PSD
-# recipe instead of reimplementing it: first column `benchmark`, then R.
-write_correlation_csv <- function(R, path) {
-  write.csv(data.frame(benchmark = rownames(R), R, check.names = FALSE),
-            path, row.names = FALSE)
-  cat("  wrote", path, "\n")
 }
 
 # Higher-order factor analysis on a completed matrix M with `nf` first-order

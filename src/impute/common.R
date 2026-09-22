@@ -112,3 +112,28 @@ write_completed <- function(out_dir, keys, M) {
   cat("  wrote", p, "\n")
   p
 }
+
+# Persist a correlation matrix (used by the fill-smooth methods default/zeros)
+# so downstream consumers — the factoring stage's cached-R path and
+# scripts/latent_scores.py — can reuse the exact fill+PSD recipe instead of
+# reimplementing it: first column `benchmark`, then the matrix.
+write_correlation_csv <- function(R, path) {
+  write.csv(data.frame(benchmark = rownames(R), R, check.names = FALSE),
+            path, row.names = FALSE)
+  cat("  wrote", path, "\n")
+}
+
+# Load a correlation matrix written by write_correlation_csv: first column
+# `benchmark`, remaining columns the matrix; benchmarks become row/col names.
+read_correlation_csv <- function(path) {
+  if (!file.exists(path))
+    stop("cached correlation matrix not found: ", path,
+         " — run the imputation stage first ",
+         "(Rscript src/run/impute.R --method <method>)")
+  df <- read.csv(path, check.names = FALSE, row.names = 1)
+  R <- as.matrix(df)
+  storage.mode(R) <- "double"
+  if (!is.matrix(R) || nrow(R) != ncol(R) || !identical(rownames(R), colnames(R)))
+    stop("cached correlation matrix is malformed: ", path)
+  R
+}

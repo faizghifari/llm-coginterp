@@ -44,7 +44,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATA_ROOT = REPO / "data" / "text_only"   # text-only is the analysis default
 SRC = DATA_ROOT / "combinations"
 DST_ROOT = DATA_ROOT
-TARGET = 0.10  # target density (fraction)
+TARGET = 0.2  # target density (fraction)
 MIN_OBS = 3  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
 # Needed so all downstream methods are well-posed: prep_matrix drops <2-obs cols,
 # and OneSidedMC's pairwise-product loss needs >=2 obs per row (1 obs = 0 pairs).

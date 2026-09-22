@@ -46,6 +46,7 @@ import copy
 import json
 import math
 import re
+import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
@@ -64,8 +65,9 @@ NAME_RE = re.compile(
     r"_bifactor_(?P<tag>pa|2f|forced2f)(?:_y(?P<year>\d{4}))?_loadings\.csv$"
 )
 # Year-less files are the aggregate (all-years) embedding; `..._y<year>_` files
-# come from factor.R --timed (release-year cohorts). forced2f is the DB run
-# name leaked into timed filenames — normalize it to the combined 2f tag.
+# come from factor.R --timed (release-year cohorts). Only the parallel-analysis
+# run (`pa`) is consumed: 2f and forced2f (the DB run name leaked into timed
+# filenames) are matched by the regex but skipped in load_cells.
 # Pre-tag runs wrote one bifactor file per cell with no pa/2f distinction.
 LEGACY_RE = re.compile(
     r"^(?P<method>.+?)_(?P<dz>C|R|S|raw)_(?P<st>all_standard|all_aggressive)"
@@ -125,24 +127,91 @@ type CellKey = tuple[str, str, int | None]
 """(densifier, tag, release-year cohort or None for the all-years aggregate)."""
 
 
-CELL_KEY_RE = re.compile(r"^(?P<method>.+)_(?:C|R|S|raw)_(?:all_standard|all_aggressive)$")
-"""Recovers the method name from a cell key ("<method>_<dz>_<st>")."""
+CELL_KEY_RE = re.compile(
+    r"^(?P<method>.+)_(?P<dz>C|R|S|raw)_(?P<st>all_standard|all_aggressive)$"
+)
+"""Recovers the method, densifier, and stage from a cell key
+("<method>_<dz>_<st>")."""
+
+
+def registered_runs(db_path: Path) -> set[tuple[str, str, str]] | None:
+    """(dataset, method, run) triples in the factoring table, or None if no db.
+
+    The database is the registry of factoring runs: a loadings file with no
+    matching row is an orphan (e.g. default/zeros baselines from an earlier
+    pipeline) and must not reach the viewer. None means legacy mode, where
+    there is no db to check against.
+    """
+    if not db_path.exists():
+        return None
+    con = sqlite3.connect(str(db_path))
+    rows = con.execute("SELECT dataset, method, run FROM factoring").fetchall()
+    con.close()
+    return {(d, m, r) for d, m, r in rows}
+
+
+def load_imputation(db_path: Path) -> dict[tuple[str, str], dict]:
+    """{(dz, st): {rmse, r2, desc}} from the imputation table, best method first.
+
+    Datasets in the table are "<dz>_<st>" (e.g. C_all_standard). A dataset may
+    hold several candidate methods; the one with the highest held-out R2 is
+    kept, since that is the imputation actually worth trusting.
+    """
+    if not db_path.exists():
+        return {}
+    con = sqlite3.connect(str(db_path))
+    con.row_factory = sqlite3.Row
+    rows = con.execute(
+        "SELECT dataset, method, rmse, r2, desc FROM imputation"
+    ).fetchall()
+    con.close()
+    best: dict[tuple[str, str], dict] = {}
+    for r in rows:
+        dataset = r["dataset"] or ""
+        for st in ("all_standard", "all_aggressive"):
+            if dataset.endswith(f"_{st}"):
+                dz, key = dataset[: -len(st) - 1], (dataset[: -len(st) - 1], st)
+                break
+        else:
+            continue
+        cand = {
+            "method": r["method"],
+            "rmse": r["rmse"],
+            "r2": r["r2"],
+            "desc": r["desc"],
+        }
+        cur = best.get(key)
+        if cur is None or (cand["r2"] or -np.inf) > (cur["r2"] or -np.inf):
+            best[key] = cand
+    return best
 
 
 def load_cells(
     results_root: Path, *, legacy_names: bool = False
 ) -> dict[CellKey, list[Cell]]:
     """{ (dz, tag, year|None): [ (key, factor_matrix, [benchmarks], [factor_cols]) ] }"""
+    allowed = None if legacy_names else registered_runs(results_root / "database.db")
+    if allowed is None and not legacy_names:
+        print(
+            f"no database at {results_root / 'database.db'} -- accepting every "
+            "loadings file; run factoring to register runs"
+        )
     cells: dict[CellKey, list[Cell]] = defaultdict(list)
     for path in sorted(results_root.glob("*/*_loadings.csv")):
         m = NAME_RE.match(path.name)
-        # forced2f is the DB run name leaking into --timed filenames.
-        tag = ("2f" if m["tag"] == "forced2f" else m["tag"]) if m else None
         year = (int(m["year"]) if m["year"] else None) if m else None
+        tag = m["tag"] if m else None
         if m is None and legacy_names:
             m = LEGACY_RE.match(path.name)
             tag, year = "legacy", None
         if m is None:
+            continue
+        # Only the parallel-analysis run is embedded: skip 2f and forced2f.
+        if tag not in ("pa", "legacy"):
+            continue
+        dataset = f"{m['dz']}_{m['st']}"
+        if allowed is not None and (dataset, m["method"], tag) not in allowed:
+            print(f"skipping {path.name}: ({dataset}, {m['method']}, {tag}) not in database.db")
             continue
         df = pl.read_csv(path, infer_schema_length=0)
         # g first, then F1*..Fk* in file order; everything else is a diagnostic.
@@ -779,6 +848,7 @@ def main() -> None:
     cells = load_cells(results_root, legacy_names=args.legacy_names)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")
+    imputation = load_imputation(results_root / "database.db")
     subject_groups = load_subject_groups(resolve(args.subject_groups))
     categories, axis_labels = load_labels(resolve(args.data_root), subject_groups)
     # qualified child id -> qualified parent id, for the viewer's nested legend
@@ -813,7 +883,7 @@ def main() -> None:
             m = CELL_KEY_RE.match(cell[0])
             if m is None:
                 raise RuntimeError(f"unparsable cell key {cell[0]!r}")
-            by_method[m.group(1)].append(cell)
+            by_method[m.group("method")].append(cell)
         for method, method_cells in sorted(by_method.items()):
             base = f"{dz}|{tag}|m{method}"
             jobs.append((base if year is None else f"{base}|y{year}", method_cells, method))
@@ -824,6 +894,10 @@ def main() -> None:
             out[key] = carry_forward(old, categories, label_params)
             print(f"{key}: local loadings differ from the prior's -- carried forward")
             continue
+        # The imputation table is keyed per (dz, stage); a job mixing stages
+        # (only the aggregate jobs do) has no single dataset to attach.
+        stages = {CELL_KEY_RE.match(c[0]).group("st") for c in cell_list}
+        ds_key = (key.split("|")[0], next(iter(stages))) if len(stages) == 1 else None
         dist, bench = composite_distance(cell_list)
         dist_ng, bench_ng = composite_distance(cell_list, drop_g=True)
         pristine, pristine_ng = dist.copy(), dist_ng.copy()
@@ -850,6 +924,13 @@ def main() -> None:
             "tag": tag,
             **({} if method is None else {"method": method}),
             **({} if year is None else {"year": year}),
+            # Held-out imputation quality of this cell's dataset (best method
+            # by R2), aggregate cohorts only -- year cohorts have no row.
+            **(
+                {"imputation": imputation[ds_key]}
+                if method is not None and year is None and ds_key in imputation
+                else {}
+            ),
             "n_cells": len(cell_list),
             "benchmarks": bench,
             "points": [

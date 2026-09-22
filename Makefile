@@ -16,12 +16,12 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT)
 #   make factor softimpute onesidedmc zeros default
 #   make loco   softimpute knn              # factor with --loco
 #   make factor-timed [methods]             # year-separated EFA (skips
-#                                           # imputer-less default/zeros)
+#                                           # fill-smooth default/zeros)
 #
 # Aggregates run the whole default set:
 #
 #   make runall-impute     all imputations (plain + --raw)
-#   make runall-factor     all methods (plain + --raw) + default + zeros
+#   make runall-factor     all methods (plain + --raw)
 #   make runall-loco       leave-one-column-out factor runs (plain + --raw)
 #   make runall            everything above, then the loadings comparison
 #
@@ -33,9 +33,9 @@ TAIL ?= 50
 export JOBS TAIL
 LOGS := $(RESULTS_ROOT)/logs
 
-IMPUTE_METHODS := softimpute onesidedmc missforest knn
-FACTOR_METHODS := softimpute onesidedmc missforest knn
-LOCO_PLAIN     := raw softimpute onesidedmc knn   # plain missforest loco skipped
+IMPUTE_METHODS := softimpute onesidedmc missforest knn default zeros
+FACTOR_METHODS := softimpute onesidedmc missforest knn default zeros
+LOCO_PLAIN     := default zeros softimpute onesidedmc knn   # plain missforest loco skipped
 
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
 
@@ -90,8 +90,9 @@ loco:
 	./scripts/runmulti.sh $(LOGS) factor raw loco -- $(EXTRA) -- $(ROOTS)
 
 # Year-separated factoring: one EFA per release-year cohort of models.
-# Imputer-less methods (default/zeros) are excluded by construction and the
-# R script double-guards against them. Method words after the target override
+# Fill-smooth methods (default/zeros) are excluded by construction — their
+# imputed correlation is global, not per cohort — and the R script
+# double-guards against them. Method words after the target override
 # the default set, e.g. "make factor-timed knn".
 factor-timed:
 	$(CLEAR_SUMMARY)
@@ -112,7 +113,7 @@ runall-impute:
 
 runall-factor:
 	$(CLEAR_SUMMARY)
-	./scripts/runmulti.sh $(LOGS) factor -- $(FACTOR_METHODS) default zeros -- $(ROOTS)
+	./scripts/runmulti.sh $(LOGS) factor -- $(FACTOR_METHODS) -- $(ROOTS)
 	./scripts/runmulti.sh $(LOGS) factor raw -- $(FACTOR_METHODS) -- $(ROOTS)
 
 runall-loco:

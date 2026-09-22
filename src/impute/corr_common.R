@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Shared helpers for correlation-matrix imputers (softimpute_corr, and future
-# ones). Unlike the cell-filling methods, these operate on the observed pairwise
+# Shared helpers for correlation-matrix imputers (softimpute_corr, optspace,
+# usvt, cvxr, ggm, and the fill-smooth pair default/zeros). Unlike the cell-filling methods, these operate on the observed pairwise
 # CORRELATION matrix rather than the raw dataset, so they lose scale and cannot
 # reconstruct specific cells/rows. We reuse the OneSidedMC (Julia) strategy to
 # work around this:
@@ -170,8 +170,72 @@ run_corr_single <- function(x, fit_fn, param_name, param_value, seed = 1L) {
   mom <- corr_column_moments(x)
   M <- generate_surrogate(R_final, nrow(x), mom$mu, mom$sd, seed = seed)
 
-  list(M = M,
+  list(M = M, R = R_final,
        best_param = param_value, params = param_value,
        curve = rmse, curve_r2 = r2,
        param_name = param_name, metric_name = "Held-out RMSE")
+}
+
+# ── fill-smooth (methods "default" and "zeros") ──────────────────────────────
+# Correlation-matrix completion by recipe: fill the never-co-observed entries of
+# the observed pairwise correlation matrix, then PSD-smooth (psych::cor.smooth).
+# "mean" fills with the mean finite off-diagonal correlation (absent
+# co-observation gets the typical association); "zero" fills with 0 (absent
+# co-observation means no association). No hyperparameter sweep — a single
+# fixed recipe; the reported "param" is just the fill rule.
+fill_smooth_corr <- function(R_obs, fill = c("mean", "zero")) {
+  fill <- match.arg(fill)
+  R <- R_obs
+  if (fill == "mean") {
+    off_diag <- R[upper.tri(R)]
+    mu <- mean(off_diag[is.finite(off_diag)])
+    R[!is.finite(R)] <- mu
+  } else {
+    R[!is.finite(R)] <- 0
+  }
+  diag(R) <- 1
+  psych::cor.smooth(R)
+}
+
+# Fill-smooth driver. Same held-out protocol as run_corr_single (shared masking,
+# train-moment standardization, conditional-Gaussian cell prediction, balanced
+# scoring), but the FINAL correlation is the exact fill+PSD recipe output — no
+# nearPD on top — because it is persisted (correlation.csv) and is the matrix
+# the EFA and latent scoring run on. Returns it as `R`; M is the usual
+# covariance-matched surrogate for the uniform completed-CSV hand-off.
+run_fill_smooth <- function(x, fill = c("mean", "zero"), seed = 1L) {
+  fill <- match.arg(fill)
+  set.seed(seed)
+  holdout <- make_holdout(x, frac = 0.2)
+
+  x_train <- x; x_train[holdout] <- NA
+  mu  <- colMeans(x_train, na.rm = TRUE)
+  sdv <- apply(x_train, 2, sd, na.rm = TRUE)
+  sdv[!is.finite(sdv) | sdv == 0] <- 1
+  z       <- corr_zscore(x, mu, sdv)
+  z_train <- z; z_train[holdout] <- NA
+
+  R_train <- observed_corr(z_train)
+  R_full  <- observed_corr(z)
+
+  test_cells <- make_holdout_cells(z, holdout)
+  zt <- vapply(test_cells, function(tc) tc$held_val, numeric(1))
+  nrow_x <- nrow(x)
+
+  R_hat  <- fill_smooth_corr(R_train, fill)
+  R_corr <- symmetrize_nearpd(R_hat)   # safely PD for the predictor only
+  zh     <- predict_cells_from_corr(R_corr, test_cells)
+  sc     <- score_corr_holdout(zt, zh, holdout, nrow_x)
+  rmse   <- unname(sc["rmse"]); r2 <- unname(sc["r2"])
+  cat(sprintf("  fill=%s | RMSE %.4f | R2 %.3f\n", fill, rmse, r2))
+
+  # final recipe output on the full observed correlation (no holdout, no nearPD)
+  R_final <- fill_smooth_corr(R_full, fill)
+  mom <- corr_column_moments(x)
+  M <- generate_surrogate(R_final, nrow(x), mom$mu, mom$sd, seed = seed)
+
+  list(M = M, R = R_final,
+       best_param = fill, params = fill,
+       curve = rmse, curve_r2 = r2,
+       param_name = "fill", metric_name = "Held-out RMSE")
 }

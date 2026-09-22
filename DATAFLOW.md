@@ -91,7 +91,9 @@ mirrors this in Julia with `drop_degenerate_cols`.
 **The uniform imputer contract.** Every `impute_<method>()` returns a list with
 `M` (completed matrix, rows=models, cols=benchmarks), `best_param`, `params`,
 `curve` (held-out RMSE per param), `curve_r2`, `param_name`, `metric_name`, and
-`complete_at(v)` (used by the dashboard to factor at every swept value).
+`complete_at(v)` (used by the dashboard to factor at every swept value). The
+fill-smooth methods additionally return `R`, the exact smoothed correlation
+(see below).
 
 Two families of imputers:
 
@@ -100,13 +102,21 @@ Two families of imputers:
   fit on the rest, predict the masked cells, score with `score_holdout`
   (column-balanced by default; `--no-balance` reverts to cell-weighted), return
   the completed matrix at the CV-best hyperparameter.
-- **Correlation-matrix** (softimpute_corr, optspace, usvt, cvxr, ggm): build
+- **Correlation-matrix** (softimpute_corr, optspace, usvt, cvxr, ggm, and the
+  fill-smooth pair `default`/`zeros`): build
   the observed pairwise correlation matrix (NA where never co-observed), impute
   those NA entries, `symmetrize_nearpd` to a valid PD correlation, predict
   held-out *cells* via the conditional-Gaussian best-linear predictor
   (`predict_cell_from_corr`), then emit a **covariance-matched surrogate** whose
   covariance equals the imputed correlation (`generate_surrogate`, original
   column scale). Shared driver `run_corr_single` (`corr_common.R`).
+  **Fill-smooth** (`default`, `zeros`; driver `run_fill_smooth`, same held-out
+  protocol) completes the correlation with a fixed recipe instead of a model:
+  fill never-co-observed pairs with the mean finite off-diagonal (`default`) or
+  0 (`zeros`), then `psych::cor.smooth`. No hyperparameter sweep (the reported
+  param is the fill rule). Its final correlation is the *exact* recipe output —
+  no nearPD on top — returned as `R` and persisted; that cached matrix is what
+  its EFA and latent scoring run on.
 
 **OSMC is the odd one out.** It never imputes cells. `main.R`/`impute.R` shell
 out once up front to `julia impute/OneSidedMC/run.jl`, which recovers the
@@ -122,55 +132,64 @@ reads those outputs back through `osmc_contract()` as if they were an imputer's
 |---|---|---|
 | completed matrix | `data/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` | `write_completed` (or OSMC `write_surrogate`) |
 | rank-sweep curve | `results/<method>/<method>_<dz>_<st>_rank_sweep.csv` | orchestrator |
+| smoothed correlation (fill-smooth `default`/`zeros` only) | `results/<method>/<method>_<dz>_<st>_correlation.csv` | orchestrator (`write_correlation_csv`) |
 | imputation row | `results/<...>/database.db` table `imputation` (PK `dataset,method`) | `db_insert_imputation` |
 
 The completed CSV is the **hand-off artifact** to the factor stage: columns are
-benchmarks, rows are models, first column `collapse_key`. This is the only thing
-`factor.R` consumes from imputation.
+benchmarks, rows are models, first column `collapse_key`. For the fill-smooth
+methods the persisted correlation cache is a second hand-off — it is the exact
+matrix their EFA and their latent scoring run on (the surrogate cannot recover
+it: it only matches the covariance up to sampling noise).
 
 > `--reimpute` default OFF: if the completed CSV already exists, the
 > orchestrator skips imputation and rebuilds a partial contract from disk
 > (`read_matrix`), so higher-order/metric changes can be re-applied without
-> re-running the slow imputation.
+> re-running the slow imputation. Fill-smooth cells skip only when the
+> correlation cache exists too (their imputation is cheap anyway).
 
 ## Stage 2 — factoring (`src/factor/`)
 
 `factor.R` (or `main.R`) reads a completed matrix, then:
 
 1. **Gate on imputation quality.** Reads `R²` for the cell from the SQLite
-   `imputation` table (`db_read_r2`). If `R² < 0.4` (or absent), the cell is
-   skipped. `raw` / `default` / `zeros` methods bypass the gate (they factor the
-   *sparse* table directly via pairwise-complete correlation + PSD smoothing,
-   `factor_raw`).
+   `imputation` table (`db_read_r2`). If `R² < 0.3` (or absent), the cell is
+   skipped — every method is gated, the fill-smooth pair included (they are
+   imputers now and their held-out R² lives in the same table). Fill-smooth
+   cells (`default`/`zeros`) then factor the **cached smoothed correlation**
+   their imputation persisted (`factor_cached_R`) — the exact fill + PSD recipe
+   output — instead of `cor(M)` of the surrogate.
 2. **Factor count via Horn's parallel analysis** (`parallel_analysis.R`). The
    random-baseline eigenvalue cutoffs depend only on shape `(n, p, n.iter,
    quantile)`, so they are computed once and **cached as JSON in
    `factor/pa_cache/`**, keyed by shape. Observed eigenvalues come from
-   `eigen(cor(M))`. `nfactors = #(observed > cutoff)`, floor 2.
-3. **Minres + promax EFA** at that count (`factor_matrix` → `fa_try`), degrading
+   `eigen(cor(M))` (`eigen(R_cached)` for fill-smooth, at `n_eff = nrow` —
+   `choose_nfactors_cached_R`; the PA count is identical because `cor.smooth`
+   only alters eigenvalues below 1e-6, which never clear the cutoffs).
+   `nfactors = #(observed > cutoff)`, floor 2.
+3. **Minres + promax EFA** at that count (`factor_matrix` → `fa_try`;
+   `factor_cached_R` → `fa_try` for fill-smooth), degrading
    gracefully down to nf=2.
 4. **Higher-order / bifactor** via `psych::omega` (`higher_order`) — Schmid-
    Leiman loadings plus ω_h, ω_total, per-group ω_hs. Two runs per cell: at the
    PA factor count (`pa`) and forced to 2 factors (`2f`).
 5. **(optional `--loco`)** leave-one-covariate-out Δω_h per benchmark →
-   SQLite table `loco`.
+   SQLite table `loco`. LOCO never re-derives a correlation: fill-smooth cells
+   load the imputation-persisted cache; the others use `cor(M)`.
 
 **Outputs** (per cell, per run tag `pa` and `2f`):
 
 | output | path |
 |---|---|
 | bifactor loadings | `results/<method>/<method>_<dz>_<st>_bifactor_<pa\|2f>_loadings.csv` + `.md` |
-| smoothed correlation (raw methods only) | `results/<method>/<method>_<dz>_<st>_correlation.csv` |
 | omega scalars | `results/<method>/..._bifactor_<pa\|2f>_scalars.csv` |
 | per-group ω_hs | `results/<method>/..._bifactor_<pa\|2f>_omega_group.csv` |
 | factoring row | `results/<...>/database.db` table `factoring` (PK `dataset,method,run`) |
 
 `write_higher_order` (CSV + MD) and `db_insert_factoring` (SQLite) are the only
 writers here. `matrix_to_markdown` bolds |loading| ≥ 0.4 and sorts rows by
-primary-factor assignment. For raw methods (`default`/`zeros`),
-`write_correlation_csv` additionally persists the PSD-smoothed pairwise-complete
-correlation the factoring ran on, so downstream scoring does not have to
-reimplement the fill/smoothing recipe.
+primary-factor assignment. The smoothed correlation used to be re-persisted
+here for `default`/`zeros`; it is now written by the imputation stage (Stage 1)
+so the recipe lives in exactly one place.
 
 **Timed mode** (`make factor-timed` → `factor.R --timed`): year-separated EFA
 instead of the pooled matrix. Reads
@@ -179,9 +198,9 @@ instead of the pooled matrix. Reads
 the first `19xx`/`20xx` in `release_date` (blank/junk dates excluded), then for
 every `(method, dz, st)` cell partitions the completed matrix's rows into
 release-year cohorts and reruns the standard imputed-path factoring per cohort
-(R² gate → PA → bifactor at `pa`/`2f`). Imputer-less methods (`default`,
-`zeros`) are skipped — their pairwise-complete correlations need the full
-sparse table — and `--loco` is rejected in this mode. There is no minimum
+(R² gate → PA → bifactor at `pa`/`2f`). The fill-smooth methods (`default`,
+`zeros`) are skipped — their cached correlation is global and cannot be cut
+per cohort — and `--loco` is rejected in this mode. There is no minimum
 cohort size: degenerate years log `FACTOR FAILED` and the loop continues.
 Outputs insert the year into the run tag:
 `<method>_<dz>_<st>_bifactor_pa_y<year>_loadings.csv` etc., DB table
@@ -202,9 +221,9 @@ weights via the correlation matrix, pseudoinverse fallback for low-rank R:
 | cell type | data read | R used | writes |
 |---|---|---|---|
 | imputed methods (incl. onesidedmc) | `data/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` | `cor(Z)` of the scored columns | `results/<method>/<method>_<dz>_<st>_bifactor_<tag>_scores.csv` |
-| raw methods (default/zeros) | sparse `data/combinations[_<dz>]/<st>/model_benchmark_table.csv` + the persisted `..._correlation.csv` | the persisted smoothed pairwise-complete R | `..._bifactor_<tag>_scores_conditional.csv` + `..._scores_prorated.csv` |
+| fill-smooth methods (default/zeros) | sparse `data/combinations[_<dz>]/<st>/model_benchmark_table.csv` + the imputation-persisted `..._correlation.csv` | the persisted smoothed fill+smooth R | `..._bifactor_<tag>_scores_conditional.csv` + `..._scores_prorated.csv` |
 
-Raw cells get **two** estimators for triangulation (both use Λ; they differ
+Fill-smooth cells get **two** estimators for triangulation (both use Λ; they differ
 only in how they handle missing cells):
 
 - **conditional** (`_scores_conditional.csv`): per model, the posterior-mean
@@ -246,8 +265,8 @@ densify.py            ──CSV──►  impute_<method>            ──M─�
                                                   (read by factor for the R² gate)
 
 factor.R              ──loadings + R──►  latent_scores.py
-(raw methods persist                     (reads imputed CSVs / sparse tables +
- <...>_correlation.csv)                   the persisted R, writes *_scores*.csv)
+(fill-smooth R comes from                  (reads imputed CSVs / sparse tables +
+ imputation's <...>_correlation.csv)        the persisted R, writes *_scores*.csv)
 ```
 
 The one hard invariant: **imputers never factor; the orchestrator owns
@@ -266,10 +285,13 @@ factoring and all I/O.** A method just returns the contract above, and
   column mean (0 in z-space).
 - **OSMC tests** (`impute/OneSidedMC/test/`) must not break — they cover the
   paper core; `realdata.jl` is additive and exported through the module.
-- **Completed CSVs are the only artifact `factor.R` reads from imputation**;
-  everything else (sweep, DB) is recomputed or stored alongside.
+- **Completed CSVs are the main artifact `factor.R` reads from imputation**;
+  everything else (sweep, DB) is recomputed or stored alongside. The one
+  exception: fill-smooth cells also read the `..._correlation.csv` cache —
+  the exact matrix their EFA runs on.
 - **Latent-score naming:** bare `..._scores.csv` is reserved for
-  complete-data (imputed) cells; raw-method cells always emit
-  `..._scores_conditional.csv` / `..._scores_prorated.csv`. Raw scoring also
-  requires the `..._correlation.csv` persisted by factoring — re-run factoring
-  for a raw cell if that file is missing (the scorer skips with a notice).
+  complete-data (imputed) cells; fill-smooth cells (default/zeros) always emit
+  `..._scores_conditional.csv` / `..._scores_prorated.csv`. Their scoring also
+  requires the `..._correlation.csv` persisted by imputation — re-run imputation
+  for a fill-smooth cell if that file is missing (the scorer skips with a
+  notice).

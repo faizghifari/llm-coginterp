@@ -5,6 +5,10 @@
 # Reads COMPLETED matrices (from data/imputed/) written by the imputation stage,
 # gates on imputation R² >= 0.3 (SQLite), then runs two bifactor analyses per
 # cell: one at the PA-based factor count (min 2) and one forced to 2 factors.
+# The fill-smooth methods (default/zeros) are gated like every other imputer but
+# factor the smoothed correlation their imputation persisted
+# (results/<method>/<method>_<dz>_<st>_correlation.csv) instead of the completed
+# surrogate — that cached matrix is the exact fill+PSD recipe output.
 #
 # Output (per cell):
 #   results/<method>/<method>_<dz>_<st>_bifactor_pa_loadings.csv
@@ -32,7 +36,8 @@
 #     --timed        year-separated factoring: partition rows by release year
 #                    (collapse_mapping.csv, written by scripts/collapse_results.py)
 #                    and run the full PA -> EFA -> bifactor pipeline per cohort.
-#                    Skips imputer-less methods (default/zeros); incompatible
+#                    Skips the fill-smooth methods (default/zeros: their cached
+#                    correlation is global, not per cohort); incompatible
 #                    with --loco. Output suffixes get y<year>, DB runs become
 #                    pa_y<year> / forced2f_y<year> (dataset stays <dz>_<st>).
 #     --loco         run leave-one-covariate-out delta omega_h instead of the
@@ -57,7 +62,7 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "onesidedmc", "knn", "missforest", "mice",
                  "optspace", "usvt",
                  "default", "zeros", "cvxr", "ggm")
-RAW_METHODS <- c("default", "zeros")
+RAW_METHODS <- c("default", "zeros")   # fill-smooth: factor the cached correlation
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE; timed <- FALSE
   data_root <- "data/text_only"; results_root <- "results/text_only"
@@ -110,17 +115,6 @@ read_matrix <- function(path) {
 }
 
 build_contract_from_disk <- function(method, dz, st) {
-  if (method %in% RAW_METHODS) {
-    sparse_csv <- file.path(DATA_ROOT,
-      if (dz == "raw") "combinations" else sprintf("combinations_%s", dz),
-      st, "model_benchmark_table.csv")
-    if (!file.exists(sparse_csv)) {
-      cat("  missing sparse input:", sparse_csv, "\n")
-      return(NULL)
-    }
-    pm <- prep_matrix(sparse_csv)
-    return(list(M = pm$x, keys = pm$keys))
-  }
   completed_csv <- file.path(DATA_ROOT, "imputed", method, dz, st,
                              "imputed_model_benchmark_table.csv")
   if (!file.exists(completed_csv)) {
@@ -128,6 +122,23 @@ build_contract_from_disk <- function(method, dz, st) {
     return(NULL)
   }
   read_matrix(completed_csv)
+}
+
+# Imputation-R² gate, applied to every method (fill-smooth included: their
+# held-out R² lives in the same `imputation` table). Cells whose R² is missing
+# or below R2_GATE are skipped.
+R2_GATE <- 0.3
+
+gate_r2 <- function(method, dataset, tag, what = "factoring") {
+  r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
+                 error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
+  if (is.na(r2) || r2 < R2_GATE) {
+    cat(sprintf("  skipping %s (%s) — imputation R² = %s < %.1f\n", what, tag,
+                if (is.na(r2)) "NA" else sprintf("%.3f", r2), R2_GATE))
+    return(FALSE)
+  }
+  cat(sprintf("  R² = %.3f >= %.1f, proceeding\n", r2, R2_GATE))
+  TRUE
 }
 
 # Run a single bifactor analysis and write outputs for one (method, dz, st, run_tag).
@@ -191,14 +202,7 @@ factor_imputed_core <- function(method, dz, st, M, run_suffix = "") {
   dataset <- paste0(dz, "_", st)
   tag <- sprintf("%s/%s/%s", method, dz, st)
 
-  r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
-                 error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
-  if (is.na(r2) || r2 < 0.3) {
-    cat(sprintf("  skipping (%s) — imputation R² = %s < 0.3\n", tag,
-                if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
-    return(invisible())
-  }
-  cat(sprintf("  R² = %.3f >= 0.3, proceeding\n", r2))
+  if (!gate_r2(method, dataset, tag)) return(invisible())
 
   run_pa <- paste0("pa", run_suffix)
   run_2f <- paste0("forced2f", run_suffix)
@@ -234,16 +238,16 @@ factor_imputed_core <- function(method, dz, st, M, run_suffix = "") {
   invisible()
 }
 
-# Timed-mode driver for one cell: skip imputer-less methods (their pairwise-
-# complete correlations are built from the whole sparse table — a year subset
-# would be far too thin to mean anything), then partition the completed
-# matrix's rows into release-year cohorts and factor each one independently.
+# Timed-mode driver for one cell: skip the fill-smooth methods (their cached
+# correlation is built from the whole sparse table — a year subset would be far
+# too thin to mean anything), then partition the completed matrix's rows into
+# release-year cohorts and factor each one independently.
 # There is deliberately no minimum cohort size: degenerate years fail inside
 # factor_matrix, log FACTOR FAILED, and the loop moves on.
 factor_timed_cell <- function(method, dz, st, M, keys) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   if (method %in% RAW_METHODS) {
-    cat(sprintf("  skipping timed (%s) — imputer-less methods have no timed variant\n", tag))
+    cat(sprintf("  skipping timed (%s) — fill-smooth methods factor a global cached correlation, not per-cohort data\n", tag))
     return(invisible())
   }
   if (is.null(keys)) {
@@ -274,31 +278,15 @@ factor_and_report <- function(method, dz, st, M, keys = NULL) {
   if (TIMED) return(factor_timed_cell(method, dz, st, M, keys))
 
   if (LOCO) {
+    if (!gate_r2(method, dataset, tag, what = "LOCO")) return(invisible())
     if (method %in% RAW_METHODS) {
-      # LOCO never re-derives the correlation matrix: it loads the one the
-      # non-LOCO factoring run persisted (correlation.csv) and peels
+      # Fill-smooth methods never re-derive the correlation matrix: they load
+      # the one the imputation stage persisted (correlation.csv) and peel
       # row/column i per covariate inside loco_delta.
-      prep <- switch(method,
-        default = prepare_raw_default(M, use_cache = TRUE,
-                                      cache_path = res_path(method, dz, st, "correlation.csv")),
-        zeros   = prepare_raw_zeros(M, use_cache = TRUE,
-                                    cache_path = res_path(method, dz, st, "correlation.csv")))
-      R       <- prep$R
-      n_obs   <- prep$n_eff
-      cut     <- pa_cutoffs(n_obs, ncol(M))
-      nf_pa   <- max(2L, sum(prep$eig_raw > cut, na.rm = TRUE))
-      nf_pa   <- min(nf_pa, 20L)
-      nf_pa   <- max(2L, min(nf_pa, ncol(M) - 1L, n_obs - 1L,
-                             sum(prep$eig_raw > 1e-8, na.rm = TRUE) - 1L))
+      R     <- read_correlation_csv(res_path(method, dz, st, "correlation.csv"))
+      n_obs <- nrow(M)
+      nf_pa <- choose_nfactors_cached_R(R, n_obs)$nf
     } else {
-      r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
-                     error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
-      if (is.na(r2) || r2 < 0.3) {
-        cat(sprintf("  skipping LOCO (%s) — imputation R² = %s < 0.3\n", tag,
-                    if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
-        return(invisible())
-      }
-      cat(sprintf("  R² = %.3f >= 0.3, proceeding\n", r2))
       R     <- cor(M)
       n_obs <- nrow(M)
       pa    <- choose_nfactors(M)
@@ -318,9 +306,10 @@ factor_and_report <- function(method, dz, st, M, keys = NULL) {
   }
 
   if (method %in% RAW_METHODS) {
-    cat(sprintf("  %s factoring — pairwise-complete correlation (no imputation R² gate)\n", method))
-    fr <- factor_raw(M, pa_iter = 100L, method = method)
-    write_correlation_csv(fr$R, res_path(method, dz, st, "correlation.csv"))
+    if (!gate_r2(method, dataset, tag)) return(invisible())
+    cat(sprintf("  %s factoring — cached fill+smooth correlation from imputation\n", method))
+    R <- read_correlation_csv(res_path(method, dz, st, "correlation.csv"))
+    fr <- factor_cached_R(R, nrow(M), pa_iter = 100L)
     pa_nf <- fr$nf
     var_explained <- extract_variance(fr$efa)
     st_pa <- efa_stats(fr$efa)

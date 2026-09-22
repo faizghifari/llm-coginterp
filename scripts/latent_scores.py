@@ -51,12 +51,12 @@
 # rank-deficient it is the least-squares ridge analogue. Output:
 #   results/<method>/<method>_<dz>_<st>_bifactor_<tag>_scores.csv
 #
-# ── Raw-method cells (default/zeros: factored directly on sparse tables) ────
+# ── Raw-method cells (default/zeros: fill-smooth, scored on sparse tables) ──
 #
-# These cells were factored on the pairwise-complete correlation of the
-# sparse model×benchmark table (see prepare_raw_default/zeros in
-# src/factor/factoring.R), so Z has holes. The smoothed correlation matrix R
-# that factoring ran on is persisted by the orchestrators as
+# These cells' loadings were fit on the smoothed correlation their fill+smooth
+# imputation produced (see run_fill_smooth in src/impute/corr_common.R), so Z
+# has holes. That smoothed correlation matrix R is persisted by the imputation
+# stage as
 #   results/<method>/<method>_<dz>_<st>_correlation.csv
 # and reused here verbatim (no reimplementation of the fill/PSD recipe).
 #
@@ -116,9 +116,9 @@
 # the same benchmark set, likewise intersected with the loading rows.
 #
 # Factor-count note (context only — no PA here): raw cells pick nf from Horn
-# parallel analysis on the raw (unsmoothed) pairwise-complete eigenvalues
-# vs cutoffs at n_eff = number of models, floored at 2 and capped by rank
-# and dimensions (factor_raw in factoring.R). Both pa and 2f solutions are
+# parallel analysis on the cached (smoothed) correlation eigenvalues vs
+# cutoffs at n_eff = number of models, floored at 2 and capped by rank and
+# dimensions (factor_cached_R in factoring.R). Both pa and 2f solutions are
 # scored per cell; each loadings file is scored independently.
 # ─────────────────────────────────────────────────────────────────────────────
 

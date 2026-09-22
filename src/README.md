@@ -85,6 +85,9 @@ rank-selection diagnostics. **No factoring lives here** (that's Stage 3).
 ```
 impute/
   common.R                 # prep_matrix(), make_holdout(), score_holdout(), imputed_dir() — shared
+  corr_common.R            # correlation-matrix imputer helpers + the fill-smooth recipe
+  default/method.R         # impute_default()  [R] — fill-smooth: mean-fill + PSD smooth
+  zeros/method.R           # impute_zeros()    [R] — fill-smooth: zero-fill + PSD smooth
   softimpute/method.R      # impute_softimpute()  [R, softImpute] — low-rank, sweeps rank
   knn/method.R             # impute_knn()         [R, VIM]        — k-NN, sweeps k
   missforest/method.R      # impute_missforest()  [R, missForest] — random forest, sweeps ntree
@@ -321,6 +324,7 @@ CSVs (see OSMC for the Julia pattern). The core function returns a list:
 | field | type | meaning |
 |---|---|---|
 | `M` | matrix | completed matrix at the best sweep value (rows = models, cols = benchmarks) |
+| `R` | matrix | *(fill-smooth `default`/`zeros` only)* the exact smoothed correlation the recipe produced — the orchestrator persists it as `..._correlation.csv`; it is the matrix those methods' EFA and their conditional/prorated scoring run on |
 | `best_param` | scalar | the chosen rank/ncp/r |
 | `params` | vector | the swept parameter grid |
 | `curve` | vector | **held-out RMSE** per param (the selection metric) |

@@ -3,7 +3,8 @@
 # Pipeline orchestrator.
 #
 # Cross-product: {densifier C,R,S} x {strategy all_standard, all_aggressive} x
-# {method softimpute, iterativepca, onesidedmc, knn, missforest, mice, raw}.
+# {method softimpute, iterativepca, onesidedmc, knn, missforest, mice, ...,
+#  default, zeros (fill-smooth)}.
 #
 # For each cell:
 #   1. impute     -> completed (or, for OSMC, covariance-surrogate) matrix
@@ -19,7 +20,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/main.R [--method <name>] [--raw] [--smoke]
-#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | raw | all   (default all)
+#     --method       softimpute | softimpute_corr | iterativepca | onesidedmc | knn | missforest | mice | optspace | usvt | default | zeros | all   (default all)
 #     --raw          run ONLY the slow undensified "raw" level (default: C,S,R)
 #     --smoke        use the data/smoke fixture instead of data/
 #     --data-root    input tree, relative to the repo root (default data; e.g.
@@ -55,7 +56,11 @@ source(file.path(SRC, "factor", "db.R"))
 # ── Argument parsing ─────────────────────────────────────────────────────────
 ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "onesidedmc", "knn", "missforest", "mice",
-                 "optspace", "usvt", "raw")
+                 "optspace", "usvt", "default", "zeros")
+# Fill-smooth methods (the old "raw" pseudo-method): their contract carries the
+# extra smoothed correlation R, persisted as ..._correlation.csv; factoring and
+# LOCO run on that cached matrix instead of the completed surrogate.
+RAW_METHODS <- c("default", "zeros")
 parse_args <- function(args) {
   method <- "all"; smoke <- FALSE; raw <- FALSE
   reimpute <- FALSE; no_balance <- FALSE; loco <- FALSE
@@ -149,6 +154,14 @@ impute_R <- function(method, x) {
   } else if (method == "mice") {
     source(file.path(SRC, "impute", "mice", "method.R"))
     impute_mice(x)
+  } else if (method == "default") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "default", "method.R"))
+    impute_default(x)
+  } else if (method == "zeros") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "zeros", "method.R"))
+    impute_zeros(x)
   } else stop("not an R imputer: ", method)
 }
 
@@ -176,6 +189,23 @@ read_matrix <- function(path) {
   M <- as.matrix(df[, setdiff(names(df), "collapse_key")])
   storage.mode(M) <- "double"
   list(M = M, keys = df$collapse_key)
+}
+
+# Imputation-R² gate, applied to every method (fill-smooth included: their
+# held-out R² lives in the same `imputation` table). Cells whose R² is missing
+# or below R2_GATE are skipped.
+R2_GATE <- 0.3
+
+gate_r2 <- function(method, dataset, tag, what = "factoring") {
+  r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
+                 error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
+  if (is.na(r2) || r2 < R2_GATE) {
+    cat(sprintf("  skipping %s (%s) — imputation R² = %s < %.1f\n", what, tag,
+                if (is.na(r2)) "NA" else sprintf("%.3f", r2), R2_GATE))
+    return(FALSE)
+  }
+  cat(sprintf("  R² = %.3f >= %.1f, proceeding\n", r2, R2_GATE))
+  TRUE
 }
 
 # Build the uniform imputer contract for OSMC from the Julia subprocess outputs:
@@ -222,27 +252,15 @@ factor_and_report <- function(method, dz, st, M) {
   dataset <- paste0(dz, "_", st)
 
   if (LOCO) {
-    if (method == "raw") {
-      # LOCO loads the correlation matrix persisted by the non-LOCO factoring
-      # run (correlation.csv) instead of recomputing it from the sparse table.
-      prep    <- prepare_raw_default(M, use_cache = TRUE,
-                                     cache_path = res_path(method, dz, st, "correlation.csv"))
-      R       <- prep$R
-      n_obs   <- prep$n_eff
-      cut     <- pa_cutoffs(n_obs, ncol(M))
-      nf_pa   <- max(2L, sum(prep$eig_raw > cut, na.rm = TRUE))
-      nf_pa   <- min(nf_pa, 20L)
-      nf_pa   <- max(2L, min(nf_pa, ncol(M) - 1L, n_obs - 1L,
-                             sum(prep$eig_raw > 1e-8, na.rm = TRUE) - 1L))
+    if (!gate_r2(method, dataset, tag, what = "LOCO")) return(invisible())
+    if (method %in% RAW_METHODS) {
+      # Fill-smooth methods never re-derive the correlation matrix: they load
+      # the one the imputation stage persisted (correlation.csv) and peel
+      # row/column i per covariate inside loco_delta.
+      R     <- read_correlation_csv(res_path(method, dz, st, "correlation.csv"))
+      n_obs <- nrow(M)
+      nf_pa <- choose_nfactors_cached_R(R, n_obs)$nf
     } else {
-      r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
-                     error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
-      if (is.na(r2) || r2 < 0.4) {
-        cat(sprintf("  skipping LOCO (%s) — imputation R² = %s < 0.4\n", tag,
-                    if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
-        return(invisible())
-      }
-      cat(sprintf("  R² = %.3f >= 0.4, proceeding\n", r2))
       R     <- cor(M)
       n_obs <- nrow(M)
       pa    <- choose_nfactors(M)
@@ -261,10 +279,11 @@ factor_and_report <- function(method, dz, st, M) {
     return(invisible())
   }
 
-  if (method == "raw") {
-    cat(sprintf("  raw factoring — pairwise-complete correlation (no imputation R² gate)\n"))
-    fr <- factor_raw(M, pa_iter = 100L)
-    write_correlation_csv(fr$R, res_path(method, dz, st, "correlation.csv"))
+  if (method %in% RAW_METHODS) {
+    if (!gate_r2(method, dataset, tag)) return(invisible())
+    cat(sprintf("  %s factoring — cached fill+smooth correlation from imputation\n", method))
+    R <- read_correlation_csv(res_path(method, dz, st, "correlation.csv"))
+    fr <- factor_cached_R(R, nrow(M), pa_iter = 100L)
     pa_nf <- fr$nf
     var_explained <- extract_variance(fr$efa)
     st_pa <- efa_stats(fr$efa)
@@ -295,14 +314,7 @@ factor_and_report <- function(method, dz, st, M) {
     return(invisible())
   }
 
-  r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
-                 error = function(e) { cat("  db read failed:", conditionMessage(e), "\n"); NA_real_ })
-  if (is.na(r2) || r2 < 0.4) {
-    cat(sprintf("  skipping (%s) — imputation R² = %s < 0.4\n", tag,
-                if (is.na(r2)) "NA" else sprintf("%.3f", r2)))
-    return(invisible())
-  }
-  cat(sprintf("  R² = %.3f >= 0.4, proceeding\n", r2))
+  if (!gate_r2(method, dataset, tag)) return(invisible())
 
   fr <- factor_matrix(M, pa_iter = 100L)
   pa_nf <- fr$nf
@@ -339,17 +351,6 @@ run_cell <- function(method, dz, st) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   cat("\n======== ", tag, " ========\n", sep = "")
 
-  if (method == "raw") {
-    src <- combos_path(dz, st)
-    if (!file.exists(src)) { cat("  missing input:", src, "\n"); return() }
-    pm <- prep_matrix(src)
-    cat(sprintf("  matrix: %d x %d, %.1f%% observed  (no imputation)\n",
-                nrow(pm$x), ncol(pm$x), 100 * mean(!is.na(pm$x))))
-    tryCatch(factor_and_report(method, dz, st, pm$x),
-             error = function(e) cat("  FACTOR FAILED:", conditionMessage(e), "\n"))
-    return()
-  }
-
   out_dir <- imputed_dir(method, dz, st, root = file.path(DATA_ROOT, "imputed"))
 
   if (method == "onesidedmc") {
@@ -378,10 +379,14 @@ run_cell <- function(method, dz, st) {
 
   imputed_csv <- file.path(out_dir, "imputed_model_benchmark_table.csv")
   sweep_csv   <- res_path(method, dz, st, "rank_sweep.csv")
+  # fill-smooth methods also persist the correlation cache; both artifacts must
+  # exist before imputation can be skipped.
+  cache_csv   <- res_path(method, dz, st, "correlation.csv")
 
   # --reimpute default OFF: reuse an existing imputed CSV (skip the slow impute),
   # rebuild a partial contract from disk, and just re-factor.
-  if (!REIMPUTE && file.exists(imputed_csv)) {
+  if (!REIMPUTE && file.exists(imputed_csv) &&
+      (!(method %in% RAW_METHODS) || file.exists(cache_csv))) {
     cat("  reusing existing imputed CSV (skip imputation; use --reimpute to force)\n")
     mb <- read_matrix(imputed_csv)
     tryCatch(factor_and_report(method, dz, st, mb$M),
@@ -394,6 +399,8 @@ run_cell <- function(method, dz, st) {
   if (is.null(res)) return()
 
   write_completed(out_dir, pm$keys, res$M)   # data/imputed: CSV only
+  if (method %in% RAW_METHODS && !is.null(res$R))
+    write_correlation_csv(res$R, cache_csv)
   # persist the sweep curve so a later --reimpute-off run can rebuild the
   # the sweep CSV.
   write.csv(data.frame(param = res$params, param_name = res$param_name,
