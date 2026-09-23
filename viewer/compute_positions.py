@@ -48,6 +48,8 @@ import math
 import re
 import sqlite3
 from collections import defaultdict
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -120,18 +122,59 @@ LABEL_SEP = ":"
 DEFAULT_SUBJECT_GROUPS = REPO / "data" / "subject_groups.csv"
 
 
-type Cell = tuple[str, np.ndarray, list[str], list[str]]
-"""(cell_key, loading matrix, benchmark ids, factor column names)."""
+STAGES = ("all_standard", "all_aggressive")
+"""Stage (dedupe variant) names, in reporting order. A stage name contains an
+underscore, so dataset tails are matched exactly -- never split on fields."""
+
+
+@dataclass(frozen=True)
+class Cell:
+    """One loadings file -- a single factoring run.
+
+    Provenance is parsed from the filename exactly once, in load_cells();
+    everything downstream reads it from here instead of re-parsing a joined
+    key string (which is how metadata ends up attached to the wrong view).
+    """
+
+    key: str  # "<method>_<dz>_<st>", the factoring-registry identity
+    method: str  # imputer that produced the matrix being factored
+    dz: str  # densifier
+    st: str  # stage (dedupe variant)
+    tag: str  # factor-count run: pa / 2f / forced2f / legacy
+    year: int | None  # release-year cohort, None for the all-years run
+    mat: np.ndarray  # benchmarks x [g, F1*..Fk*]
+    bench: list[str]
+    cols: list[str]  # factor column names, g first
+
 
 type CellKey = tuple[str, str, int | None]
 """(densifier, tag, release-year cohort or None for the all-years aggregate)."""
 
 
-CELL_KEY_RE = re.compile(
-    r"^(?P<method>.+)_(?P<dz>C|R|S|raw)_(?P<st>all_standard|all_aggressive)$"
-)
-"""Recovers the method, densifier, and stage from a cell key
-("<method>_<dz>_<st>")."""
+@dataclass(frozen=True)
+class Job:
+    """One viewer view: a composite over `cells`, plus its display identity.
+
+    Every metadata field the payload reports about a view is a field here (or a
+    pure function of one), so no field can describe a different view than the
+    one it sits in -- no ambient loop variables, no key-string splitting.
+    """
+
+    dz: str
+    tag: str
+    year: int | None
+    method: str | None  # None = the all-imputer aggregate
+    cells: tuple[Cell, ...]
+
+    @property
+    def key(self) -> str:
+        """"dz|tag", with "|m<method>" then "|y<year>" appended when set."""
+        k = f"{self.dz}|{self.tag}"
+        if self.method is not None:
+            k += f"|m{self.method}"
+        if self.year is not None:
+            k += f"|y{self.year}"
+        return k
 
 
 def registered_runs(db_path: Path) -> set[tuple[str, str, str]] | None:
@@ -150,12 +193,21 @@ def registered_runs(db_path: Path) -> set[tuple[str, str, str]] | None:
     return {(d, m, r) for d, m, r in rows}
 
 
-def load_imputation(db_path: Path) -> dict[tuple[str, str], dict]:
-    """{(dz, st): {rmse, r2, desc}} from the imputation table, best method first.
+def split_dataset(name: str) -> tuple[str, str] | None:
+    """"<dz>_<st>" -> (densifier, stage), or None if the tail is no stage."""
+    for st in STAGES:
+        if name.endswith(f"_{st}"):
+            return name[: -len(st) - 1], st
+    return None
 
-    Datasets in the table are "<dz>_<st>" (e.g. C_all_standard). A dataset may
-    hold several candidate methods; the one with the highest held-out R2 is
-    kept, since that is the imputation actually worth trusting.
+
+def load_imputation(db_path: Path) -> dict[tuple[str, str, str], dict]:
+    """{(dz, st, method): {method, rmse, r2, desc}} -- EVERY row of the table.
+
+    Datasets in the table are "<dz>_<st>" (e.g. C_all_standard). No selection
+    happens here: a view reports the held-out scores of ITS OWN imputer, so
+    dropping the non-winners at load time would show one imputer's numbers
+    under another imputer's name.
     """
     if not db_path.exists():
         return {}
@@ -165,31 +217,47 @@ def load_imputation(db_path: Path) -> dict[tuple[str, str], dict]:
         "SELECT dataset, method, rmse, r2, desc FROM imputation"
     ).fetchall()
     con.close()
-    best: dict[tuple[str, str], dict] = {}
+    out: dict[tuple[str, str, str], dict] = {}
     for r in rows:
-        dataset = r["dataset"] or ""
-        for st in ("all_standard", "all_aggressive"):
-            if dataset.endswith(f"_{st}"):
-                dz, key = dataset[: -len(st) - 1], (dataset[: -len(st) - 1], st)
-                break
-        else:
+        parsed = split_dataset(r["dataset"] or "")
+        if parsed is None:
             continue
-        cand = {
+        dz, st = parsed
+        out[(dz, st, r["method"])] = {
             "method": r["method"],
             "rmse": r["rmse"],
             "r2": r["r2"],
             "desc": r["desc"],
         }
-        cur = best.get(key)
-        if cur is None or (cand["r2"] or -np.inf) > (cur["r2"] or -np.inf):
-            best[key] = cand
-    return best
+    return out
+
+
+def imputation_for(
+    job: Job, table: dict[tuple[str, str, str], dict]
+) -> dict[str, dict]:
+    """{stage: held-out scores} for the job's OWN imputer; {} for aggregates.
+
+    One entry per stage (dedupe variant) the job averages over: a view spanning
+    all_standard and all_aggressive reports BOTH scores rather than hiding one
+    behind a single number. Year cohorts share the dataset's score -- the table
+    is per (densifier, stage, imputer) and a cohort is a row subset of that
+    same imputed matrix. The all-imputer aggregate averages several imputers
+    and so has no single imputation to report.
+    """
+    if job.method is None:
+        return {}
+    found = {
+        cell.st: rec
+        for cell in job.cells
+        if (rec := table.get((job.dz, cell.st, job.method))) is not None
+    }
+    return {st: found[st] for st in STAGES if st in found}
 
 
 def load_cells(
     results_root: Path, *, legacy_names: bool = False
 ) -> dict[CellKey, list[Cell]]:
-    """{ (dz, tag, year|None): [ (key, factor_matrix, [benchmarks], [factor_cols]) ] }"""
+    """{ (dz, tag, year|None): [Cell, ...] }"""
     allowed = None if legacy_names else registered_runs(results_root / "database.db")
     if allowed is None and not legacy_names:
         print(
@@ -233,12 +301,47 @@ def load_cells(
         if not np.isfinite(mat).all():
             continue
         key = f"{m['method']}_{m['dz']}_{m['st']}"
-        cells[(m["dz"], tag, year)].append((key, mat, bench, cols))
+        cells[(m["dz"], tag, year)].append(
+            Cell(
+                key=key,
+                method=m["method"],
+                dz=m["dz"],
+                st=m["st"],
+                tag=tag,
+                year=year,
+                mat=mat,
+                bench=bench,
+                cols=cols,
+            )
+        )
     return cells
 
 
+def build_jobs(cells: dict[CellKey, list[Cell]]) -> list[Job]:
+    """The views to emit: one all-imputer aggregate per (dz, tag, cohort), plus
+    one per imputer.
+
+    Ordering: densifier, tag, all-years before year cohorts, and each aggregate
+    before its per-imputer views, so the payload order is stable and the
+    viewer's dropdowns need no sorting of their own.
+    """
+    jobs: list[Job] = []
+    for (dz, tag, year), cell_list in sorted(
+        cells.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2] is not None, kv[0][2] or 0)
+    ):
+        by_method: dict[str, list[Cell]] = defaultdict(list)
+        for cell in cell_list:
+            by_method[cell.method].append(cell)
+        jobs.append(Job(dz=dz, tag=tag, year=year, method=None, cells=tuple(cell_list)))
+        for method, method_cells in sorted(by_method.items()):
+            jobs.append(
+                Job(dz=dz, tag=tag, year=year, method=method, cells=tuple(method_cells))
+            )
+    return jobs
+
+
 def composite_distance(
-    cell_list: list[Cell], *, drop_g: bool = False
+    cell_list: Sequence[Cell], *, drop_g: bool = False
 ) -> tuple[np.ndarray, list[str]]:
     """Average pairwise cosine distance across cells (union of benchmarks).
 
@@ -248,8 +351,8 @@ def composite_distance(
     """
     bench_union: list[str] = []
     seen: set[str] = set()
-    for _, _, bench, _ in cell_list:
-        for b in bench:
+    for cell in cell_list:
+        for b in cell.bench:
             if b not in seen:
                 seen.add(b)
                 bench_union.append(b)
@@ -258,9 +361,10 @@ def composite_distance(
 
     dist_sum = np.zeros((n, n))
     count = np.zeros((n, n))
-    for _, mat, bench, cols in cell_list:
+    for cell in cell_list:
+        mat = cell.mat
         if drop_g:
-            keep = [i for i, c in enumerate(cols) if c != "g"]
+            keep = [i for i, c in enumerate(cell.cols) if c != "g"]
             if not keep:
                 continue
             mat = mat[:, keep]
@@ -268,7 +372,7 @@ def composite_distance(
         unit = np.where(norms > 0, mat / np.maximum(norms, 1e-12), 0.0)
         cos = unit @ unit.T
         d = np.clip(1.0 - cos, 0.0, 2.0)
-        rows = [idx[b] for b in bench]
+        rows = [idx[b] for b in cell.bench]
         r = np.array(rows)
         dist_sum[np.ix_(r, r)] += d
         count[np.ix_(r, r)] += 1.0
@@ -298,13 +402,13 @@ def composite_distance(
     return dist, bench_union
 
 
-def pair_coverage(cell_list: list[Cell], bench: list[str]) -> tuple[float, int]:
+def pair_coverage(cell_list: Sequence[Cell], bench: list[str]) -> tuple[float, int]:
     """(fraction of off-diagonal pairs co-observed in >=1 cell, n fabricated)."""
     idx = {b: i for i, b in enumerate(bench)}
     n = len(bench)
     seen = np.zeros((n, n), dtype=bool)
-    for _, _, cell_bench, _ in cell_list:
-        r = np.array([idx[b] for b in cell_bench])
+    for cell in cell_list:
+        r = np.array([idx[b] for b in cell.bench])
         seen[np.ix_(r, r)] = True
     np.fill_diagonal(seen, True)
     total = n * (n - 1)
@@ -578,18 +682,18 @@ def carry_forward(
     return entry
 
 
-def same_inputs(prior: dict, cell_list: list[Cell]) -> bool:
-    """Was this prior cell built from the loadings available now?
+def same_inputs(prior: dict, job: Job) -> bool:
+    """Was this prior view built from the loadings available now?
 
     Cohesion is recomputed from the local distance matrix, so a prior whose
     geometry came from a different set of loadings (e.g. one imputer's files are
     missing locally) must be carried forward, not rescored against a different
     matrix than the one that produced its points and clusters.
     """
-    if prior.get("n_cells") != len(cell_list):
+    if prior.get("n_cells") != len(job.cells):
         return False
     recorded = prior.get("clusters", {}).get("diagnostics", {}).get("n_factors")
-    return recorded is None or recorded == [len(cols) for _, _, _, cols in cell_list]
+    return recorded is None or recorded == [len(c.cols) for c in job.cells]
 
 
 def dump_labels(data_root: Path, out: Path, groups: dict[str, str]) -> None:
@@ -792,6 +896,34 @@ def embed(dist: np.ndarray) -> np.ndarray:
     ).fit_transform(dist)
 
 
+def build_entry(
+    job: Job,
+    bench: list[str],
+    xy: np.ndarray | list[tuple[float, float]],
+    imputation: dict[tuple[str, str, str], dict],
+) -> dict:
+    """The per-view payload: identity, held-out imputation scores, points.
+
+    Identity and imputation come from `job` alone, and this is the only place
+    either is written -- the leak class of bug (one view's metadata landing on
+    another view) has no input to reappear from.
+    """
+    imp = imputation_for(job, imputation)
+    return {
+        "densifier": job.dz,
+        "tag": job.tag,
+        **({} if job.method is None else {"method": job.method}),
+        **({} if job.year is None else {"year": job.year}),
+        **({"imputation": imp} if imp else {}),
+        "n_cells": len(job.cells),
+        "benchmarks": bench,
+        "points": [
+            {"benchmark": b, "x": round(float(x), 5), "y": round(float(y), 5)}
+            for b, (x, y) in zip(bench, xy)
+        ],
+    }
+
+
 LEGACY_BANNER = """\
 LEGACY MODE: reading untagged bifactor files from the pre-tag, multimodal-
 inclusive corpus. Benchmark set, factor counts, and the pa/2f distinction do
@@ -902,39 +1034,17 @@ def main() -> None:
     out = {}
     # One job per composite matrix: the aggregate over every imputation method
     # (key "dz|tag", unchanged for backwards compatibility) plus one per method
-    # (key "dz|tag|m<method>"). A loadings filename is
-    # <method>_<dz>_<st>_bifactor_...; method names may contain underscores, so
-    # the trailing "_<dz>_<st>" fields are stripped exactly.
-    jobs: list[tuple[str, list[Cell], str | None]] = []
-    for (dz, tag, year), cell_list in sorted(
-        cells.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2] is not None, kv[0][2] or 0)
-    ):
-        jobs.append((f"{dz}|{tag}" if year is None else f"{dz}|{tag}|y{year}", cell_list, None))
-        by_method: dict[str, list[Cell]] = defaultdict(list)
-        for cell in cell_list:
-            # A cell key is "<method>_<dz>_<st>" where <st> itself contains an
-            # underscore (all_standard / all_aggressive), so the method cannot
-            # be recovered by counting fields -- anchor on the known tail.
-            m = CELL_KEY_RE.match(cell[0])
-            if m is None:
-                raise RuntimeError(f"unparsable cell key {cell[0]!r}")
-            by_method[m.group("method")].append(cell)
-        for method, method_cells in sorted(by_method.items()):
-            base = f"{dz}|{tag}|m{method}"
-            jobs.append((base if year is None else f"{base}|y{year}", method_cells, method))
-
-    for key, cell_list, method in jobs:
+    # (key "dz|tag|m<method>"). Identity lives on the Job; its key is derived
+    # from the fields and never parsed back apart.
+    for job in build_jobs(cells):
+        key = job.key
         old = prior.get(key) if args.relabel else None
-        if old is not None and not same_inputs(old, cell_list):
+        if old is not None and not same_inputs(old, job):
             out[key] = carry_forward(old, categories, label_params)
             print(f"{key}: local loadings differ from the prior's -- carried forward")
             continue
-        # The imputation table is keyed per (dz, stage); a job mixing stages
-        # (only the aggregate jobs do) has no single dataset to attach.
-        stages = {CELL_KEY_RE.match(c[0]).group("st") for c in cell_list}
-        ds_key = (key.split("|")[0], next(iter(stages))) if len(stages) == 1 else None
-        dist, bench = composite_distance(cell_list)
-        dist_ng, bench_ng = composite_distance(cell_list, drop_g=True)
+        dist, bench = composite_distance(job.cells)
+        dist_ng, bench_ng = composite_distance(job.cells, drop_g=True)
         pristine, pristine_ng = dist.copy(), dist_ng.copy()
         if bench_ng != bench:
             raise RuntimeError("drop_g changed the benchmark ordering")
@@ -948,31 +1058,13 @@ def main() -> None:
         n = len(bench)
         # Year cohorts are far smaller than the aggregate, so k is clamped to n.
         k_values = [k for k in range(args.k_min, args.k_max + 1) if k < n]
-        coverage, fabricated = pair_coverage(cell_list, bench)
-        cohort = "all years" if year is None else f"cohort {year}"
+        coverage, fabricated = pair_coverage(job.cells, bench)
+        cohort = "all years" if job.year is None else f"cohort {job.year}"
 
         xy = (
             [(p["x"], p["y"]) for p in old["points"]] if old is not None else embed(dist)
         )
-        entry = {
-            "densifier": dz,
-            "tag": tag,
-            **({} if method is None else {"method": method}),
-            **({} if year is None else {"year": year}),
-            # Held-out imputation quality of this cell's dataset (best method
-            # by R2), aggregate cohorts only -- year cohorts have no row.
-            **(
-                {"imputation": imputation[ds_key]}
-                if method is not None and year is None and ds_key in imputation
-                else {}
-            ),
-            "n_cells": len(cell_list),
-            "benchmarks": bench,
-            "points": [
-                {"benchmark": b, "x": round(float(x), 5), "y": round(float(y), 5)}
-                for b, (x, y) in zip(bench, xy)
-            ],
-        }
+        entry = build_entry(job, bench, xy, imputation)
         out[key] = entry
 
         # A cohort too small to cut into >=2 groups still gets an embedding; the
@@ -1014,7 +1106,7 @@ def main() -> None:
                 **label_params,
             },
             "diagnostics": {
-                "n_factors": [len(cols) for _, _, _, cols in cell_list],
+                "n_factors": [len(c.cols) for c in job.cells],
                 "pair_coverage": coverage,
                 "n_fabricated_pairs": fabricated,
                 "n_labelled": sum(1 for b in bench if categories.get(b)),
@@ -1026,7 +1118,7 @@ def main() -> None:
         hac = variants["with_g"]["hac"]
         hdb = variants["with_g"]["hdbscan"]
         print(
-            f"{key}: {n} benchmarks, {len(cell_list)} cells ({cohort}), "
+            f"{key}: {n} benchmarks, {len(job.cells)} cells ({cohort}), "
             f"coverage {coverage:.3f} | HAC best k={hac['best_k']} "
             f"sil={hac['by_k'][str(hac['best_k'])]['silhouette']} | "
             f"HDBSCAN {hdb['n_clusters']} clusters, {hdb['noise_frac']:.0%} noise"

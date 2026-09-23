@@ -417,6 +417,21 @@ function setOptions(sel, values, keep) {
   if (keep !== undefined && values.includes(keep)) sel.value = keep;
 }
 
+// Held-out imputation quality of the imputed matrix this view was factored
+// from, one score pair per stage (dedupe variant) the view averages over:
+// "held-out all_standard: R² … / RMSE … · all_aggressive: …". The all-imputer
+// aggregate carries none -- several imputers went into it, so it has no single
+// score, and inventing one would misreport it.
+function imputationText(d) {
+  const imp = d.imputation;
+  if (!imp) return "";
+  const num = (v) => (Number.isFinite(v) ? v.toFixed(3) : "n/a");
+  const parts = Object.entries(imp).map(
+    ([stage, r]) => `${stage}: R² ${num(r.r2)} / RMSE ${num(r.rmse)}`
+  );
+  return parts.length ? `held-out ${parts.join(" · ")} · ` : "";
+}
+
 function rebuild() {
   const d = current();
   if (!d) return;
@@ -443,9 +458,7 @@ function rebuild() {
   $("meta").textContent =
     `${cohort} · ${d.benchmarks.length} benchmarks · averaged over ${d.n_cells} cells · ` +
     (d.method ? `imputer ${d.method} · ` : "") +
-    (d.imputation
-      ? `held-out R² ${d.imputation.r2.toFixed(3)} / RMSE ${d.imputation.rmse.toFixed(3)} (${d.imputation.method}) · `
-      : "") +
+    imputationText(d) +
     tagDesc +
     clusterMeta(d);
   draw();
