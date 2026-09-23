@@ -325,7 +325,7 @@ def run_axis(payload: dict, cells: list[str], axis: str, args, cell_note: str, o
             f"(median n >= {smallest:g}); {dropped} smaller ones are not shown."
         )
     suffix = "" if args.variant == "with_g" else "_nog"
-    stem = out_dir / f"cohesion_summary_{axis}{suffix}"
+    stem = out_dir / f"{axis}{suffix}"
     if not args.table_only:
         plot(data, cells, args.variant, axis, stem, note)
     write_table(everything, cells, stem.with_suffix(".csv"))  # every label, unfiltered
@@ -373,7 +373,7 @@ def main() -> None:
     ap.add_argument("--figure-only", action="store_true",
                     help="write the figure and the unfiltered CSV, skip MD/LaTeX")
     ap.add_argument("--out-dir", default=None,
-                    help="directory for output files (default: results/figures)")
+                    help="directory for output files (default: results/figures/cohesion/summary)")
     args = ap.parse_args()
     if args.table_only and args.figure_only:
         raise SystemExit("--table-only and --figure-only are mutually exclusive")
@@ -415,7 +415,7 @@ def main() -> None:
     axes = args.axis or axes_in(payload, cells)
     if not axes:
         raise SystemExit(f"no labels scored in any pa cell of {source}")
-    out_dir = Path(args.out_dir) if args.out_dir else REPO / "results" / "figures"
+    out_dir = Path(args.out_dir) if args.out_dir else REPO / "results" / "figures" / "cohesion" / "summary"
     out_dir.mkdir(parents=True, exist_ok=True)
     for axis in axes:
         run_axis(payload, cells, axis, args, cell_note, out_dir)

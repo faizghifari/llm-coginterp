@@ -163,7 +163,10 @@ def main() -> None:
     )
     ap.add_argument("--variant", default="with_g", choices=("with_g", "without_g"))
     ap.add_argument("--axis", default="subject", help="label axis to plot")
-    ap.add_argument("--out", default=None, help="output stem; default results/figures/<cell>_<axis>")
+    ap.add_argument(
+        "--out", default=None,
+        help="output stem; default results/figures/cohesion/by_cell/<axis>/<cell>",
+    )
     args = ap.parse_args()
 
     payload = json.loads(Path(args.positions).read_text(encoding="utf-8"))
@@ -178,9 +181,8 @@ def main() -> None:
         print(f"{len(cells)} pa cells")
         for cell in cells:
             rows = rows_for(payload, cell, args.variant, args.axis)
-            out = REPO / "results" / "figures" / (
-                f"cohesion_{cell.replace('|', '_')}_{args.axis}"
-                + ("" if args.variant == "with_g" else "_nog")
+            out = REPO / "results" / "figures" / "cohesion" / "by_cell" / args.axis / (
+                cell.replace("|", "_") + ("" if args.variant == "with_g" else "_nog")
             )
             out.parent.mkdir(parents=True, exist_ok=True)
             plot(rows, cell, args.variant, args.axis, len(payload[cell]["benchmarks"]), out)
@@ -188,7 +190,7 @@ def main() -> None:
 
     rows = rows_for(payload, args.cell, args.variant, args.axis)
     stem = args.out or str(
-        REPO / "results" / "figures" / f"cohesion_{args.cell.replace('|', '_')}_{args.axis}"
+        REPO / "results" / "figures" / "cohesion" / "by_cell" / args.axis / args.cell.replace("|", "_")
     )
     out = Path(stem)
     out.parent.mkdir(parents=True, exist_ok=True)
