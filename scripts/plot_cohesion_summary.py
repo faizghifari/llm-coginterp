@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""One figure + one table summarising label cohesion across every cell.
+"""One figure + one table per axis, summarising label cohesion across every cell.
+
+Reads scripts/label_cohesion.py's CSV by default -- not viewer/positions.json --
+so this never requires running the viewer's UMAP/clustering pipeline. Every axis
+present in the data (subject, task, language) gets its own figure + CSV + MD +
+LaTeX table in one run; pass --axis to restrict to specific ones.
 
 Cells are NOT independent replications -- they are re-analyses of the same
 results matrix under different densifiers and imputers -- so nothing here pools
@@ -11,7 +16,8 @@ coverage-matched random set the label's members sit. Unlike z it does not grow
 with corpus size, so an effect in a 78-benchmark cell is comparable to one in a
 404-benchmark cell.
 
-    uv run python scripts/plot_cohesion_summary.py --all-pa
+    uv run python scripts/label_cohesion.py
+    uv run python scripts/plot_cohesion_summary.py
 """
 
 from __future__ import annotations
@@ -19,6 +25,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -78,6 +85,38 @@ def collect(payload: dict, cells: list[str], variant: str, axis: str):
             effect = 1.0 - r["within"] / r["null_mean"]
             out.setdefault(lab, {})[cell] = (effect, bool(s), r["n"])
     return out
+
+
+def payload_from_csv(path: Path) -> dict:
+    """Reshape label_cohesion.py's flat CSV into positions.json's nested shape,
+    {cell: {"benchmarks": [...], "category_cohesion": {variant: [rows]}}}, so
+    collect() and the cell/benchmark-count logic below are unchanged either way.
+    "benchmarks" only needs a length (--min-cell-n), not real ids, here."""
+    payload: dict[str, dict] = {}
+    with path.open(newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            entry = payload.setdefault(
+                row["cell"], {"benchmarks": [None] * int(row["n_bench"]), "category_cohesion": {}}
+            )
+            entry["category_cohesion"].setdefault(row["variant"], []).append(
+                {
+                    "category": row["category"],
+                    "n": int(row["n"]),
+                    "within": float(row["within"]),
+                    "null_mean": float(row["null_mean"]),
+                    "p": float(row["p"]),
+                }
+            )
+    return payload
+
+
+def axes_in(payload: dict, cells: list[str]) -> list[str]:
+    """Every label axis (subject, task, ...) present in the given cells' rows."""
+    found: set[str] = set()
+    for cell in cells:
+        for rows in payload[cell].get("category_cohesion", {}).values():
+            found.update(r["category"].split(":", 1)[0] for r in rows)
+    return sorted(found)
 
 
 def plot(data, cells, variant, axis, out: Path, note: str = "") -> None:
@@ -253,13 +292,67 @@ def write_latex(data, out: Path, variant: str, axis: str) -> None:
     print(f"wrote {out}")
 
 
+def run_axis(payload: dict, cells: list[str], axis: str, args, cell_note: str, out_dir: Path) -> None:
+    """Figure + CSV + MD + LaTeX table for one axis. Skips (does not raise) an
+    axis with nothing scored, so one thin axis does not abort the others."""
+    data = collect(payload, cells, args.variant, axis)
+    if not data:
+        print(f"[{axis}] skipped: no labels scored in any pa cell", file=sys.stderr)
+        return
+    everything = data  # the CSV keeps every label; --min-n only thins the figure
+    median_n = {lab: float(np.median([v[2] for v in vals.values()])) for lab, vals in data.items()}
+    hidden = sorted(lab for lab, n in median_n.items() if n < args.min_n)
+    if hidden:
+        data = {lab: v for lab, v in data.items() if median_n[lab] >= args.min_n}
+        print(f"[{axis}] hiding {len(hidden)} labels with median n < {args.min_n}: "
+              + ", ".join(hidden))
+    if not data:
+        print(f"[{axis}] skipped: no label reaches median n >= {args.min_n}", file=sys.stderr)
+        return
+    note = cell_note + ((
+        chr(10) + f"{len(hidden)} labels with a median of fewer than {args.min_n} "
+        "members are not shown; their mean distance turns on one or two pairs."
+    ) if hidden else "")
+    if args.top_k and args.top_k < len(data):
+        kept = sorted(data, key=lambda lab: (-median_n[lab], lab))[: args.top_k]
+        dropped = len(data) - len(kept)
+        data = {lab: data[lab] for lab in kept}
+        smallest = min(median_n[lab] for lab in kept)
+        print(f"[{axis}] showing the {args.top_k} largest labels (median n >= {smallest:g}); "
+              f"{dropped} smaller ones hidden")
+        note += (
+            chr(10) + f"Showing the {args.top_k} labels with the most members "
+            f"(median n >= {smallest:g}); {dropped} smaller ones are not shown."
+        )
+    suffix = "" if args.variant == "with_g" else "_nog"
+    stem = out_dir / f"cohesion_summary_{axis}{suffix}"
+    if not args.table_only:
+        plot(data, cells, args.variant, axis, stem, note)
+    write_table(everything, cells, stem.with_suffix(".csv"))  # every label, unfiltered
+    if not args.figure_only:
+        # the paste-into-the-paper tables cover the displayed labels only
+        write_markdown(data, stem.with_suffix(".md"), args.variant, axis)
+        write_latex(data, stem.with_suffix(".tex"), args.variant, axis)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--positions", default=str(REPO / "viewer" / "positions.json"))
-    ap.add_argument("--all-pa", action="store_true",
-                    help="every pa cell (default); year cohorts and retired 2f are skipped")
+    ap.add_argument(
+        "--csv", default=str(REPO / "results" / "text_only" / "distance_tests" /
+                              "label_cohesion_pa.csv"),
+        help="rows from scripts/label_cohesion.py (default: its standard pa output path)",
+    )
+    ap.add_argument(
+        "--positions", default=None,
+        help="read viewer/positions.json instead of --csv; ties this to the viewer "
+        "pipeline (UMAP + clustering just to reach the cohesion numbers) again",
+    )
     ap.add_argument("--variant", default="with_g", choices=("with_g", "without_g"))
-    ap.add_argument("--axis", default="subject")
+    ap.add_argument(
+        "--axis", action="append",
+        help="label axis to plot (repeatable); default: every axis present in the data "
+        "(subject, task, language)",
+    )
     ap.add_argument(
         "--min-n", type=int, default=8,
         help="hide labels whose median member count is below this (default 8): a mean "
@@ -275,21 +368,36 @@ def main() -> None:
         help="drop cells with fewer than this many benchmarks before computing "
         "anything (default 0, keep all); the small cells drive the widest ranges",
     )
-    ap.add_argument("--table", action="store_true",
-                    help="also write the displayed labels as Markdown and LaTeX")
     ap.add_argument("--table-only", action="store_true",
-                    help="write the tables and skip the figure")
-    ap.add_argument("--out", default=None)
+                    help="write the tables (CSV, MD, LaTeX) and skip the figure")
+    ap.add_argument("--figure-only", action="store_true",
+                    help="write the figure and the unfiltered CSV, skip MD/LaTeX")
+    ap.add_argument("--out-dir", default=None,
+                    help="directory for output files (default: results/figures)")
     args = ap.parse_args()
+    if args.table_only and args.figure_only:
+        raise SystemExit("--table-only and --figure-only are mutually exclusive")
 
-    payload = json.loads(Path(args.positions).read_text(encoding="utf-8"))
+    if args.positions:
+        payload = json.loads(Path(args.positions).read_text(encoding="utf-8"))
+        source = args.positions
+    else:
+        csv_path = Path(args.csv)
+        if not csv_path.exists():
+            raise SystemExit(
+                f"{csv_path} not found; run scripts/label_cohesion.py first "
+                "(or pass --positions to read viewer/positions.json instead)"
+            )
+        payload = payload_from_csv(csv_path)
+        source = str(csv_path)
+
     cells = sorted(
         k for k in payload
         if k.split("|")[1:2] == ["pa"]
         and not any(p.startswith("y") for p in k.split("|")[2:])
     )
     if not cells:
-        raise SystemExit("no pa cells in payload")
+        raise SystemExit(f"no pa cells in {source}")
     cell_note = ""
     if args.min_cell_n:
         small = [c for c in cells if len(payload[c]["benchmarks"]) < args.min_cell_n]
@@ -303,43 +411,14 @@ def main() -> None:
                 chr(10) + f"{len(small)} cells with fewer than {args.min_cell_n} "
                 "benchmarks are excluded; they drove the widest ranges."
             )
-    data = collect(payload, cells, args.variant, args.axis)
-    if not data:
-        raise SystemExit(f"no {args.axis} labels scored in any pa cell")
-    everything = data  # the CSV keeps every label; --min-n only thins the figure
-    median_n = {lab: float(np.median([v[2] for v in vals.values()])) for lab, vals in data.items()}
-    hidden = sorted(lab for lab, n in median_n.items() if n < args.min_n)
-    if hidden:
-        data = {lab: v for lab, v in data.items() if median_n[lab] >= args.min_n}
-        print(f"hiding {len(hidden)} labels with median n < {args.min_n}: {', '.join(hidden)}")
-    if not data:
-        raise SystemExit(f"no {args.axis} label reaches median n >= {args.min_n}")
-    note = cell_note + ((
-        chr(10) + f"{len(hidden)} labels with a median of fewer than {args.min_n} "
-        "members are not shown; their mean distance turns on one or two pairs."
-    ) if hidden else "")
-    if args.top_k and args.top_k < len(data):
-        kept = sorted(data, key=lambda lab: (-median_n[lab], lab))[: args.top_k]
-        dropped = len(data) - len(kept)
-        data = {lab: data[lab] for lab in kept}
-        smallest = min(median_n[lab] for lab in kept)
-        print(f"showing the {args.top_k} largest labels (median n >= {smallest:g}); "
-              f"{dropped} smaller ones hidden")
-        note += (
-            chr(10) + f"Showing the {args.top_k} labels with the most members "
-            f"(median n >= {smallest:g}); {dropped} smaller ones are not shown."
-        )
-    suffix = "" if args.variant == "with_g" else "_nog"
-    stem = Path(args.out or REPO / "results" / "figures" /
-                f"cohesion_summary_{args.axis}{suffix}")
-    stem.parent.mkdir(parents=True, exist_ok=True)
-    if not args.table_only:
-        plot(data, cells, args.variant, args.axis, stem, note)
-    write_table(everything, cells, stem.with_suffix(".csv"))  # every label, unfiltered
-    if args.table or args.table_only:
-        # the paste-into-the-paper tables cover the displayed labels only
-        write_markdown(data, stem.with_suffix(".md"), args.variant, args.axis)
-        write_latex(data, stem.with_suffix(".tex"), args.variant, args.axis)
+
+    axes = args.axis or axes_in(payload, cells)
+    if not axes:
+        raise SystemExit(f"no labels scored in any pa cell of {source}")
+    out_dir = Path(args.out_dir) if args.out_dir else REPO / "results" / "figures"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for axis in axes:
+        run_axis(payload, cells, axis, args, cell_note, out_dir)
 
 
 if __name__ == "__main__":
