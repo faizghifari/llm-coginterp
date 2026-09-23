@@ -316,8 +316,8 @@ def main():
     print(f"A correlation counts as computable when pairwise-complete n >= {MIN_N}. "
           "avg_n = mean # models per computable correlation.\n")
     print("| Dataset/Strategy combo | #benchmarks | #benchmarks with computable corr "
-          "| min #corr | mean #corr | max #corr | min avg_n | mean avg_n | max avg_n |")
-    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+          "| min #corr | mean #corr | sd #corr | max #corr | min avg_n | mean avg_n | sd avg_n | max avg_n |")
+    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row_idx, (label, _src_dir) in enumerate(SOURCES):
         for col_idx, strat in enumerate(STRATEGIES):
             n_comp = n_computable_cells[(row_idx, col_idx)]
@@ -325,8 +325,8 @@ def main():
             n_comp_bench = int((n_comp > 0).sum())
             print(
                 f"| {label}_{strat} | {len(n_comp)} | {n_comp_bench} "
-                f"| {n_comp.min():.0f} | {n_comp.mean():.1f} | {n_comp.max():.0f} "
-                f"| {avg_n.min():.1f} | {avg_n.mean():.1f} | {avg_n.max():.1f} |"
+                f"| {n_comp.min():.0f} | {n_comp.mean():.1f} | {n_comp.std():.1f} | {n_comp.max():.0f} "
+                f"| {avg_n.min():.1f} | {avg_n.mean():.1f} | {avg_n.std():.1f} | {avg_n.max():.1f} |"
             )
 
     print("\n### Table 2 — Per-benchmark-pair: shared n and |r| of computable correlations (unit = benchmark pair)\n")
@@ -334,19 +334,19 @@ def main():
           f"'computable' = pairwise-complete n >= {MIN_N}. n/pair = shared non-missing models; "
           "|r| = absolute Pearson r.\n")
     print("| Dataset/Strategy combo | #pairs total | #pairs computable | %pairs computable "
-          "| min n/pair | mean n/pair | max n/pair | min \\|r\\| | mean \\|r\\| | sd \\|r\\| | max \\|r\\| |")
-    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+          "| min n/pair | mean n/pair | sd n/pair | max n/pair | min \\|r\\| | mean \\|r\\| | sd \\|r\\| | max \\|r\\| |")
+    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for cell_label, total_pairs, n_observed, pair_n, pair_r_abs in pair_summaries:
         label, strat = cell_label.split("/", 1)
         strat = "all_" + strat
         pct = 100.0 * n_observed / total_pairs if total_pairs else 0.0
         if len(pair_n) == 0:
             print(f"| {label}_{strat} | {total_pairs} | {n_observed} | {pct:.1f} "
-                  f"| -- | -- | -- | -- | -- | -- | -- |")
+                  f"| -- | -- | -- | -- | -- | -- | -- | -- |")
         else:
             print(
                 f"| {label}_{strat} | {total_pairs} | {n_observed} | {pct:.1f} "
-                f"| {pair_n.min():.0f} | {pair_n.mean():.1f} | {pair_n.max():.0f} "
+                f"| {pair_n.min():.0f} | {pair_n.mean():.1f} | {pair_n.std():.1f} | {pair_n.max():.0f} "
                 f"| {pair_r_abs.min():.4f} | {pair_r_abs.mean():.4f} "
                 f"| {pair_r_abs.std():.4f} | {pair_r_abs.max():.4f} |"
             )
