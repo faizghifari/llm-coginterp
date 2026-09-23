@@ -338,9 +338,18 @@ def main():
 
     print(f"Total raw evaluations: {len(df)}")
 
-    # Release dates live on the canonical models table, not on results.csv rows
+    # Release dates live on the canonical models table, not on results.csv rows.
+    # results.csv links to it through model_name (= models.model_id); its own
+    # model_id column is a hub-style id that models.csv mostly does not carry.
+    # A result model_id can map to several model_names; the earliest date wins.
     if MODELS_PATH.exists():
-        release_dates = pd.read_csv(MODELS_PATH, dtype=str, usecols=['model_id', 'release_date'])
+        models = pd.read_csv(MODELS_PATH, dtype=str, usecols=['model_id', 'release_date'])
+        date_of = models.set_index('model_id')['release_date']
+        release_dates = (
+            df.assign(release_date=df['model_name'].map(date_of))
+            .groupby('model_id')['release_date'].agg(earliest_date)
+            .reset_index()
+        )
     else:
         print(f"Warning: {MODELS_PATH} not found; collapse_mapping.csv will not include release_date.")
         release_dates = pd.DataFrame(columns=['model_id', 'release_date'])
