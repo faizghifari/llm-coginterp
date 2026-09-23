@@ -183,11 +183,11 @@ def plot(data, cells, variant, axis, out: Path, note: str = "") -> None:
              va="bottom", fontsize=7.5, color=MUTED, linespacing=1.3)
 
     fig.suptitle(
-        f"Chance-corrected within-group agreement (MRPP A) per {axis} label "
+        f"Chance-corrected within-group agreement (A) per {axis} label "
         f"({variant.replace('_', ' ')})",
         fontsize=11.5, color=INK, x=0.012, y=0.988, ha="left", va="top", fontweight="bold")
     fig.text(0.012, 0.955,
-             "A = 1 - within/null_mean (Mielke et al. 1976): 0 is chance, 1 is identical "
+             "A = 1 - within/null_mean: 0 is chance, 1 is identical "
              "members, negative is over-dispersed; A does not grow with corpus size."
              + chr(10) +
              "Blue: tighter. Red: looser. White dot: significant at FDR 5% in that cell."
@@ -256,10 +256,10 @@ def write_markdown(data, out: Path, variant: str, axis: str) -> None:
     lines.append("")
     lines.append(
         f"Cohesion of each {axis} label ({g}). A is the chance-corrected within-group "
-        "agreement 1 - within/null_mean against a coverage-matched permutation null "
-        "(MRPP; Mielke, Berry & Johnson 1976), where 0 is chance and A < 0.1 is "
-        "conventionally weak. Cells are densifier x imputer re-analyses of one dataset, so "
-        "the count is consistency across analysis choices, not independent replication."
+        "agreement 1 - within/null_mean against a coverage-matched permutation null: 0 is "
+        "chance, 1 is identical members, negative is over-dispersed. Cells are densifier x "
+        "imputer re-analyses of one dataset, so the count is consistency across analysis "
+        "choices, not independent replication."
     )
     out.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
     print(f"wrote {out}")
@@ -282,10 +282,10 @@ def write_latex(data, out: Path, variant: str, axis: str) -> None:
         r"\bottomrule", r"\end{tabular}",
         rf"\caption{{Cohesion of each {axis} label ({g}). $A$ is the chance-corrected "
         r"within-group agreement $1-\bar{d}_{\text{within}}/\bar{d}_{\text{null}}$ against a "
-        r"coverage-matched permutation null (MRPP; Mielke, Berry \& Johnson 1976), where $0$ "
-        r"is chance and $A<0.1$ is conventionally weak. Cells are densifier $\times$ imputer "
-        r"re-analyses of one dataset, so the count is consistency across analysis choices, "
-        r"not independent replication.}",
+        r"coverage-matched permutation null: $0$ is chance, $1$ is identical members, "
+        r"negative is over-dispersed. Cells are densifier $\times$ imputer re-analyses of "
+        r"one dataset, so the count is consistency across analysis choices, not independent "
+        r"replication.}",
         r"\label{tab:cohesion}", r"\end{table}",
     ]
     out.write_text(chr(10).join(body) + chr(10), encoding="utf-8")

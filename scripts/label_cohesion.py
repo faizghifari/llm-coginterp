@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MRPP label cohesion, computed directly -- no viewer pipeline required.
+"""Label cohesion, computed directly -- no viewer pipeline required.
 
 viewer/compute_positions.py's category_cohesion() -- the SAME function called
 here, not a reimplementation -- is normally only reachable as a side effect of
@@ -9,12 +9,17 @@ composite_distance() + category_cohesion() directly, for --tag pa cells only
 (aggregate + one per imputer; no year cohorts), both g variants, every label on
 every axis, in one pass. No embedding or clustering runs.
 
-category_cohesion() is MRPP (Mielke, Berry & Johnson 1976): per label, the
-observed within-group mean distance vs. a coverage-matched permutation null.
-A = 1 - within/null_mean is the chance-corrected effect size (0 = chance, 1 =
-identical members, negative = over-dispersed) -- this is what
+category_cohesion() is a one-vs-rest permutation test: per label, the observed
+within-group mean distance vs. a coverage-matched random-subset null of the same
+size. A = 1 - within/null_mean is the chance-corrected effect size (0 = chance,
+1 = identical members, negative = over-dispersed) -- this is what
 scripts/plot_cohesion_summary.py reads from this script's CSV and plots per
-axis.
+axis. (The effect-size form is the one MRPP -- Mielke, Berry & Johnson 1976 --
+uses for its chance-corrected agreement statistic; the test itself is not MRPP
+proper, which combines every group into one weighted statistic under a single
+joint relabeling permutation. Here each label is scored independently against
+its own stratified-subset null, precisely because the labels are multi-label
+and don't form the hard partition MRPP needs.)
 
 Inherits category_cohesion()'s methodology unmodified, INCLUDING that
 never-co-observed pairs are not excluded: composite_distance()'s row-mean fill
@@ -72,7 +77,7 @@ class Row:
 
 
 def effect(within: float, null_mean: float) -> float | None:
-    """Chance-corrected MRPP agreement. None when the null itself is 0."""
+    """Chance-corrected within-group agreement. None when the null itself is 0."""
     return 1.0 - within / null_mean if null_mean != 0 else None
 
 
