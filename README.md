@@ -31,16 +31,29 @@ Use the docker container to have a replicable environment.
 
 ```bash
 # Example
-docker build -t machineg .
+sudo docker build -t machineg .
 ```
 
 The container does not copy data/ or results/, so build them first in host:
 
-```bash
+``` bash
 make preproc
-docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make runall
-```
 
+sudo docker build -t machineg .
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make impute softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr
+
+uv run viewer/compute_positions.py
+uv run viewer/miss_corr.py
+uv run viewer/correlations.py
+uv run viewer/plot_missing.py
+uv run scripts/label_cohesion.py
+uv run scripts/top_g_ci.py
+uv run scripts/plot_cohesion_summary.py
+uv run scripts/impute_summary.py
+uv run scripts/factor_summary.py
+uv run scripts/sensitivity.py
+```
 
 ### Scripts
 
