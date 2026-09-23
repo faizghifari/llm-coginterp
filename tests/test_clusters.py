@@ -244,6 +244,21 @@ def test_same_inputs_detects_a_missing_loading_file():
     assert cp.same_inputs({"n_cells": 1}, [cell])  # unclustered cohort: count only
 
 
+def test_pcoa_recovers_planted_geometry_and_is_sign_stable():
+    """Points on a known grid: PCoA must reproduce their distances up to rotation."""
+    truth = np.array([[0.0, 0.0], [3.0, 0.0], [0.0, 4.0], [3.0, 4.0], [1.5, 2.0]])
+    d = np.linalg.norm(truth[:, None, :] - truth[None, :, :], axis=-1)
+    xy, explained = cp.pcoa(d)
+    got = np.linalg.norm(xy[:, None, :] - xy[None, :, :], axis=-1)
+    assert np.allclose(got, d, atol=1e-8)
+    assert explained == 1.0  # a truly 2-D configuration needs no further axes
+    # sign canonicalisation: mirroring the input must not mirror the output
+    again, _ = cp.pcoa(np.linalg.norm(
+        (truth * [-1, 1])[:, None, :] - (truth * [-1, 1])[None, :, :], axis=-1))
+    assert np.allclose(np.abs(again), np.abs(xy), atol=1e-8)
+    assert again[np.argmax(np.abs(again[:, 0])), 0] > 0
+
+
 def test_cluster_records_sizes_descending_no_noise_row():
     records = cp.cluster_records(np.array([0, 0, 0, 1, -1]))
     assert [r["id"] for r in records] == [0, 1]  # noise is never a record
@@ -319,6 +334,8 @@ def test_category_cohesion_detects_planted_tight_set():
     assert tight["z"] < 0
     assert tight["p"] < 0.01
     assert tight["within"] < tight["null_mean"]
+    # never exactly 0: the Monte Carlo p-value is floored at 1/(perms + 1)
+    assert tight["p"] == round(1 / (cp.COHESION_PERM + 1), 5)
 
 
 def test_category_cohesion_multi_label_counts_once_per_label():

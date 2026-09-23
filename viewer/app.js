@@ -34,6 +34,7 @@ const state = {
   algo: "hac",
   k: null,
   colorBy: "cluster",   // "cluster" or an axis name from the payload
+  layout: "umap",       // "umap" (local structure) or "pcoa" (true distances)
   variant: "with_g",
   highlights: new Set(),  // multi-select highlight: label ids and/or NO_LABEL
   expanded: new Set(),    // broad labels whose narrow children are shown
@@ -99,6 +100,17 @@ function variantOf(d) {
 // A benchmark's category labels. Tolerates a bare string (single-label
 // payloads) or an array (multi-label), so promoting `category` to multi-valued
 // needs no viewer change.
+// Point coordinates for the active layout. UMAP is the committed embedding;
+// PCoA is emitted alongside it and approximates the real cosine distances, so
+// a label that scores as tight actually looks tight -- within the ~18% of the
+// distance structure two axes can carry (clusters.diagnostics.pcoa_explained).
+function pointsOf(d) {
+  if (state.layout === "pcoa" && d.pcoa) {
+    return d.pcoa.map(([x, y], i) => ({ benchmark: d.benchmarks[i], x, y }));
+  }
+  return d.points;
+}
+
 function labelsOf(d, i) {
   const v = d.categories?.[i];
   if (v === null || v === undefined) return [];
@@ -467,6 +479,10 @@ function syncClusterControls(d) {
   $("k").disabled = state.algo !== "hac" || inCategoryMode();
   $("algo").disabled = inCategoryMode();
   $("variant").disabled = false;  // cohesion is reported per g-variant too
+  // cells carried forward without local loadings have no PCoA coordinates
+  const hasPcoa = Boolean(d.pcoa);
+  $("layout").disabled = !hasPcoa;
+  $("layout").value = hasPcoa ? state.layout : "umap";
 }
 
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -475,6 +491,14 @@ function clusterMeta(d) {
   const c = d.clusters;
   if (!c) return "";
   const parts = [];
+  if (state.layout === "pcoa" && d.pcoa) {
+    const share = c.diagnostics?.pcoa_explained;
+    parts.push(
+      share === undefined
+        ? "PCoA layout"
+        : `PCoA: 2 axes carry ${Math.round(share * 100)}% of the distance structure`
+    );
+  }
   if (inCategoryMode()) {
     const [rows, unlabelled] = groupRows(d);
     parts.push(
@@ -535,7 +559,7 @@ function clusterMeta(d) {
 
 function extent(d) {
   let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
-  for (const p of d.points) {
+  for (const p of pointsOf(d)) {
     if (p.x < xmin) xmin = p.x;
     if (p.x > xmax) xmax = p.x;
     if (p.y < ymin) ymin = p.y;
@@ -566,7 +590,7 @@ function draw() {
   // map at raw scale, then fit the actual mapped bounding box onto the
   // canvas: shrink if it overflows, then center it.
   const labels = groupValues(d);
-  let pts = d.points.map((p, i) => ({
+  let pts = pointsOf(d).map((p, i) => ({
     b: p.benchmark,
     g: labels ? labels[i] : null,
     cats: labelsOf(d, i),
@@ -810,6 +834,10 @@ function init(data) {
     state.variant = $("variant").value;
     rebuild();
   });
+  $("layout").addEventListener("change", () => {
+    state.layout = $("layout").value;
+    draw();
+  });
   $("colorby").addEventListener("change", () => {
     state.colorBy = $("colorby").value;
     // Stale labels are dropped inside syncColorBy; NO_LABEL survives there.
@@ -821,7 +849,7 @@ function init(data) {
   // showing dead controls. The imputer dropdown is hidden when the payload has
   // no per-method keys (a pre-method positions.js).
   const hasClusters = Object.values(data).some((c) => c.clusters);
-  for (const id of ["algo", "k", "variant", "colorby"]) {
+  for (const id of ["algo", "k", "variant", "colorby", "layout"]) {
     $(id).closest("label").hidden = !hasClusters;
   }
   const hasMethods = Object.keys(data).some((k) =>

@@ -433,6 +433,36 @@ def hdbscan_labels(
     ).fit_predict(dist)
 
 
+def pcoa(dist: np.ndarray) -> tuple[np.ndarray, float]:
+    """Classical MDS. Returns (Nx2 coords, share of positive eigenvalue mass).
+
+    An alternative to the UMAP embedding, not a replacement: UMAP optimises local
+    neighbourhoods and discards global distance (measured on raw|pa: Spearman
+    0.21 between true and on-screen distance), so a label that is tighter than
+    chance need not look tighter. PCoA places points so plotted distance
+    approximates the real cosine distance -- at the cost of showing only the two
+    leading axes, which here carry ~18% of it.
+
+    Deterministic: eigenvector signs are arbitrary, so each axis is flipped to
+    make its largest-magnitude coordinate positive. Without that the map could
+    mirror between runs and churn the committed payload.
+    """
+    n = len(dist)
+    j = np.eye(n) - np.ones((n, n)) / n
+    b = -0.5 * j @ (dist**2) @ j
+    vals, vecs = np.linalg.eigh((b + b.T) / 2.0)
+    order = np.argsort(vals)[::-1]
+    vals, vecs = vals[order], vecs[:, order]
+    positive = vals[vals > 0]
+    top = np.clip(vals[:2], 0.0, None)
+    xy = vecs[:, :2] * np.sqrt(top)
+    for axis in range(xy.shape[1]):
+        if xy[np.argmax(np.abs(xy[:, axis])), axis] < 0:
+            xy[:, axis] *= -1
+    explained = float(top.sum() / positive.sum()) if positive.size else 0.0
+    return xy, round(explained, 4)
+
+
 def split_labels(raw: str | None) -> list[str]:
     """Semicolon-separated cell -> label list. Empty cell -> []."""
     return [x.strip() for x in (raw or "").split(";") if x.strip()]
@@ -618,7 +648,8 @@ def category_cohesion(
     in this corpus tracks how many models a benchmark was evaluated on, so a
     uniform null would credit that measurement artifact as content signal.
 
-    Negative z means tighter than chance. p is one-sided for tightness.
+    Negative z means tighter than chance. p is one-sided for tightness and is
+    floored at 1/(COHESION_PERM + 1), so it is never reported as exactly 0.
 
     NOTE: results are inflated by benchmark families -- a parent plus its own
     subdomains (EWoK's 11) are near-identical vectors by construction, so a
@@ -663,7 +694,11 @@ def category_cohesion(
                 "within": round(float(obs), 4),
                 "null_mean": round(float(null.mean()), 4),
                 "z": round(float((obs - null.mean()) / sd), 3) if sd > 0 else None,
-                "p": round(float((null <= obs).sum() / COHESION_PERM), 4),
+                # (1 + hits) / (1 + B): the unbiased Monte Carlo p-value
+                # (Davison & Hinkley; Phipson & Smyth 2010). The naive hits/B
+                # returns exactly 0, which is both false and unrankable -- the
+                # BH-FDR step downstream ties every such label together.
+                "p": round(float((1 + (null <= obs).sum()) / (1 + COHESION_PERM)), 5),
             }
         )
     return sorted(out, key=lambda r: (r["z"] is None, r["z"]))
@@ -958,6 +993,10 @@ def main() -> None:
                 "clustering mutated the distance matrix (see sklearn HDBSCAN copy=)"
             )
 
+        # Deterministic, so it is computed even in --relabel mode: it adds a
+        # second layout without touching the reused UMAP points.
+        pcoa_xy, pcoa_explained = pcoa(dist)
+        entry["pcoa"] = [[round(float(x), 5), round(float(y), 5)] for x, y in pcoa_xy]
         entry["categories"] = [categories.get(b, []) for b in bench]
         strata = coverage_strata(bench, model_coverage)
         entry["category_cohesion"] = {
@@ -979,6 +1018,7 @@ def main() -> None:
                 "pair_coverage": coverage,
                 "n_fabricated_pairs": fabricated,
                 "n_labelled": sum(1 for b in bench if categories.get(b)),
+                "pcoa_explained": pcoa_explained,
             },
             **variants,
         }
