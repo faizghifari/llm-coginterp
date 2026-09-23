@@ -63,6 +63,10 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "optspace", "usvt",
                  "default", "zeros", "cvxr", "ggm")
 RAW_METHODS <- c("default", "zeros")   # fill-smooth: factor the cached correlation
+# Correlation-level / surrogate-emitting methods: their completed matrix is a
+# synthetic n x p draw matching the recovered covariance, so its rows cannot be
+# split by any per-model attribute (release year).
+SURROGATE_METHODS <- c("onesidedmc", "softimpute_corr", "cvxr", "ggm", "optspace", "usvt")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE; timed <- FALSE
   data_root <- "data/text_only"; results_root <- "results/text_only"
@@ -248,6 +252,10 @@ factor_timed_cell <- function(method, dz, st, M, keys) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   if (method %in% RAW_METHODS) {
     cat(sprintf("  skipping timed (%s) — fill-smooth methods factor a global cached correlation, not per-cohort data\n", tag))
+    return(invisible())
+  }
+  if (method %in% SURROGATE_METHODS) {
+    cat(sprintf("  skipping timed (%s) — completed matrix is a covariance-matched surrogate whose rows are not the labelled models\n", tag))
     return(invisible())
   }
   if (is.null(keys)) {
