@@ -45,13 +45,18 @@ sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results mac
 sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor-timed softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr
 sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make loco softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr
 
+# unsudo outputs recursively
+sudo chown -R $USER:$USER data
+sudo chown -R $USER:$USER results
+sudo chown -R $USER:$USER viewer
+
 mkdir -p results/pyout
 
 for c in \
   viewer/compute_positions.py \
-  viewer/miss_corr.py \
-  viewer/correlations.py \
-  viewer/plot_missing.py \
+  scripts/miss_corr.py \
+  scripts/correlations.py \
+  scripts/plot_missing.py \
   scripts/label_cohesion.py \
   scripts/top_g_ci.py \
   scripts/plot_cohesion_summary.py \
@@ -61,6 +66,9 @@ for c in \
   log="results/pyout/$(basename ${c%.py}).log"
   uv run $c 2>&1 | tee "$log"
 done
+
+make release-date DATA_ROOT=data/text_only RESULTS_ROOT=results/text_only
+make release-date-report RUNS="10%=results/text_only/release_date"
 ```
 
 ### Scripts
