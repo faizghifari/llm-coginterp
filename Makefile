@@ -44,7 +44,7 @@ CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
 EXTRA := $(filter-out impute factor factor-timed loco,$(MAKECMDGOALS))
 
 .PHONY: deps env env-py env-r env-jl preproc clean \
-        impute factor factor-timed loco \
+        impute factor factor-timed loco release-date release-date-report \
         runall runall-impute runall-factor runall-loco
 
 SUDO := $(shell if [ "$$(id -u)" -eq 0 ]; then echo ""; else echo "sudo"; fi)
@@ -98,6 +98,25 @@ factor-timed:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor timed -- $(if $(EXTRA),$(EXTRA),$(FACTOR_METHODS)) -- $(ROOTS)
 	./scripts/runmulti.sh $(LOGS) factor timed raw -- $(if $(EXTRA),$(EXTRA),$(FACTOR_METHODS)) -- $(ROOTS)
+
+# Release-date analysis (paper appendix "Release-date analysis"). Needs `make
+# factor` on the same roots first. Models are binned into release cohorts
+# (<=2022, 2023, 2024, >=2025) and each cohort is factored with the row-preserving
+# imputers that pass factor.R's R2_GATE, against 50 random subsets of the same
+# size. Also: g level per cohort, an imputation-free check on the benchmarks
+# every cohort took, and benchmark release year vs the pooled solutions.
+# Writes $(RESULTS_ROOT)/release_date/ (summary.md has every table).
+#   make release-date DATA_ROOT=<d> RESULTS_ROOT=<r>
+release-date:
+	uv run python scripts/release_date.py run $(ROOTS)
+
+# Combine release-date runs (one per target density) into the paper's tables
+# and figure. RUNS is a space-separated list of LABEL=<results-root>/release_date.
+#   make release-date-report RUNS="10%=results/a/release_date 20%=results/b/release_date"
+RUNS ?= $(RESULTS_ROOT)/release_date
+release-date-report:
+	uv run python scripts/release_date.py report $(foreach r,$(RUNS),--run $(r)) \
+		--out $(RESULTS_ROOT)/release_date_report
 
 # The method words after the target (e.g. "usvt" in "make factor usvt") arrive as
 # goals make wants to build; they're consumed by runmulti via $(EXTRA) above, so

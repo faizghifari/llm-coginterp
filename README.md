@@ -61,6 +61,7 @@ python3 scripts/densify.py                      # preproc stage 1 (or: make prep
 Rscript src/run/impute.R --method softimpute    # impute + held-out sweep
 Rscript src/run/factor.R --method softimpute    # factor the completed matrix
 python3 scripts/compare_loadings.py             # cross-method factor congruence
+make release-date                               # release-cohort EFA + benchmark release year (after factor)
 make runall                                     # canned sequence across all methods
 
 # The multimodal-inclusive corpus is retained; reach it by naming both roots:
@@ -247,12 +248,52 @@ implemented but deferred/untested):
   parallel-analysis count, once forced to two factors.
 - **Compare** (`scripts/compare_loadings.py`) — cross-method factor congruence, i.e. whether
   different imputation methods agree on the factor structure they recover.
+- **Release date** (`scripts/release_date.py`, `make release-date`) — whether the structure moves
+  with model release date, and whether a benchmark's release year relates to its place in it.
+  Written up in the paper's release-date appendix; see [Release-date analysis](#release-date-analysis).
 
 Outputs, under whichever root is active (`data/text_only` + `results/text_only` by default):
 `<data-root>/imputed/<method>/<densifier>/<strategy>/` holds the imputed CSV;
 `<results-root>/<method>/` holds the bifactor loadings and scalars; numeric results also land in
 a SQLite store at `<results-root>/database.db`, which `scripts/impute_summary.py`,
 `factor_summary.py` and `correlations.py` read.
+
+### Release-date analysis
+
+Run after `make factor` on the same roots. One run covers one target density:
+
+```bash
+make release-date DATA_ROOT=<data-root> RESULTS_ROOT=<results-root>
+# = uv run python scripts/release_date.py run --data-root ... --results-root ...
+#   [--dz C,S] [--strategy all_standard] [--reps 50] [--cores N] [--skip-efa]
+```
+
+- Models are binned into release cohorts (<=2022, 2023, 2024, >=2025) from
+  `combinations/<strategy>/collapse_mapping.csv`, the same dates `factor.R --timed` uses.
+- Each cohort of each completed matrix is refactored with the pooled pipeline
+  (`src/run/release_cohorts.R`), next to 50 random subsets of the same size as the null.
+  Only row-preserving imputers enter (`softimpute`, `missforest`, `knn`, `mice`,
+  `iterativepca`), and only where they pass `factor.R`'s `R2_GATE`.
+- Also written: coverage per cohort, mean g score per cohort, an imputation-free check on the
+  benchmarks every cohort took, and benchmark release year against the pooled loadings
+  (every gated solution except `default`/`zeros`).
+- Output lands in `<results-root>/release_date/`, and `summary.md` there has every table.
+  The cohort EFA is the slow step (one to two minutes per density on 36 cores). `--skip-efa`
+  reuses its `cohort_fits.csv`.
+- Every step is seeded per cell, so a rerun on the same inputs gives the same numbers.
+
+The paper reports two densities side by side. After a `release-date` run on each:
+
+```bash
+make release-date-report RUNS="10%=<results-10>/release_date 20%=<results-20>/release_date"
+```
+
+This writes `release_date_tables.md` (the appendix tables, plus the counts quoted in its text)
+and `release-cohort-omega.png` (the appendix figure) to `$(RESULTS_ROOT)/release_date_report/`.
+
+The analysis imputes once over all models and then splits by cohort. It is valid when release year
+shifts the level of performance without changing how benchmarks correlate. The paper's appendix
+states this assumption and its caveat.
 
 Note `src/README.md` is currently **out of date** on several points (it documents `src/run/main.R`,
 a `--sensitivity` flag, dashboards and principal-axis factoring, none of which are live).

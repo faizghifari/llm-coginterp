@@ -208,6 +208,16 @@ Outputs insert the year into the run tag:
 unchanged. `latent_scores.py` skips these files (cohort loadings are not
 scored against the pooled matrix).
 
+**Release-date analysis** (`make release-date` → `scripts/release_date.py run`,
+which calls `src/run/release_cohorts.R`) is a separate, downstream consumer.
+It uses the same `collapse_mapping.csv` dates as timed mode, but bins them into
+four cohorts (<=2022, 2023, 2024, >=2025) and factors each one against 50
+random subsets of the same size. Only row-preserving imputers that pass
+`R2_GATE` enter. It reads the completed matrices, the pooled `*_bifactor_pa_loadings.csv`
+and the `imputation` table, and writes only to `<results_root>/release_date/`
+(no DB rows). `make release-date-report` merges several runs into the paper's
+tables and figure.
+
 ## Stage 3 — latent scores (`scripts/latent_scores.py`)
 
 Python, reads factoring outputs and writes per-model factor scores next to the
