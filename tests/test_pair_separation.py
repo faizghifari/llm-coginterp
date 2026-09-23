@@ -19,7 +19,16 @@ ps = importlib.util.module_from_spec(_SPEC)
 sys.modules["pair_separation"] = ps
 _SPEC.loader.exec_module(ps)
 
+cp = ps.cp
 N_PERM = 500
+
+
+def cell(key, mat, bench, cols, *, method=None, dz="C", st="all_standard", tag="pa", year=None):
+    """cp.Cell() with defaults filled in; tests only vary key/mat/bench/cols."""
+    return cp.Cell(
+        key=key, method=method or key, dz=dz, st=st, tag=tag, year=year,
+        mat=mat, bench=bench, cols=cols,
+    )
 
 
 def planted(n_per=12, far=0.9, near=0.2, sigma=0.02, seed=0):
@@ -111,10 +120,9 @@ def test_close_pairs_do_not_pass_as_far():
 
 
 def test_observed_mask_excludes_unobserved_and_g_only_cells():
-    mat = np.ones((2, 1))
     cells = [
-        ("k1", np.ones((2, 2)), ["a", "b"], ["g", "F1*"]),
-        ("k2", mat, ["b", "c"], ["g"]),
+        cell("k1", np.ones((2, 2)), ["a", "b"], ["g", "F1*"]),
+        cell("k2", np.ones((2, 1)), ["b", "c"], ["g"]),
     ]
     bench = ["a", "b", "c"]
     seen = ps.observed_mask(cells, bench, drop_g=False)
@@ -135,11 +143,14 @@ def test_unobserved_pairs_do_not_leak_into_the_test():
 
 
 def test_iter_jobs_filters_tag_and_year():
-    cell = lambda name: (name, np.ones((2, 1)), ["a", "b"], ["g"])
+    make = lambda tag, year: cell(
+        "softimpute_C_all_standard", np.ones((2, 1)), ["a", "b"], ["g"],
+        method="softimpute", tag=tag, year=year,
+    )
     cells = {
-        ("C", "pa", None): [cell("softimpute_C_all_standard")],
-        ("C", "2f", None): [cell("softimpute_C_all_standard")],
-        ("C", "pa", 2020): [cell("softimpute_C_all_standard")],
+        ("C", "pa", None): [make("pa", None)],
+        ("C", "2f", None): [make("2f", None)],
+        ("C", "pa", 2020): [make("pa", 2020)],
     }
     assert [k for k, _ in ps.iter_jobs(cells)] == ["C|pa", "C|pa|msoftimpute"]
     assert [k for k, _ in ps.iter_jobs(cells, ("2f",))] == ["C|2f", "C|2f|msoftimpute"]

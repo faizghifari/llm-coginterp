@@ -35,6 +35,19 @@ def blocks(n_per=10, k=4, within=0.15, between=0.9, sigma=0.02, seed=0):
     return d, truth
 
 
+def cell(key, mat, bench, cols, *, method=None, dz="C", st="all_standard", tag="pa", year=None):
+    """cp.Cell() with defaults filled in; tests only vary key/mat/bench/cols."""
+    return cp.Cell(
+        key=key, method=method or key, dz=dz, st=st, tag=tag, year=year,
+        mat=mat, bench=bench, cols=cols,
+    )
+
+
+def job(cells, *, dz="C", tag="pa", year=None, method=None):
+    """cp.Job() wrapping the given cells, for functions that now take a Job."""
+    return cp.Job(dz=dz, tag=tag, year=year, method=method, cells=tuple(cells))
+
+
 def test_hac_recovers_planted_blocks():
     d, truth = blocks()
     labels = cp.hac_labels(d, [f"b{i}" for i in range(len(d))], [4], "average")[4]
@@ -235,13 +248,13 @@ def test_carry_forward_keeps_only_cohesion_whose_membership_is_unchanged():
 
 
 def test_same_inputs_detects_a_missing_loading_file():
-    cell = ("m1", np.ones((2, 3)), ["a", "b"], ["g", "F1*", "F2*"])
+    c1 = cell("m1", np.ones((2, 3)), ["a", "b"], ["g", "F1*", "F2*"])
     prior = {"n_cells": 2, "clusters": {"diagnostics": {"n_factors": [3, 3]}}}
-    assert cp.same_inputs(prior, [cell, cell])
-    assert not cp.same_inputs(prior, [cell])  # one imputer's files absent locally
-    other = ("m2", np.ones((2, 2)), ["a", "b"], ["g", "F1*"])
-    assert not cp.same_inputs(prior, [cell, other])  # same count, different factors
-    assert cp.same_inputs({"n_cells": 1}, [cell])  # unclustered cohort: count only
+    assert cp.same_inputs(prior, job([c1, c1]))
+    assert not cp.same_inputs(prior, job([c1]))  # one imputer's files absent locally
+    other = cell("m2", np.ones((2, 2)), ["a", "b"], ["g", "F1*"])
+    assert not cp.same_inputs(prior, job([c1, other]))  # same count, different factors
+    assert cp.same_inputs({"n_cells": 1}, job([c1]))  # unclustered cohort: count only
 
 
 def test_pcoa_recovers_planted_geometry_and_is_sign_stable():
@@ -283,8 +296,8 @@ def test_hdbscan_does_not_mutate_distance_matrix():
 
 
 def test_pair_coverage_counts_fabricated():
-    a = ("m1", np.ones((2, 2)), ["a", "b"], ["g", "F1*"])
-    b = ("m2", np.ones((2, 2)), ["c", "d"], ["g", "F1*"])
+    a = cell("m1", np.ones((2, 2)), ["a", "b"], ["g", "F1*"])
+    b = cell("m2", np.ones((2, 2)), ["c", "d"], ["g", "F1*"])
     cov, fabricated = cp.pair_coverage([a, b], ["a", "b", "c", "d"])
     # a/b and c/d are co-observed; the four cross pairs never are.
     assert fabricated == 4
@@ -293,7 +306,7 @@ def test_pair_coverage_counts_fabricated():
 
 def test_composite_distance_drop_g_changes_geometry():
     cells = [
-        (
+        cell(
             "m1",
             np.array([[0.9, 0.1], [0.9, -0.1], [0.9, 0.8]]),
             ["a", "b", "c"],
@@ -309,7 +322,7 @@ def test_composite_distance_drop_g_changes_geometry():
 
 
 def test_composite_distance_rejects_all_g_cell_when_dropping():
-    cells = [("m1", np.array([[0.9], [0.5]]), ["a", "b"], ["g"])]
+    cells = [cell("m1", np.array([[0.9], [0.5]]), ["a", "b"], ["g"])]
     with pytest.raises(ValueError, match="no cell contributed"):
         cp.composite_distance(cells, drop_g=True)
 

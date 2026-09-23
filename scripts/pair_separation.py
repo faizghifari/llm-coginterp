@@ -22,6 +22,8 @@ cell are excluded: composite_distance() fills them with a row mean.
 
 If the result is "not farther than chance", that is the result. Do not change
 the pair rule after seeing it.
+
+Scoped to --tag pa by default (2f excluded); pass --tag 2f to include it.
 """
 
 from __future__ import annotations
@@ -29,7 +31,6 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import sys
-from collections import defaultdict
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
@@ -128,10 +129,10 @@ def observed_mask(cell_list: list[Cell], bench: list[str], *, drop_g: bool) -> n
     """(n, n) bool: pair co-observed in a cell that composite_distance() used."""
     idx = {b: i for i, b in enumerate(bench)}
     seen = np.zeros((len(bench), len(bench)), dtype=bool)
-    for _, _, cell_bench, cols in cell_list:
-        if drop_g and all(c == "g" for c in cols):
+    for c in cell_list:
+        if drop_g and all(col == "g" for col in c.cols):
             continue
-        r = np.array([idx[b] for b in cell_bench])
+        r = np.array([idx[b] for b in c.bench])
         seen[np.ix_(r, r)] = True
     np.fill_diagonal(seen, False)
     return seen
@@ -304,20 +305,11 @@ def analyse(
 
 def iter_jobs(cells: dict, tags: tuple[str, ...] = DEFAULT_TAGS):
     """Aggregate (all-years) cells of the given tags: all imputers pooled, then
-    one per imputer."""
-    for (dz, tag, year), cell_list in sorted(
-        ((k, v) for k, v in cells.items() if k[2] is None and k[1] in tags),
-        key=lambda kv: kv[0][:2],
-    ):
-        yield f"{dz}|{tag}", cell_list
-        by_method: dict[str, list[Cell]] = defaultdict(list)
-        for cell in cell_list:
-            m = cp.CELL_KEY_RE.match(cell[0])
-            if m is None:
-                raise RuntimeError(f"unparsable cell key {cell[0]!r}")
-            by_method[m.group(1)].append(cell)
-        for method, method_cells in sorted(by_method.items()):
-            yield f"{dz}|{tag}|m{method}", method_cells
+    one per imputer. Thin filter over cp.build_jobs(), the same job list the
+    viewer itself builds -- no separate method-parsing logic here."""
+    for j in cp.build_jobs(cells):
+        if j.year is None and j.tag in tags:
+            yield j.key, list(j.cells)
 
 
 def role_pcts(row: Row, role: str) -> list[float]:

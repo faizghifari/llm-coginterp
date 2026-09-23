@@ -52,7 +52,7 @@ def cell_distance(cell: str, results_root: Path, *, drop_g: bool = False) -> tup
     cell_list = cells[(dz, tag, None)]
     if len(parts) == 3:
         want = parts[2][1:]
-        cell_list = [c for c in cell_list if cp.CELL_KEY_RE.match(c[0]).group(1) == want]
+        cell_list = [c for c in cell_list if c.method == want]
         if not cell_list:
             raise SystemExit(f"no loadings for imputer {want!r} in {dz}|{tag}")
     return cp.composite_distance(cell_list, drop_g=drop_g)

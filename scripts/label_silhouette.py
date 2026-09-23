@@ -20,6 +20,8 @@ Not handled: benchmark families (a parent plus its subdomains) are near-identica
 by construction and inflate any label dominated by one. The repo has no family
 mapping, so nothing here corrects for it; read a high score on a small label
 with that in mind.
+
+Scoped to --tag pa by default (2f excluded); pass --tag 2f to include it.
 """
 
 from __future__ import annotations
