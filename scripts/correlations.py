@@ -4,8 +4,9 @@
 import argparse
 import sqlite3
 import sys
-import math
 from pathlib import Path
+
+from scipy.stats import pearsonr
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RESULTS = REPO_ROOT / "results" / "text_only"
@@ -45,15 +46,9 @@ def main(db_path):
         by_run.setdefault(r["run"], []).append((r["omega_h"], r["r2"]))
 
     def pearson(xs, ys):
-        n = len(xs)
-        if n < 3:
+        if len(xs) < 3:
             return float("nan")
-        mx = sum(xs) / n
-        my = sum(ys) / n
-        sx = math.sqrt(sum((x - mx) ** 2 for x in xs) / (n - 1))
-        sy = math.sqrt(sum((y - my) ** 2 for y in ys) / (n - 1))
-        cov = sum((x - mx) * (y - my) for y, x in zip(ys, xs)) / (n - 1)
-        return cov / (sx * sy)
+        return pearsonr(xs, ys)[0]
 
     print(f"{'run':>10s} {'n':>5s}  {'r':>8s}  interpretation")
     print("-" * 55)
@@ -87,6 +82,9 @@ def main(db_path):
     # ── markdown summary of the correlated data ─────────────────────────
     print("\n## omega_h / r2 correlations (plotted data)\n")
     print("### Per run: overall Pearson r between omega_h (factoring) and r2 (imputation)\n")
+    print("Each row aggregates all (dataset, method) pairs within one run into a single correlation: "
+          "r measures how strongly a run's omega_h values track its r2 values across datasets/methods. "
+          "n is the number of paired observations per run.\n")
     print("| Run | n | r (Pearson) |")
     print("|---|---:|---:|")
     for run in sorted(by_run):
@@ -96,6 +94,9 @@ def main(db_path):
     if len(by_run) > 1:
         print(f"| **overall** | {len(all_x)} | {pearson(all_x, all_y):+.3f} |")
     print("\n### Per dataset/method pair: omega_h vs r2 (paired rows from factoring and imputation tables)\n")
+    print("One row per (dataset, method) pair: omega_h comes from the factoring table and r2 from the "
+          "imputation table, joined on dataset and method. These are the raw values the correlations "
+          "above are computed from.\n")
     print("| Run | Dataset | Method | omega_h | r2 |")
     print("|---|---|---|---:|---:|")
     for r in rows:

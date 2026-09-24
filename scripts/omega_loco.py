@@ -270,7 +270,9 @@ def main() -> None:
     print("-" * len(header))
     if valid_r_delta:
         avg_r = sum(valid_r_delta) / len(valid_r_delta)
+        avg_abs_r = sum(abs(r) for r in valid_r_delta) / len(valid_r_delta)
         print(f"{'average':15s} {'':20s} {'':>4s} {avg_r:+8.4f} {'':>8s} {'':>5s} {len(valid_r_delta):>5d}  (mean r over {len(valid_r_delta)} groups)")
+        print(f"{'average |r|':15s} {'':20s} {'':>4s} {avg_abs_r:+8.4f} {'':>8s} {'':>5s} {len(valid_r_delta):>5d}  (mean |r| over {len(valid_r_delta)} groups)")
     else:
         print("average: no valid r values")
 
@@ -346,7 +348,9 @@ def main() -> None:
     print("-" * len(header_g))
     if valid_r_g:
         avg_r = sum(valid_r_g) / len(valid_r_g)
+        avg_abs_r = sum(abs(r) for r in valid_r_g) / len(valid_r_g)
         print(f"{'average':15s} {'':20s} {'':>4s} {avg_r:+8.4f} {'':>8s} {'':>5s} {len(valid_r_g):>5d}  (mean r over {len(valid_r_g)} groups)")
+        print(f"{'average |r|':15s} {'':20s} {'':>4s} {avg_abs_r:+8.4f} {'':>8s} {'':>5s} {len(valid_r_g):>5d}  (mean |r| over {len(valid_r_g)} groups)")
     else:
         print("average: no valid r values")
 
