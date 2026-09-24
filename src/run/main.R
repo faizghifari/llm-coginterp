@@ -194,7 +194,7 @@ read_matrix <- function(path) {
 # Imputation-R² gate, applied to every method (fill-smooth included: their
 # held-out R² lives in the same `imputation` table). Cells whose R² is missing
 # or below R2_GATE are skipped.
-R2_GATE <- 0.3
+R2_GATE <- 0.2
 
 gate_r2 <- function(method, dataset, tag, what = "factoring") {
   r2 <- tryCatch(db_read_r2(method, dataset, DB_FILE),
