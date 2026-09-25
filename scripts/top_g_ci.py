@@ -41,7 +41,7 @@ from pathlib import Path
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_ROOT = Path(REPO) / "data" / "text_only"
 
-TOP_N = 20
+TOP_N = 2000
 CELL_RE = re.compile(
     r"^(?P<method>.+?)_(?P<dz>C|R|S|raw)_(?P<st>all_standard|all_aggressive)"
     r"_bifactor_pa_loadings\.csv$"

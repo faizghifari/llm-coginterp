@@ -654,6 +654,8 @@ function draw() {
   const showLabels = state.checked.size <= 25;
   ctx.font = "12px system-ui";
   ctx.lineJoin = "round";
+  // Two passes: every highlighted dot first, then every text, so a later
+  // dot never paints over an earlier point's name.
   for (const p of d.screen) {
     if (!state.checked.has(p.b)) continue;
     ctx.beginPath();
@@ -663,13 +665,14 @@ function draw() {
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
     ctx.stroke();
-    if (showLabels) {
-      const tw = ctx.measureText(p.b).width;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(p.x + 7, p.y - 8 - 11, tw + 4, 14);
-      ctx.fillStyle = "rgba(34, 34, 42, 0.92)";
-      ctx.fillText(p.b, p.x + 9, p.y - 8);
-    }
+  }
+  for (const p of d.screen) {
+    if (!state.checked.has(p.b) || !showLabels) continue;
+    const tw = ctx.measureText(p.b).width;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(p.x + 7, p.y - 8 - 11, tw + 4, 14);
+    ctx.fillStyle = "rgba(34, 34, 42, 0.92)";
+    ctx.fillText(p.b, p.x + 9, p.y - 8);
   }
 
   // In-plot legend for color-by highlight colors, drawn on the canvas itself
@@ -797,6 +800,17 @@ $("filter").addEventListener("input", () => {
 $("clear").addEventListener("click", () => {
   state.checked.clear();
   rebuild();
+});
+$("dl").addEventListener("click", () => {
+  if (!current()) return;
+  // toBlob renders at the device-pixel resolution set in draw().
+  canvas.toBlob((blob) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${$("dz").value}_${$("imputer").value}.png`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, "image/png");
 });
 
 function init(data) {

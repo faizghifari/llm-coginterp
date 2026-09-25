@@ -39,11 +39,13 @@ The container does not copy data/ or results/, so build them first in host:
 ``` bash
 make preproc
 
+# note: default is "fill-mean" in the paper, and zeros is "fill-zeros"
+# ggm and cvxr skipped because they all crashed
 sudo docker build -t machineg .
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make impute softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr default zeros
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr default zeros
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor-timed softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr default zeros
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make loco softimpute softimpute_corr missforest onesidedmc knn usvt ggm cvxr default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make impute softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor-timed softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make loco softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
 
 # unsudo outputs recursively
 sudo chown -R $USER:$USER data
