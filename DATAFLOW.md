@@ -1,5 +1,14 @@
 # DATAFLOW
 
+> **WARNING: FORCED2F IS STALE AND SHOULD BE IGNORED.** The `forced2f` runs (and
+> their `forced2f_y<year>` timed variants) recorded in `results/` and the
+> `factoring` table of `database.db` are stale. No downstream consumer reads
+> them: the release-date analysis (`scripts/release_date.py`) reads only
+> `*_bifactor_pa_loadings.csv`, and the viewer
+> (`viewer/compute_positions.py`) explicitly skips every tag except `pa`
+> (plus legacy untagged files in `--legacy-names` mode). Do not use, cite, or
+> extend the forced2f outputs.
+
 How data moves through the MachineG2 pipeline: where every file is read from,
 written to, and how the stages hand state to each other. This complements
 `src/README.md` (which explains *why* each stage exists); this document is
