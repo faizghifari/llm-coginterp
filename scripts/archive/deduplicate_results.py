@@ -13,6 +13,8 @@ Source trust hierarchy:
   Tier 4: Unknown/unverifiable (raw github json, etc.)
 """
 
+from pathlib import Path
+
 import pandas as pd
 import re
 from datetime import datetime
@@ -74,7 +76,7 @@ def estimate_date(row):
 
 
 def main():
-    data_dir = "/Users/haznitrama/Desktop/llm-benchmarks/data"
+    data_dir = str(Path(__file__).resolve().parents[2] / "data")
     results = pd.read_csv(f"{data_dir}/results.csv")
 
     key_cols = ['model_name', 'benchmark_id', 'metric_name']

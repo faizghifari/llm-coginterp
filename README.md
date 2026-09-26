@@ -360,11 +360,7 @@ MIT — see [LICENSE](LICENSE).
 
 ## Authors / Contact
 
-If you are interested in the work, anything from a simple feedback to any forms of
-collaboration, feel free to reach us:
-- Faiz Ghifari Haznitrama ([haznitrama@kaist.ac.kr](mailto:haznitrama@kaist.ac.kr))
-- Afrizal Hasbi Azizy ([afrizalhasbi.azi@gmail.com](mailto:afrizalhasbi.azi@gmail.com))
-- Faeyza Rishad Ardi ([faeyza.rishad@gmail.com](mailto:faeyza.rishad@gmail.com))
+Author information has been removed for anonymous review.
 
 ## Citation
 
@@ -372,8 +368,7 @@ If you use this dataset or pipeline in your research, please cite:
 ```
 @misc{llm-coginterp-2026,
   title={Understanding the Structure of Language Model Abilities},
-  author={Haznitrama, Faiz Ghifari and Azizy, Afrizal Hasbi and Ardi, Faeyza Rishad},
-  year={2026},
-  url={https://github.com/faizghifari/llm-coginterp}
+  author={Anonymous Authors},
+  year={2026}
 }
 ```

@@ -5,6 +5,8 @@ Fix orphan model_names in results.csv:
 3. Remove orphan models from models.csv that have no results
 """
 
+from pathlib import Path
+
 import pandas as pd
 
 # Confident renames: results.model_name -> models.model_id
@@ -81,7 +83,7 @@ REMOVE_MODELS = set()
 
 
 def main():
-    data_dir = "/Users/haznitrama/Desktop/llm-benchmarks/data"
+    data_dir = str(Path(__file__).resolve().parents[2] / "data")
     results = pd.read_csv(f"{data_dir}/results.csv")
     models = pd.read_csv(f"{data_dir}/models.csv")
 
