@@ -1,6 +1,4 @@
-# Understanding the Structure of Language Model Abilities
-
-*Working title of the research; the repo itself is organized around two related pieces of work — see below.*
+# Large-scale factor analysis shows machine intelligence is only partially interpretable
 
 This project borrows an idea from human intelligence research, where people who do well on
 one kind of mental test also tend to do well on very different ones, pointing to one broad
@@ -36,17 +34,16 @@ The container does not copy data/ or results/, so build them first in host:
 make preproc
 
 # note: default is "fill-mean" in the paper, and zeros is "fill-zeros"
-# ggm and cvxr skipped because they all crashed
+# ggm and cvxr are omitted: they do not complete on these matrices
 sudo docker build -t machineg .
 sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make impute softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
 sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
 sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor-timed softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
 sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make loco softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
 
-# unsudo outputs recursively
+# the container writes its outputs as root; take ownership back on the host
 sudo chown -R $USER:$USER data
 sudo chown -R $USER:$USER results
-sudo chown -R $USER:$USER viewer
 
 mkdir -p results/pyout
 
@@ -111,9 +108,9 @@ corpus the MachineG2 pipeline actually runs on.
 
 | Table | Archive (`data/`) | Analysis view (`data/text_only/`) | Description |
 |-------|------:|------:|-------------|
-| `benchmarks.csv` | 627 | 457 | Benchmark metadata: name, venue, category, source URLs |
-| `models.csv` | 2,027 | 1,625 | Model metadata: family, developer, size, type |
-| `results.csv` | 19,072 | 13,256 | Evaluation results: scores, metrics, setup parameters |
+| `benchmarks.csv` | 624 | 456 | Benchmark metadata: name, venue, category, source URLs |
+| `models.csv` | 2,014 | 1,618 | Model metadata: family, developer, size, type |
+| `results.csv` | 19,030 | 13,251 | Evaluation results: scores, metrics, setup parameters |
 
 The view drops image- and audio-based benchmarks, score-redundant duplicate columns,
 translations of an in-corpus original, and all but one metric per benchmark. Every one of
@@ -136,7 +133,7 @@ before it can be run at all.
 > slug or a similar source-specific identifier — and is *not* what joins
 > to `models.csv`). This is enforced by `scripts/verify_data.py`.
 
-### benchmarks.csv (37 columns)
+### benchmarks.csv (41 columns)
 Primary key `benchmark_id` (lowercase). Core fields you'll actually use:
 `benchmark_id`, `benchmark_name`, `year`, `venue`, `category`,
 `subcategory`, `source_url`, `organization`, `task_types`, `metrics`.
@@ -145,7 +142,7 @@ The rest (`paper_url`, `github_url`, `hf_url`, `other_url`, `title`,
 across different extraction batches — mostly redundant with the core
 fields above, kept for provenance rather than as a clean schema.
 
-### models.csv (24 columns)
+### models.csv (25 columns)
 Primary key `model_id`. Core fields: `model_id`, `model_name`,
 `model_family`, `developer`, `model_size`, `model_type` (`open`/`closed`),
 `provider`, `parameters_billion`. `benchmark_count`, `total_results`, and
@@ -245,8 +242,9 @@ data collection → aggregation → DENSIFY → IMPUTE → FACTOR
 ```
 
 The pipeline runs the cross-product `{densifier: raw, C, S, R} × {strategy: all_standard,
-all_aggressive} × {imputer: softimpute, knn, missforest, mice, onesidedmc}` (`iterativepca` is
-implemented but deferred/untested):
+all_aggressive} × {imputer: softimpute, softimpute_corr, knn, missforest, mice, onesidedmc, optspace,
+usvt, cvxr, ggm}`, plus the no-imputation `default` and `zeros` variants that factor a smoothed
+pairwise-complete correlation directly (`iterativepca` is implemented but deferred/untested):
 
 - **Densify** (`scripts/densify.py`) — three greedy-peel strategies that each produce a
   different bias profile, not one "best" table: **C** drops the sparsest benchmarks (favors
@@ -321,8 +319,8 @@ Author information has been removed for anonymous review.
 
 If you use this dataset or pipeline in your research, please cite:
 ```
-@misc{llm-coginterp-2026,
-  title={Understanding the Structure of Language Model Abilities},
+@misc{anonymous2026largescale,
+  title={Large-scale factor analysis shows machine intelligence is only partially interpretable},
   author={Anonymous Authors},
   year={2026}
 }

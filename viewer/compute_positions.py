@@ -1059,7 +1059,7 @@ def main() -> None:
     ):
         raise SystemExit(
             "--legacy-names reads the multimodal-inclusive legacy tree; refusing to "
-            "overwrite the committed viewer/positions.json. Pass --out."
+            "overwrite the default viewer/positions.json. Pass --out."
         )
     if args.legacy_names:
         print(LEGACY_BANNER)
