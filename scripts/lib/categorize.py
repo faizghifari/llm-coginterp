@@ -8,8 +8,8 @@ or developer needs to be taught to this classifier, not the logic here.
 
 This module also exposes `classify_scope` / `classify_scope_all`, a
 second, orthogonal classifier over a different axis (is this model a
-generative LLM / LLM-backed multimodal model at all, per METHODOLOGY.md's
-"Model Inclusion Criteria" — not "is its provenance traceable?", which is
+generative LLM / LLM-backed multimodal model at all, per the model
+inclusion criteria — not "is its provenance traceable?", which is
 all `categorize_model` above checks). A row can be KEEP on one axis and
 REMOVE on the other.
 """
@@ -102,8 +102,8 @@ def _matched_patterns(combined, patterns):
 
 def classify_scope(row):
     """Classify one models.csv row on the modality/inclusion-scope axis
-    (LLM-or-LLM-backed-multimodal vs not), per METHODOLOGY.md's "Model
-    Inclusion Criteria". Orthogonal to categorize_model()'s fine-tune-
+    (LLM-or-LLM-backed-multimodal vs not), per the model inclusion
+    criteria. Orthogonal to categorize_model()'s fine-tune-
     provenance axis. Returns (scope_category, scope_reason)."""
     model_id = str(row.get("model_id", "") or "")
     model_name = str(row.get("model_name", "") or "")

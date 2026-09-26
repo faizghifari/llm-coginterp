@@ -3,8 +3,7 @@
   - Excel workbook (one sheet per CSV)
 
 Used by export_eee_jsonl.py and export_xlsx.py at the repo root — those
-are kept as separate, named entry points (matching METHODOLOGY.md's
-references to them) but contain no logic of their own beyond argument
+are kept as separate, named entry points but contain no logic of their own beyond argument
 parsing; everything reusable lives here.
 """
 import hashlib

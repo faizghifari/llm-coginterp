@@ -26,7 +26,7 @@ Commands:
   audit-model-scope  Classify every model row as KEEP / REMOVE on the
                      modality/inclusion-scope axis (is this a generative
                      LLM or LLM-backed multimodal model at all, per
-                     METHODOLOGY.md's Model Inclusion Criteria) —
+                     the model inclusion criteria) —
                      orthogonal to categorize-models. Read-only; grouped
                      by model_family for review.
   audit-benchmark-modality  Classify every benchmark row as TEXT /
@@ -51,7 +51,7 @@ Examples:
   python3 scripts/manage_data.py apply-aliases --map-file my_renames.json --write
   python3 scripts/manage_data.py standardize-ids --write
   python3 scripts/manage_data.py categorize-models --output data/models_categorized.csv
-  python3 scripts/manage_data.py audit-model-scope --emit-remove-rules notes/scope_remove_draft.json
+  python3 scripts/manage_data.py audit-model-scope --emit-remove-rules scope_remove_draft.json
   python3 scripts/manage_data.py recompute-stats --write
 """
 import argparse

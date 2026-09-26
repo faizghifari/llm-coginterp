@@ -3,14 +3,14 @@
 Resolve the 3 remaining conflict benchmarks (opencompass / eifbench / mmar)
 ===========================================================================
 These were the last "conflicting duplicate-evaluation groups" flagged in
-notes/TODO.md. They all trace to the same root cause: the bulk leaderboard /
+the backlog. They all trace to the same root cause: the bulk leaderboard /
 PwC imports squashed multi-dimensional results into a single mislabeled
 `accuracy` metric, and standardise pass 5 then collapsed the resulting
 same-key conflicts by arbitrarily keeping one row. On re-verification against
 each benchmark's cited source the stored numbers did not match the source, so
 the conflicts were symptoms of mis-extraction, not genuine score disputes.
 
-Resolution policy: "correct + prune to source" (user-approved).
+Resolution policy: "correct + prune to source".
 
   MMAR  (arXiv 2505.13032 — audio reasoning, NOT multilingual/MT):
     - Gemini 1.5 Pro does not appear in the paper at all → DROP that result.

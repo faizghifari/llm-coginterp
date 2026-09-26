@@ -2,8 +2,7 @@
 """Export benchmarks.csv / models.csv / results.csv to a single Excel
 workbook (one sheet each, frozen header row, auto-fit columns).
 
-Thin wrapper around scripts/lib/export.py — kept as its own entry point
-because it's referenced by name in docs/METHODOLOGY.md. Writes
+Thin wrapper around scripts/lib/export.py. Writes
 data/llm_benchmarks_export.xlsx.
 """
 import sys

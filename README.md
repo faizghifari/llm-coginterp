@@ -9,9 +9,6 @@ shows up in large language models when a large number of them are compared acros
 different kinds of tasks — from math and coding to safety behavior, multiple languages, and
 medical knowledge — or whether it does not hold up the way it does for people.
 
-For the current findings, written for a general audience, see
-**[docs/RESEARCH_OVERVIEW.md](docs/RESEARCH_OVERVIEW.md)**.
-
 The repo is two related but distinct pieces of work:
 
 1. **A curated dataset** (`data/benchmarks.csv`, `data/models.csv`, `data/results.csv`) of
@@ -19,8 +16,7 @@ The repo is two related but distinct pieces of work:
    — documented below.
 2. **MachineG2** — an R/Julia pipeline (`src/`) that recovers the latent factor structure of
    LLM capabilities from that dataset, treated as a super-sparse, MNAR (missing-not-at-random)
-   model × benchmark score matrix — see [MachineG2 Pipeline](#machineg2-pipeline) below and
-   [src/README.md](src/README.md) for the full statistical detail.
+   model × benchmark score matrix — see [MachineG2 Pipeline](#machineg2-pipeline) below.
 
 `scripts/` (Python) builds and maintains the dataset; `src/` (R + Julia) consumes it. They are
 independently runnable.
@@ -63,8 +59,7 @@ for c in \
   scripts/top_g_ci.py \
   scripts/plot_cohesion_summary.py \
   scripts/impute_summary.py \
-  scripts/factor_summary.py \
-  scripts/sensitivity.py; do
+  scripts/factor_summary.py; do
   log="results/pyout/$(basename ${c%.py}).log"
   uv run $c 2>&1 | tee "$log"
 done
@@ -108,8 +103,6 @@ Rscript src/run/impute.R --method softimpute --data-root data --results-root res
 # --loco          (factor.R) leave-one-benchmark-out delta omega_h
 ```
 
-See `src/README.md` for the full command reference, output paths, and pipeline architecture.
-
 ## Dataset Overview
 
 The dataset exists twice: **`data/*.csv` is the archive**, recording what sources
@@ -126,14 +119,13 @@ The view drops image- and audio-based benchmarks, score-redundant duplicate colu
 translations of an in-corpus original, and all but one metric per benchmark. Every one of
 those decisions is encoded in `scripts/lib/config.py` and applied by
 `scripts/make_text_only_copy.py` — the view is regenerated, never hand-edited, and
-`--check` asserts it reproduces byte-for-byte. See `docs/METHODOLOGY.md` for the full policy.
+`--check` asserts it reproduces byte-for-byte.
 
 Even after cleanup, the table of models × benchmarks is extremely sparse — under 2% of all
 possible (model, benchmark) pairs have a recorded score, since well-known models get tested
 repeatedly while lesser-known benchmarks barely get touched. This is *why* the MachineG2
 pipeline exists: it's the reason recovering a factor structure needs densifying + imputing
-before it can be run at all. See [docs/RESEARCH_OVERVIEW.md](docs/RESEARCH_OVERVIEW.md) §1 for
-the current density numbers per trimming strategy.
+before it can be run at all.
 
 ## Data Schema
 
@@ -142,8 +134,7 @@ the current density numbers per trimming strategy.
 > `model_id` (results.csv also has its own `model_id`, which is a
 > denormalized convenience field — usually the model's HuggingFace repo
 > slug or a similar source-specific identifier — and is *not* what joins
-> to `models.csv`). This is enforced by `scripts/verify_data.py`; see
-> [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the full normalization rules.
+> to `models.csv`). This is enforced by `scripts/verify_data.py`.
 
 ### benchmarks.csv (37 columns)
 Primary key `benchmark_id` (lowercase). Core fields you'll actually use:
@@ -170,13 +161,10 @@ scales this average isn't a single meaningful number.)
 One row per (model, benchmark, evaluation-setup) data point. Core
 fields: `benchmark_id`, `model_name` (the real FK, see above), `score`,
 `metric_name`, `setup`, `language` (sub-task/sub-language label when a
-benchmark reports more than one metric per model — see "Multiple Scores
-per Model-Benchmark Pair" in METHODOLOGY.md), `reasoning_enabled`,
+benchmark reports more than one metric per model), `reasoning_enabled`,
 `generation_temperature`, `source_url`. A model can legitimately have
 many rows for the same benchmark — different `setup`/`source_url`/
 `language` values mean different real evaluations, not duplicates.
-
-Full schema documentation in [docs/METHODOLOGY.md](docs/METHODOLOGY.md).
 
 ## Usage Examples
 
@@ -221,8 +209,6 @@ the analysis view, since such a benchmark measures a model's perceptual front-en
 much as its language ability; the pipeline can still be pointed at the full corpus to check
 what that exclusion changed (see below).
 
-See `notes/` for per-category research notes.
-
 ## Verification
 
 Run `scripts/verify_data.py` to check data integrity:
@@ -248,10 +234,7 @@ Checks include:
 
 All of these scripts are thin entry points over the shared, reusable toolkit in
 `scripts/lib/` (config/trust-tier data, CSV I/O, integrity checks, dedup
-resolution, alias/standardization helpers, model categorization, exports) — new
-cleanup needs should extend that library rather than adding another
-one-off script. Past one-off cleanup scripts are kept for audit-trail
-purposes in `scripts/archive/` (see `scripts/archive/README.md`). Each
+resolution, alias/standardization helpers, model categorization, exports). Each
 script also works if run from anywhere, not just the repo root.
 
 ## MachineG2 Pipeline
@@ -325,34 +308,6 @@ and `release-cohort-omega.png` (the appendix figure) to `$(RESULTS_ROOT)/release
 The analysis imputes once over all models and then splits by cohort. It is valid when release year
 shifts the level of performance without changing how benchmarks correlate. The paper's appendix
 states this assumption and its caveat.
-
-Note `src/README.md` is currently **out of date** on several points (it documents `src/run/main.R`,
-a `--sensitivity` flag, dashboards and principal-axis factoring, none of which are live).
-
-## Current Findings
-
-See [docs/RESEARCH_OVERVIEW.md](docs/RESEARCH_OVERVIEW.md) for the up-to-date, plain-language
-writeup of what the pipeline has found so far — how well each method predicts held-out scores,
-how many distinct ability groupings the data supports (and why the methods disagree on that
-number), and the open questions the project is currently working through.
-
-## Methodology
-
-See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for:
-- Strict source verification principles
-- Model inclusion/exclusion criteria
-- Data normalization rules
-- Inference environment collection methodology
-- Generation parameter extraction approach
-- The required checklist for adding new data
-
-## Changelog
-
-See [docs/CHANGELOG.md](docs/CHANGELOG.md) for a history of all data additions and changes.
-
-## Notes
-
-Research notes per category are in `notes/`. The backlog is tracked in `notes/TODO.md`.
 
 ## License
 

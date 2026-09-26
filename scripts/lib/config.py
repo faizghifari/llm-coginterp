@@ -10,7 +10,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = REPO_ROOT / "data"
-NOTES_DIR = REPO_ROOT / "notes"
 
 BENCHMARKS_CSV = DATA_DIR / "benchmarks.csv"
 MODELS_CSV = DATA_DIR / "models.csv"
@@ -22,7 +21,7 @@ DUPLICATES_CSV = DATA_DIR / "results_duplicates.csv"
 # same eval — true duplicates (either redundant or conflicting), never a
 # legitimate "multiple scores per model-benchmark pair" case.
 #
-# Per METHODOLOGY.md "Multiple Scores per Model-Benchmark Pair": rows
+# Rows
 # distinguished by `setup` and/or `source_url` are kept separate on
 # purpose and must NOT be collapsed — hence both are part of the key.
 #
@@ -113,7 +112,7 @@ FINE_TUNE_KEYWORDS = {
 # answer "is this a traceable base model or an untraceable fine-tune?".
 # The three sets below answer a different question -- "is this a
 # generative LLM (or an LLM-backed multimodal model) at all?", per
-# METHODOLOGY.md's "Model Inclusion Criteria". A model can KEEP on one
+# the model inclusion criteria. A model can KEEP on one
 # axis and REMOVE on the other (e.g. mT5-XXL: KEEP under
 # categorize_model() since it has a clear model_family, but REMOVE under
 # classify_scope() since T5 is encoder-decoder, not a decoder-only
@@ -157,7 +156,7 @@ NARROW_TASK_PATTERNS = {
 
 # Explicit allow-list, checked BEFORE NON_GENERATIVE_PATTERNS /
 # NARROW_TASK_PATTERNS: models that add a modality encoder ON TOP OF an
-# LLM backbone (policy-compliant per METHODOLOGY.md) but whose family/name
+# LLM backbone (policy-compliant) but whose family/name
 # happens to contain an exclude-pattern fragment naming their backbone
 # (e.g. "BLIP2-FLAN-T5-XXL" contains "t5"). Extend THIS set, never the
 # exclude patterns, when a new VLM/ALM family is added to the dataset.
@@ -345,7 +344,7 @@ KEPT_DESPITE_CORRELATION = {
         "per-language splits were removed.",
     "flores_*, lindsea, arabicmmlu, pwc wmt/conll language pairs":
         "Natively multilingual or genuinely distinct per-language content, not "
-        "parallel translations -- see notes/multilingual_duplication_audit.md.",
+        "parallel translations.",
 }
 
 # --- Canonical metric selection (used by scripts/lib/metrics.py) ---
@@ -449,8 +448,8 @@ KNOWN_METRIC_COLUMN_DEFECTS = {
 # these rest on what the benchmark IS. Conflating the two would let a
 # construct argument borrow the correlational evidence's authority.
 #
-# Same rule as the earlier corpus-level translation pass (see
-# docs/CHANGELOG.md): remove a translation only when the original is present
+# Same rule as the earlier corpus-level translation pass:
+# remove a translation only when the original is present
 # to fall back on; where no original exists in our import, the translated
 # benchmark is KEPT and consolidated instead. Cross-language *aggregates* with
 # no in-corpus original (multiloko, belebele, mgsm) are therefore kept -- they

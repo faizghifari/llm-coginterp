@@ -3,8 +3,7 @@
 
 Thin wrapper around the checks in scripts/lib/integrity.py — kept as its
 own entry point because `python3 scripts/verify_data.py` is the command
-referenced throughout README.md and docs/METHODOLOGY.md as "run this
-after every change".
+referenced in README.md as "run this after every change".
 
 For everything else (duplicate detection/resolution, alias fixes, model
 categorization), see `python3 scripts/manage_data.py --help`.

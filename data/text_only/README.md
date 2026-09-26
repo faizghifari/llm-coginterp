@@ -131,7 +131,7 @@ Families whose columns correlate highly but *not uniformly* -- the spread is rea
 - `scicode_{main,subproblem}_{standard,with_background}`: The 4 explicit SciCode split variants correlate r=0.71-0.96 -- real, but not uniform enough to treat as duplicates the way GPQA's were (floor 0.915). Only the corrupted bare `kaggle_andrewmingwang_scicode` id was removed.
 - `thai_exam_{tgat,tpat1}`: Aptitude/reasoning-style Thai exams; correlate only r=0.70-0.88 with the {ONET, IC, A-Level} knowledge cluster and with each other. Verified the TGAT vs A-Level gap is systematic, not noise: several general-purpose multilingual models (Command R, SeaLLM, GPT-3.5-Turbo) score 35-45 points higher on TGAT (general reasoning) than on A-Level (Thai-curriculum subject knowledge). Distinct variance -- keep.
 - `multiloko`: The canonical paper-sourced aggregate is KEPT; only the 31 Kaggle per-language splits were removed.
-- `flores_*, lindsea, arabicmmlu, pwc wmt/conll language pairs`: Natively multilingual or genuinely distinct per-language content, not parallel translations -- see notes/multilingual_duplication_audit.md.
+- `flores_*, lindsea, arabicmmlu, pwc wmt/conll language pairs`: Natively multilingual or genuinely distinct per-language content, not parallel translations.
 
 ## Canonical metric selection (91 contested benchmarks)
 

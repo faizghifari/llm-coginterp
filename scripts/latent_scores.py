@@ -18,7 +18,7 @@
 #
 # where Z is the model×benchmark matrix with each benchmark column z-scored
 # (columns only — rows are models and row-scaling would erase the general
-# factor; see DATAFLOW gotchas). Λ contains *structure* coefficients (how
+# factor). Λ contains *structure* coefficients (how
 # strongly each benchmark reflects each factor, ignoring collinearity);
 # multiplying by R⁻¹ converts them into *beta* weights that correct for
 # benchmark intercorrelation — the standard fa()/regression method, which

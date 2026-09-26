@@ -8,7 +8,7 @@ Two rows are "the same evaluation" if they match on every column in
                                    more recent `year_evaluated`.
 
 This replaces the old check_dupes.py / check_dupes2.py / analyze_dupes.py
-/ deduplicate_results.py scripts (see scripts/archive/), which each
+/ deduplicate_results.py scripts, which each
 reimplemented a slightly different and mutually inconsistent version of
 this same logic with a looser, hardcoded key.
 """

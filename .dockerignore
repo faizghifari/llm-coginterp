@@ -55,11 +55,11 @@ wheels/
 
 # Data backups & intermediate files
 data/*.bak*
+data/backup/
 data/backups/
 data/eee_output/
 data/llm_benchmarks_export.xlsx
 data/results_duplicates.csv
-scripts/archive/models_research_findings.json
 
 # Local tooling configs
 CLAUDE.md
