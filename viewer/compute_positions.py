@@ -418,6 +418,74 @@ def pair_coverage(cell_list: Sequence[Cell], bench: list[str]) -> tuple[float, i
     return round(1.0 - missing / total, 4), missing // 2
 
 
+def report_missing_patterns(jobs: list[Job]) -> None:
+    """Markdown table of missing pairs per embedding, deduped by missing-pair set.
+
+    Two embeddings whose distance matrices leave the exact same pairs unmeasured
+    collapse into one pattern block. Cells whose only factor column is g count
+    toward coverage here but not in the without_g matrix.
+    """
+    patterns: dict[frozenset, list[Job]] = {}
+    rows: list[tuple[Job, int, int, float]] = []
+    for job in jobs:
+        bench = sorted({b for c in job.cells for b in c.bench})
+        n = len(bench)
+        idx = {b: i for i, b in enumerate(bench)}
+        seen = np.zeros((n, n), dtype=bool)
+        for cell in job.cells:
+            r = np.array([idx[b] for b in cell.bench])
+            seen[np.ix_(r, r)] = True
+        pat = frozenset(
+            (bench[i], bench[j])
+            for i in range(n)
+            for j in range(i + 1, n)
+            if not seen[i, j]
+        )
+        total = n * (n - 1) // 2
+        rows.append((job, n, len(pat), 100.0 * len(pat) / total if total else 0.0))
+        patterns.setdefault(pat, []).append(job)
+
+    rows_nonzero = [r for r in rows if r[2]]
+    if not rows_nonzero:
+        print("missing-entry report: every embedding has full pair coverage")
+        return
+    print("missing-entry report (embeddings with missing pairs only)")
+    print("|dataset|tag|imputer|year|n|missing|total|% missing|")
+    print("|-|-|-|-|-|-|-|-|")
+    for job, n, miss, pct in rows_nonzero:
+        total = n * (n - 1) // 2
+        print(
+            f"|{job.dz}|{job.tag}|{job.method or 'aggregate'}"
+            f"|{job.year if job.year is not None else 'all'}|{n}|{miss}|{total}|{pct:.2f}%|"
+        )
+    for i, (pat, pj) in enumerate(
+        sorted(patterns.items(), key=lambda kv: (-len(kv[0]), kv[1][0].key)), 1
+    ):
+        if not pat:
+            continue
+        involved = sorted({b for pair in pat for b in pair})
+        print()
+        print(
+            f"pattern {i}: {len(pat)} pairs, {len(involved)} benchmarks involved: "
+            f"{', '.join(involved)}"
+        )
+        print(
+            "embeddings: "
+            + ", ".join(
+                f"{j.dz}|{j.tag}|{j.method or 'aggregate'}"
+                f"|{j.year if j.year is not None else 'all'}"
+                for j in pj
+            )
+        )
+    g_only = sum(1 for job in jobs for c in job.cells if c.cols == ["g"])
+    if g_only:
+        print()
+        print(
+            f"note: {g_only} cell(s) contribute only g; without_g coverage "
+            "is lower than reported"
+        )
+
+
 def condensed(dist: np.ndarray) -> np.ndarray:
     """Validate the distance-matrix invariants, then squareform.
 
@@ -1032,11 +1100,13 @@ def main() -> None:
     rng = np.random.default_rng(42)
 
     out = {}
+    jobs = build_jobs(cells)
+    report_missing_patterns(jobs)
     # One job per composite matrix: the aggregate over every imputation method
     # (key "dz|tag", unchanged for backwards compatibility) plus one per method
     # (key "dz|tag|m<method>"). Identity lives on the Job; its key is derived
     # from the fields and never parsed back apart.
-    for job in build_jobs(cells):
+    for job in jobs:
         key = job.key
         old = prior.get(key) if args.relabel else None
         if old is not None and not same_inputs(old, job):
