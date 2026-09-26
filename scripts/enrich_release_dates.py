@@ -4,7 +4,7 @@
 Stage one only: everything derivable from data already in the tables, at zero
 lookup cost (arXiv identifiers for benchmarks, embedded date stamps for models).
 Whatever this leaves unfilled is the work list for stage two -- external
-per-row research, delegated to the hermes agent -- and `--todo` writes exactly
+per-row research, delegated to an LLM research agent -- and `--todo` writes exactly
 that list out so stage two never re-researches an answer we already hold.
 
 Writes to the ARCHIVE (`data/*.csv`), because a release date is a fact about
@@ -36,7 +36,7 @@ def _summarise(label, report, derived_key):
     print(f"     month precision  : {report['month_precision']} "
           f"({100 * report['month_precision'] / total:.0f}%)")
     print(f"     year only        : {report['year_only']}")
-    print(f"  still missing       : {report['missing']}  <- stage two (hermes)")
+    print(f"  still missing       : {report['missing']}  <- stage two (LLM research)")
     if report["cleared_invalid"]:
         print(f"  cleared {len(report['cleared_invalid'])} invalid value(s) "
               f"(not a YYYY-MM date):")
@@ -153,11 +153,10 @@ def main(argv=None):
     if args.merge:
         d = Path(args.merge)
         print(f"\nTwo-pass agreement merge from {d}:")
-        # benchmarks: both passes were hermes. models: pass B is haiku.
         benchmarks, _ = _merge_pass(d, "benchmarks", "benchmark_id", benchmarks,
-                                    "hermes", "hermes")
+                                    "llm", "llm")
         models, _ = _merge_pass(d, "models", "model_id", models,
-                                "hermes", "haiku")
+                                "llm", "llm")
 
     if args.write:
         io.save_csv(benchmarks, config.BENCHMARKS_CSV)

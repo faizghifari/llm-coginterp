@@ -86,7 +86,7 @@ The always-on lightweight unit tests (`test_metrics.jl`, `test_data.jl`,
 
 ```bash
 # via the orchestrator (recommended):
-Rscript src/run/main.R --method onesidedmc
+Rscript src/run/impute.R --method onesidedmc
 
 # or the Julia driver directly (uses all cores for the sensitivity sweep):
 julia --threads=auto --project=src/impute/OneSidedMC src/impute/OneSidedMC/run.jl

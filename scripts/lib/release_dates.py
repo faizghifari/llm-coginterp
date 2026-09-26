@@ -2,7 +2,7 @@
 
 Two-stage design. This module is stage one: everything derivable *from data
 already in the tables*, at zero lookup cost. Stage two (external research per
-row, via the hermes agent) should only ever see what this leaves behind.
+row, via an LLM research agent) should only ever see what this leaves behind.
 
 Why month precision: a bare year is too coarse to order releases within a year,
 which is the whole point of having the field. Where a full YYYY-MM-DD is already
@@ -15,7 +15,7 @@ not equally trustworthy and must stay distinguishable after the fact:
   existing    already present and valid; untouched
   arxiv_id    decoded from an arXiv identifier (YYMM.NNNNN -> 20YY-MM)
   name_stamp  decoded from a date stamp inside the model id/name/repo
-  hermes      researched externally (written by stage two, not here)
+  (others)    researched externally (written by stage two, not here)
 
 The arXiv decoding is exact, not heuristic: arXiv identifiers since 2007 encode
 submission year and month in their first four digits. Validated against the 117
@@ -127,7 +127,7 @@ def enrich_benchmarks(benchmarks):
             dates.append(str(current).strip())
             # Keep whatever tier actually produced this value. Overwriting it
             # with "existing" would erase the provenance the column exists to
-            # record -- `hf_createdat` and `single_haiku` are not equally
+            # record -- `hf_createdat` and `single_llm` are not equally
             # trustworthy and must stay distinguishable after the fact.
             prior = str(row.get("release_date_source") or "").strip()
             sources.append(prior if prior and prior != "nan" else "existing")
@@ -170,7 +170,7 @@ def enrich_models(models):
             dates.append(str(current).strip())
             # Keep whatever tier actually produced this value. Overwriting it
             # with "existing" would erase the provenance the column exists to
-            # record -- `hf_createdat` and `single_haiku` are not equally
+            # record -- `hf_createdat` and `single_llm` are not equally
             # trustworthy and must stay distinguishable after the fact.
             prior = str(row.get("release_date_source") or "").strip()
             sources.append(prior if prior and prior != "nan" else "existing")
@@ -215,8 +215,8 @@ def enrich_models(models):
 # costs nothing to run locally.
 #
 # Acceptance ladder, loosest rung that both passes support:
-#   same YYYY-MM        -> month precision, hermes_agreed_month
-#   same YYYY, diff MM  -> year precision,  hermes_agreed_year
+#   same YYYY-MM        -> month precision, corroborated_month
+#   same YYYY, diff MM  -> year precision,  corroborated_year
 #   one YYYY-MM + one YYYY, same year -> year precision
 #   different years / either UNKNOWN   -> REJECTED, left empty for review
 
@@ -251,10 +251,10 @@ def reconcile(answer_a, answer_b):
         return None, None, f"year disagreement ({a[1]} vs {b[1]})"
     if a[0] == "month" and b[0] == "month":
         if a[1] == b[1]:
-            return a[1], "hermes_agreed_month", "exact agreement"
-        return ya, "hermes_agreed_year", f"month disagreement ({a[1]} vs {b[1]})"
+            return a[1], "corroborated_month", "exact agreement"
+        return ya, "corroborated_year", f"month disagreement ({a[1]} vs {b[1]})"
     # at least one pass only knew the year, and the years match
-    return ya, "hermes_agreed_year", "year-precision agreement"
+    return ya, "corroborated_year", "year-precision agreement"
 
 
 def read_answer_csv(path, with_evidence=False):

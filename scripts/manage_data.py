@@ -33,7 +33,7 @@ Commands:
                      NON_TEXT on the input/output modality axis (does
                      this benchmark require vision/audio/video). Read-
                      only; grouped by category for review, with
-                     --emit-panel-input for subagent-panel batching.
+                     --emit-panel-input for batched review.
   find-language-clusters  Group benchmark_ids that look like per-language
                      siblings of a shared stem (e.g. Kaggle/HELM
                      per-language leaderboard imports), for human review.
@@ -336,7 +336,7 @@ def build_parser():
 
     p = sub.add_parser("audit-benchmark-modality", help="Classify benchmarks as TEXT / NON_TEXT on the input/output modality axis (read-only).")
     p.add_argument("--output", help="Optional CSV path to save the full per-row breakdown.")
-    p.add_argument("--emit-panel-input", help="Optional CSV path prefix; writes NON_TEXT candidates chunked into <=50-row batch files for subagent-panel review.")
+    p.add_argument("--emit-panel-input", help="Optional CSV path prefix; writes NON_TEXT candidates chunked into <=50-row batch files for review.")
     p.set_defaults(func=cmd_audit_benchmark_modality)
 
     p = sub.add_parser("find-language-clusters", help="Group benchmark_ids that look like per-language siblings of a shared stem (read-only).")

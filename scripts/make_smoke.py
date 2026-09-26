@@ -6,7 +6,7 @@ structure + MNAR-ish sparsity, then runs them through the SAME densifier (C/R/S)
 used in production, writing data/smoke/combinations_<C|R|S>/<strategy>/.
 
 Run:  python3 src/make_smoke.py
-Then: Rscript src/run/main.R --smoke
+Then: Rscript src/run/impute.R --smoke && Rscript src/run/factor.R --smoke
 """
 
 import sys
@@ -88,7 +88,7 @@ def main():
             print(f"[{dz}] {strategy:14} -> {out.shape[0]}x{out.shape[1] - 1} "
                   f"({dens:.0f}% dense)")
     print(f"\nSmoke fixture written under {OUT}/")
-    print("Run: Rscript src/run/main.R --smoke")
+    print("Run: Rscript src/run/impute.R --smoke && Rscript src/run/factor.R --smoke")
 
 
 if __name__ == "__main__":

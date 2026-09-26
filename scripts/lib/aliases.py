@@ -3,12 +3,8 @@
   - standardize model_id formatting to one naming convention
   - suggest likely alias candidates for unresolved orphan model_names
 
-This generalizes the one-off RENAME_MAP / fk_map / merge_groups dicts
-that used to live inside fix_model_aliases.py, fix_results_fk.py, and
-merge_models.py: each of those hardcoded a
-specific past cleanup pass and couldn't be reused. The functions here
-take the mapping as a parameter, so the same code handles any future
-cleanup pass — build a `{old_id: new_id}` JSON file and pass it to
+The functions here take the mapping as a parameter, so the same code
+handles any cleanup pass — build a `{old_id: new_id}` JSON file and pass it to
 `manage_data.py apply-aliases`.
 """
 import re

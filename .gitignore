@@ -61,13 +61,8 @@ data/eee_output/
 data/llm_benchmarks_export.xlsx
 data/results_duplicates.csv
 
-# Local tooling configs
-CLAUDE.md
-
 # output
 results/*
-.hermes_p*.csv
-.hermes_INSTRUCTIONS.md
 
 *.zip
 *.zst
