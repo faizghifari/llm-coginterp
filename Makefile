@@ -73,6 +73,13 @@ preproc:
 	uv run python scripts/collapse_results.py --data-root $(DATA_ROOT)
 	uv run python scripts/densify.py --data-root $(DATA_ROOT)
 
+# Synthetic MNAR stress-test data (scripts/make_mnar.py). Takes no arguments:
+# mirrors all 8 text_only tables x 9 scenarios x 3 seeds into data/mnar/.
+# Each data/mnar/<scenario>/s<seed> is a drop-in --data-root; planted truth
+# (complete matrices + true correlations) lands in data/mnar/truth/.
+mnar-synth:
+	uv run python scripts/make_mnar.py
+
 # --- ad hoc jobs ---------------------------------------------------------------
 impute:
 	$(CLEAR_SUMMARY)
