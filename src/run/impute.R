@@ -26,6 +26,13 @@
 #                    (default results/text_only)
 #     --smoke        use data/smoke fixture
 #     --no-balance   revert to cell-weighted holdout scores
+#     --synth        run the synthetic stress corpus instead: loops over every
+#                    data/synth/<cell>/<mask>/s0 drop-in root (C/S all_standard
+#                    only). Completed CSVs land inside each root as usual; flat
+#                    results go to results/synth/<cell>/<mask>/ and DB rows to
+#                    results/synth/database.db, table imputation_synth
+#                    (keyed by cell, mask, dataset, method). Mutually exclusive
+#                    with --smoke/--raw/--data-root-style overrides.
 # ─────────────────────────────────────────────────────────────────────────────
 
 .script_path <- sub("^--file=", "",
@@ -49,9 +56,29 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
 # persisted as ..._correlation.csv next to the flat results (the completed CSV
 # alone cannot recover it).
 RAW_METHODS <- c("default", "zeros")
+
+# Enumerate the synthetic stress corpus (scripts/make_mnar.py output): every
+# data/synth/<cell>/<mask>/s0 drop-in data root. `truth/` and `summary.csv`
+# carry no s0/ combinations tree and are excluded by the check below.
+synth_roots <- function(base) {
+  roots <- list()
+  for (cell in sort(list.files(base))) {
+    cell_dir <- file.path(base, cell)
+    if (!dir.exists(cell_dir)) next
+    for (mask in sort(list.files(cell_dir))) {
+      root <- file.path(cell_dir, mask, "s0")
+      if (dir.exists(file.path(root, "combinations_C")) ||
+            dir.exists(file.path(root, "combinations_S")))
+        roots[[length(roots) + 1L]] <-
+          list(cell = cell, mask = mask, root = root)
+    }
+  }
+  roots
+}
+
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
-  reimpute <- FALSE; no_balance <- FALSE
+  reimpute <- FALSE; no_balance <- FALSE; synth <- FALSE
   data_root <- "data/text_only"; results_root <- "results/text_only"
   i <- 1L
   while (i <= length(args)) {
@@ -63,13 +90,18 @@ parse_args <- function(args) {
     else if (a == "--raw")         { raw        <- TRUE; i <- i + 1L }
     else if (a == "--reimpute")    { reimpute   <- TRUE; i <- i + 1L }
     else if (a == "--no-balance")  { no_balance <- TRUE; i <- i + 1L }
+    else if (a == "--synth")       { synth      <- TRUE; i <- i + 1L }
     else stop("unknown arg: ", a)
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
+  if (synth && smoke) stop("--synth and --smoke are mutually exclusive")
+  if (synth && raw)   stop("--synth covers only the C/S all_standard cells (no raw level)")
+  if (synth && (data_root != "data/text_only" || results_root != "results/text_only"))
+    stop("--synth fixes its own data roots and results layout; drop --data-root/--results-root")
   list(methods = if (method == "all") ALL_METHODS else method,
        smoke = smoke, raw = raw, reimpute = reimpute,
-       no_balance = no_balance,
+       no_balance = no_balance, synth = synth,
        data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -80,13 +112,31 @@ STRATEGIES <- c("all_standard", "all_aggressive")
 REIMPUTE   <- opt$reimpute
 BALANCE_HOLDOUT <- !opt$no_balance
 MAX_RANK   <- 10L
+SYNTH      <- opt$synth
+# Active synth cell/mask; NULL (and unused) outside --synth mode. --synth
+# re-points DATA_ROOT/RESULTS_ROOT per (cell, mask) inside main().
+SYNTH_CELL <- NULL
+SYNTH_MASK <- NULL
 DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
 RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
-dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
-cat(sprintf("impute: methods=[%s]  data_root=%s  results=%s  reimpute=%s\n",
-            paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT, REIMPUTE))
-
-DB_FILE <- file.path(RESULTS_ROOT, "database.db")
+if (SYNTH) {
+  # The generator writes only combinations_C/S at all_standard; nothing else
+  # exists to skip.
+  DENSIFIERS <- c("C", "S")
+  DB_FILE    <- file.path(REPO, "results", "synth", "database.db")
+} else {
+  dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
+  DB_FILE <- file.path(RESULTS_ROOT, "database.db")
+  cat(sprintf("impute: methods=[%s]  data_root=%s  results=%s  reimpute=%s\n",
+              paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT, REIMPUTE))
+}
+if (SYNTH) {
+  .synth_roots <- synth_roots(file.path(REPO, "data", "synth"))
+  if (!length(.synth_roots))
+    stop("no data/synth/<cell>/<mask>/s0 roots found — run scripts/make_mnar.py first")
+  cat(sprintf("impute --synth: methods=[%s]  roots=%d  results=results/synth  reimpute=%s\n",
+              paste(METHODS, collapse = ","), length(.synth_roots), REIMPUTE))
+}
 
 combos_path <- function(dz, st) {
   sub <- if (dz == "raw") "combinations" else sprintf("combinations_%s", dz)
@@ -183,6 +233,93 @@ osmc_contract <- function(dz, st, imputed_csv) {
        param_name = "r", metric_name = "Held-out RMSE")
 }
 
+# One imputation row: the standard `imputation` table, or `imputation_synth`
+# (keyed by cell/mask, gt_r2 reserved for truth scoring) in --synth mode.
+db_record <- function(method, dataset, rmse, r2, desc) {
+  if (!SYNTH)
+    return(db_insert_imputation(method, dataset, rmse, r2, desc,
+                                DB_FILE, REIMPUTE))
+  db_insert_imputation(method, dataset, rmse, r2, desc, DB_FILE, REIMPUTE,
+                       table = "imputation_synth",
+                       cell = SYNTH_CELL, mask = SYNTH_MASK)
+}
+
+# Ground-truth recovery R^2 for one --synth cell: score the completed matrix
+# against the planted truth (data/synth/truth/<tag>_<cell>_complete.csv) on
+# exactly the cells the masked input was MISSING — the imputation target.
+# (Observed cells pass through every imputer verbatim, so scoring them would
+# only re-measure observation frequency.) Per-column z-stats come from the
+# masked input's observed cells — the same baseline as the held-out metric
+# (train column mean = 0 in z-space) — and the aggregation is column-balanced,
+# matching score_holdout's shape: missing-cell counts differ wildly per
+# column (that IS the MNAR mechanism), and cell-weighting would let the
+# dense columns dominate the score. Returns NA when nothing can be scored.
+gt_r2_score <- function(masked_csv, imputed_csv, truth_csv) {
+  mask_df <- read.csv(masked_csv, check.names = FALSE)
+  imp_df  <- read.csv(imputed_csv,  check.names = FALSE)
+  tru_df  <- read.csv(truth_csv,    check.names = FALSE)
+  keys    <- intersect(imp_df$collapse_key, tru_df$collapse_key)
+  cols    <- intersect(names(imp_df)[-1], names(tru_df)[-1])
+  if (!length(keys) || !length(cols)) return(NA_real_)
+  ri <- match(keys, imp_df$collapse_key)
+  rt <- match(keys, tru_df$collapse_key)
+  rm <- match(keys, mask_df$collapse_key)
+  M   <- as.matrix(imp_df[ri, cols, drop = FALSE])
+  tru <- as.matrix(tru_df[rt, cols, drop = FALSE])
+  msk <- as.matrix(mask_df[rm, cols, drop = FALSE])
+  storage.mode(M) <- storage.mode(tru) <- storage.mode(msk) <- "double"
+
+  # Columns whose z-stats are unusable (no observed cells / zero variance)
+  # cannot be scored — prep_matrix normally drops these upstream anyway.
+  mu  <- colMeans(msk, na.rm = TRUE)
+  sds <- apply(msk, 2L, function(c) stats::sd(c[!is.na(c)]))
+  ok  <- is.finite(mu) & is.finite(sds) & sds > 0
+  if (!any(ok)) return(NA_real_)
+  M   <- M[, ok, drop = FALSE]
+  tru <- tru[, ok, drop = FALSE]
+  msk <- msk[, ok, drop = FALSE]
+  mu  <- mu[ok]; sds <- sds[ok]
+  miss <- is.na(msk)
+  if (!any(miss)) return(NA_real_)
+
+  zt <- sweep(sweep(tru, 2L, mu, "-"), 2L, sds, "/")
+  zi <- sweep(sweep(M,   2L, mu, "-"), 2L, sds, "/")
+  resid2 <- (zi - zt)^2
+  base2  <- zt^2
+  resid2[!miss] <- NA_real_
+  base2[!miss]  <- NA_real_
+  colmean <- function(X) apply(X, 2L, function(c) mean(c[is.finite(c)]))
+  mse  <- colmean(resid2)   # per-column mean squared error (missing cells)
+  base <- colmean(base2)    # per-column mean baseline
+  keep <- is.finite(mse) & is.finite(base) & base > 0
+  if (!any(keep)) return(NA_real_)
+  1 - mean(mse[keep]) / mean(base[keep])  # single pooled ratio, as in score_holdout
+}
+
+# Score every completed matrix of the current synth root against the planted
+# truth and refresh imputation_synth.gt_r2. Runs AFTER the imputation pass
+# and on EVERY invocation — even when the completed CSVs were reused without
+# --reimpute — because it only reads artifacts from disk (cheap).
+score_gt_r2 <- function(cell) {
+  for (method in METHODS) for (st in STRATEGIES) {
+    for (dz in DENSIFIERS) {
+      dataset   <- paste0(dz, "_", st)
+      truth_csv <- file.path(REPO, "data", "synth", "truth",
+                             paste0(dataset, "_", cell, "_complete.csv"))
+      imp_csv   <- file.path(DATA_ROOT, "imputed", method, dz, st,
+                             "imputed_model_benchmark_table.csv")
+      if (!file.exists(imp_csv)) next
+      if (!file.exists(truth_csv)) {
+        cat("  gt: missing truth file:", truth_csv, "\n"); next
+      }
+      gt <- gt_r2_score(combos_path(dz, st), imp_csv, truth_csv)
+      db_update_gt_r2(cell, SYNTH_MASK, dataset, method, gt, DB_FILE)
+      cat(sprintf("  gt: %s/%s gt_r2=%s\n", dataset, method,
+                  if (is.na(gt)) "NA" else sprintf("%.4f", gt)))
+    }
+  }
+}
+
 run_cell <- function(method, dz, st) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   cat("\n======== ", tag, " ========\n", sep = "")
@@ -196,8 +333,7 @@ run_cell <- function(method, dz, st) {
     best_rmse <- res$curve[best_idx]
     best_r2   <- if (!is.null(res$curve_r2)) res$curve_r2[best_idx] else NA
     desc <- build_desc(res$params, res$param_name, res$best_param)
-    db_insert_imputation(method, paste0(dz, "_", st),
-                         best_rmse, best_r2, desc, DB_FILE, REIMPUTE)
+    db_record(method, paste0(dz, "_", st), best_rmse, best_r2, desc)
     return()
   }
 
@@ -235,11 +371,33 @@ run_cell <- function(method, dz, st) {
   best_rmse <- res$curve[best_idx]
   best_r2   <- if (!is.null(res$curve_r2)) res$curve_r2[best_idx] else NA
   desc <- build_desc(res$params, res$param_name, res$best_param)
-  db_insert_imputation(method, paste0(dz, "_", st),
-                       best_rmse, best_r2, desc, DB_FILE, REIMPUTE)
+  db_record(method, paste0(dz, "_", st), best_rmse, best_r2, desc)
 }
 
 main <- function() {
+  if (SYNTH) {
+    for (root in .synth_roots) {
+      SYNTH_CELL   <<- root$cell
+      SYNTH_MASK   <<- root$mask
+      DATA_ROOT    <<- root$root
+      RESULTS_ROOT <<- file.path(REPO, "results", "synth", root$cell, root$mask)
+      dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
+      cat(sprintf("\n#### synth root %s/%s ####\n", root$cell, root$mask))
+      if ("onesidedmc" %in% METHODS) run_osmc_subprocess()
+      for (method in METHODS) for (st in STRATEGIES) {
+        for (dz in DENSIFIERS) {
+          run_cell(method, dz, st)
+        }
+      }
+      score_gt_r2(root$cell)
+    }
+    cat("\nDONE.\n  imputed CSVs -> data/synth/<cell>/<mask>/s0/imputed/<method>/...\n",
+        "  results      -> results/synth/<cell>/<mask>/ (flat)\n",
+        "  db           -> results/synth/database.db (table imputation_synth)\n",
+        sep = "")
+    return()
+  }
+
   if ("onesidedmc" %in% METHODS) run_osmc_subprocess()
 
   for (method in METHODS) for (st in STRATEGIES) {

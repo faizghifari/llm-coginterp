@@ -17,6 +17,8 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT)
 #   make loco   softimpute knn              # factor with --loco
 #   make factor-timed [methods]             # year-separated EFA (skips
 #                                           # fill-smooth default/zeros)
+#   make impute-synth [methods]             # --synth: all data/synth roots
+#                                           # (default: missforest softimpute)
 #
 # Aggregates run the whole default set:
 #
@@ -39,12 +41,18 @@ LOCO_PLAIN     := default zeros softimpute onesidedmc knn   # plain missforest l
 
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
 
+# The synth corpus's flat results + database.db live under results/synth/
+# regardless of $(RESULTS_ROOT), so its logs live there too.
+SYNTH_LOGS  := results/synth/logs
+CLEAR_SYNTH := @mkdir -p $(SYNTH_LOGS) && : > $(SYNTH_LOGS)/summary.txt
+
 # The method words typed after the target (e.g. "make factor knn missforest").
 # "factor-timed" is itself a target, so keep it out of the method-word list.
-EXTRA := $(filter-out impute factor factor-timed loco,$(MAKECMDGOALS))
+# Same for "impute-synth".
+EXTRA := $(filter-out impute factor factor-timed impute-synth loco,$(MAKECMDGOALS))
 
 .PHONY: deps env env-py env-r env-jl preproc clean \
-        impute factor factor-timed loco release-date release-date-report \
+        impute impute-synth factor factor-timed loco release-date release-date-report \
         runall runall-impute runall-factor runall-loco
 
 SUDO := $(shell if [ "$$(id -u)" -eq 0 ]; then echo ""; else echo "sudo"; fi)
@@ -74,9 +82,10 @@ preproc:
 	uv run python scripts/densify.py --data-root $(DATA_ROOT)
 
 # Synthetic MNAR stress-test data (scripts/make_mnar.py). Takes no arguments:
-# mirrors all 8 text_only tables x 9 scenarios x 3 seeds into data/mnar/.
-# Each data/mnar/<scenario>/s<seed> is a drop-in --data-root; planted truth
-# (complete matrices + true correlations) lands in data/mnar/truth/.
+# writes the 4 truth cells x 4 masks grid (s0 seed) into data/synth/. Each
+# data/synth/<cell>/<mask>/s0 is a drop-in --data-root (or use
+# `Rscript src/run/impute.R --synth` for all of them at once); planted truth
+# (complete matrices + true correlations) lands in data/synth/truth/.
 mnar-synth:
 	uv run python scripts/make_mnar.py
 
@@ -85,6 +94,17 @@ impute:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) impute -- $(EXTRA) -- $(ROOTS)
 	./scripts/runmulti.sh $(LOGS) impute raw -- $(EXTRA) -- $(ROOTS)
+
+# Synthetic-corpus imputation (impute.R --synth): one job per method, each
+# sweeping all 16 data/synth/<cell>/<mask>/s0 roots. No $(ROOTS): --synth
+# fixes its own roots and results layout (flat results + database.db under
+# results/synth/, table imputation_synth). Default methods missforest +
+# softimpute; method words after the target override, e.g.
+#   make impute-synth knn
+# Note: runmulti.sh adds --reimpute to impute jobs (same as `make impute`).
+impute-synth:
+	$(CLEAR_SYNTH)
+	./scripts/runmulti.sh $(SYNTH_LOGS) impute synth -- $(if $(EXTRA),$(EXTRA),missforest softimpute) --
 
 factor:
 	$(CLEAR_SUMMARY)

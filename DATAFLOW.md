@@ -54,6 +54,8 @@ data/                    multimodal-inclusive corpus (analysis-adjacent)
   imputed/<method>/<dz>/<strategy>/imputed_model_benchmark_table.csv  completed/surrogate
 data/text_only/          DEFAULT analysis corpus (subset of data/, mirror layout)
 data/smoke/              tiny synthetic fixture (make_smoke.py), mirror layout
+data/synth/              synthetic MNAR stress corpus (make_mnar.py): truth/ +
+                         <cell>/<mask>/s0/ drop-in --data-roots (side branch below)
 
 results/<method>/<method>_<dz>_<st>_<suffix>   all factoring outputs (flat names)
 results/_osmc_sweep/<dz>_<st>/                OSMC per-r surrogates + curves
@@ -258,6 +260,68 @@ aggregate index in SD units). `h2`/`u2`/`uq2`/`p2`/`com` columns of the
 loadings CSV are diagnostics and are never scored. Full methodology lives in
 the comment block at the top of `scripts/latent_scores.py`.
 
+## Side branch — synthetic MNAR stress corpus (`scripts/make_mnar.py`)
+
+Python, outside the main cross-product. Generates synthetic tables with
+**known ground truth** (true correlation R, true factor count, true ω_h) so
+imputers and factorers can be scored against the planted structure instead
+of only held-out RMSE. Reads two real `text_only` tables, plants a truth,
+and punches calibrated holes; each output root is a drop-in `--data-root`.
+
+| | path |
+|---|---|
+| read | `data/text_only/combinations_C/all_standard/model_benchmark_table.csv` (671×78) |
+| read | `data/text_only/combinations_S/all_standard/model_benchmark_table.csv` (669×124) |
+| write | `data/synth/truth/<tag>_<cell>_{complete.csv, correlation.csv, factors.npz, meta.json}` |
+| write | `data/synth/<cell>/<mask>/s0/combinations[_<dz>]/<st>/model_benchmark_table.csv` |
+| write | `data/synth/<cell>/<mask>/s0/truth/<tag>_<cell>_{mask.npz, meta.json}` |
+| write | `data/synth/summary.csv` — one row per dataset (diagnostics + truth-cell columns) |
+
+Grid: `{truth cell} × {mask} × {seed} × {table}` = 4 × 4 × 1 × 2 = **32
+datasets**.
+
+- **Truth cells** `f5_weak / f5_loud / f10_weak / f10_loud`: F ∈ {5, 10}
+  group factors, group loadings ~ U(0.1, 0.5) or U(0.5, 0.9). One general
+  factor per table with λ_g solved so the planted mean off-diagonal R
+  equals that table's observed mean pairwise r. All loadings positive (R
+  has only positive entries, matching the real tables); communalities
+  capped at 0.95; the *achieved* mean r, loading ranges and ω_h are always
+  recorded in the meta JSON — nothing silently distorted. The grid spans
+  weak→detectable structure deliberately, so no single planted truth
+  favors one imputer's inductive bias; rankings are per truth cell.
+- **Masks**: `mcar` (calibrated control, s = 0), `cell` (s = γ·z_ij, good
+  cells observed), `popularity` (s = κ·ρ̂_j·g_i — observability tied to a
+  benchmark's expected correlation, interacting with model ability so the
+  effect survives offset absorption), `real_mask` (the real mask verbatim;
+  row/col MAE are 0 by construction — the sanity control).
+- **Mask calibration**: logit P(obs_ij) = a_i + b_j + s_ij, with (a_i, b_j)
+  fit by damped iterated bisection to the real table's row/column
+  observation counts; margin targets clipped to [0.05, p−0.05]; an
+  infeasible mechanism is halved until convergence (`mech_scale` < 1 in
+  meta/summary records how much survived).
+- **Common random numbers**: one mask seed; the uniform behind the
+  Bernoulli draw is identical across truth cells and masks for a fixed
+  table, so all imputers see identical masked input and every
+  cross-condition comparison is paired.
+
+**Hand-off:** each `data/synth/<cell>/<mask>/s0` directory is a drop-in
+`--data-root` for `impute.R` / `factor.R`, but contains only the C/S
+`all_standard` cells (no raw/R/aggressive). `impute.R --synth` automates the
+sweep over all 16 roots in one invocation: completed CSVs land inside each
+root as usual, flat results go to `results/synth/<cell>/<mask>/`, and DB rows
+go to `results/synth/database.db` table `imputation_synth` (PK
+`cell, mask, dataset, method` — the extra columns are what keep the roots'
+shared `dataset` names from colliding). After the imputation pass, every
+completed matrix is scored against the planted truth
+(`data/synth/truth/<tag>_<cell>_complete.csv`) on its masked-in cells —
+column-balanced, same aggregation shape as the held-out metric — and the
+result lands in `imputation_synth.gt_r2`. That pass is refreshed on every
+`--synth` invocation even when the imputation itself is skipped (no
+`--reimpute`), since it only reads artifacts from disk. Scoring against the
+truth is otherwise external: compare outputs to the truth files (truth R,
+`true_nfactors = 1 + F`, `omega_hierarchical`). Nothing in `main.R` consumes
+the corpus.
+
 ## The SQLite database
 
 One `database.db` per results root (`results/`, `results/smoke/`,
@@ -314,3 +378,13 @@ factoring and all I/O.** A method just returns the contract above, and
   requires the `..._correlation.csv` persisted by imputation — re-run imputation
   for a fill-smooth cell if that file is missing (the scorer skips with a
   notice).
+- **Synth corpus is all-or-nothing:** `data/synth/` is a generated tree from
+  one script version. When the generator's layout changes, wipe and
+  regenerate the whole directory (`rm -rf data/synth`) rather than mixing
+  layouts (the earlier 9-scenario layout is incompatible).
+- **Synth roots share `dataset` names with the real corpus** (`C_all_standard`,
+  `S_all_standard` are the `<dz>_<st>` PK and the flat result filenames).
+  `impute.R --synth` handles the segregation itself (per-root flat results +
+  the `imputation_synth` table); when invoking `impute.R` / `factor.R`
+  manually per root, use a dedicated `--results-root` per (cell, mask), or
+  the real runs' DB rows and result files will be overwritten.

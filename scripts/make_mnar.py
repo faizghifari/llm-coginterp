@@ -1,4 +1,4 @@
-"""Generate synthetic MNAR stress-test datasets under data/mnar/.
+"""Generate synthetic MNAR stress-test datasets under data/synth/.
 
 Design axes (no single planted truth: the truth grid spans weak-to-loud
 factor structure so no imputer's inductive bias is favored by
@@ -49,22 +49,22 @@ jointly feasible, s is scaled down by halves until calibration converges
 (mech_scale < 1 in the meta/summary records how much survived).
 
 Outputs:
-    data/mnar/truth/<tag>_<cell>_complete.csv      unmasked complete matrix
-    data/mnar/truth/<tag>_<cell>_correlation.csv   planted true correlation
-    data/mnar/truth/<tag>_<cell>_factors.npz       g, eta, groups, loadings, psi
-    data/mnar/truth/<tag>_<cell>_meta.json         targets, achieved, omega_h
-    data/mnar/<cell>/<mask>/s0/<sub>/<st>/model_benchmark_table.csv
-    data/mnar/<cell>/<mask>/s0/truth/<tag>_<cell>_mask.npz + _meta.json
-    data/mnar/summary.csv                          one row per dataset
+    data/synth/truth/<tag>_<cell>_complete.csv      unmasked complete matrix
+    data/synth/truth/<tag>_<cell>_correlation.csv   planted true correlation
+    data/synth/truth/<tag>_<cell>_factors.npz       g, eta, groups, loadings, psi
+    data/synth/truth/<tag>_<cell>_meta.json         targets, achieved, omega_h
+    data/synth/<cell>/<mask>/s0/<sub>/<st>/model_benchmark_table.csv
+    data/synth/<cell>/<mask>/s0/truth/<tag>_<cell>_mask.npz + _meta.json
+    data/synth/summary.csv                          one row per dataset
 
-Each data/mnar/<cell>/<mask>/s0 directory is a drop-in --data-root for
-src/run/impute.R / factor.R (containing the C and S all_standard tables).
+Each data/synth/<cell>/<mask>/s0 directory is a drop-in --data-root for
+src/run/impute.R / factor.R (containing the C and S all_standard tables);
 True quantities for scoring: R, true_nfactors = 1 + F, and
 omega_hierarchical = (sum lam_g)^2 / ((sum lam_g)^2 + sum(lam_f^2 + psi)).
 
 Run:  uv run python scripts/make_mnar.py
 The layout is incompatible with the previous 9-scenario output; remove an
-old data/mnar first (rm -rf data/mnar).
+old tree first (rm -rf data/synth).
 """
 
 import json
@@ -80,7 +80,7 @@ import densify  # KEY convention only
 
 REPO = Path(__file__).resolve().parent.parent
 SOURCE = REPO / "data" / "text_only"
-OUT = REPO / "data" / "mnar"
+OUT = REPO / "data" / "synth"
 KEY = densify.KEY
 
 TRUTH_SEED = 20261110
