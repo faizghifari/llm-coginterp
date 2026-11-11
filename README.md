@@ -86,6 +86,10 @@ python3 scripts/manage_data.py --help           # dupes, dedup, find-aliases, ap
 python3 scripts/make_text_only_copy.py          # regenerate data/text_only/
 python3 scripts/make_text_only_copy.py --check  # assert it is reproducible; changes nothing
 
+# Revision view: text_only + scale fixes + lower-is-better metrics negated
+# (writes data/text_only_oriented/; see docs/REVISION_METRIC_ORIENTATION.md)
+python3 scripts/make_oriented_copy.py [--orient none|documented|all]
+
 # MachineG2 pipeline. Everything below defaults to the TEXT-ONLY analysis view.
 # --density is required at every entry point: both roots gain the segment,
 # i.e. data/text_only/<density>/ and results/text_only/<density>/.
@@ -371,12 +375,17 @@ collaboration, feel free to reach us:
 
 ## Citation
 
-If you use this dataset or pipeline in your research, please cite:
-```
-@misc{llm-coginterp-2026,
-  title={Understanding the Structure of Language Model Abilities},
-  author={Haznitrama, Faiz Ghifari and Azizy, Afrizal Hasbi and Ardi, Faeyza Rishad},
-  year={2026},
-  url={https://github.com/faizghifari/llm-coginterp}
+If you use this dataset or pipeline in your research, please cite the paper
+([arXiv:2609.36515](https://arxiv.org/abs/2609.36515)):
+```bibtex
+@misc{haznitrama2026largescale,
+  title         = {Large-scale factor analysis shows machine intelligence is only partially interpretable},
+  author        = {Haznitrama, Faiz Ghifari and Azizy, Afrizal Hasbi and Ardi, Faeyza Rishad},
+  year          = {2026},
+  eprint        = {2609.36515},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  doi           = {10.48550/arXiv.2609.36515},
+  url           = {https://arxiv.org/abs/2609.36515}
 }
 ```

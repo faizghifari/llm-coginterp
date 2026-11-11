@@ -533,6 +533,147 @@ ANOMALOUS_RESULT_ROWS = {
         "2026-08-25.",
 }
 
+# ===========================================================================
+# REVISION VIEW (used by scripts/make_oriented_copy.py) -- added 2026-11-11
+# in response to the ICLR 2027 reviews (rXDF, 8Mu7, XgsZ): metric orientation
+# and within-column scale consistency.
+#
+# These knowledge bases are applied ON TOP OF data/text_only/ to produce a
+# separate root (default data/text_only_oriented/), so the paper's original
+# runs stay reproducible and every change can be A/B-compared by pointing
+# the pipeline at the other DATA_ROOT. Nothing here alters data/text_only/.
+# ===========================================================================
+
+# --- Within-column scale corrections ---------------------------------------
+#
+# Extraction errors, not source conventions: the extraction guide's
+# "if 0 <= value <= 1, multiply by 100" rule (docs/extraction_guide.md §3.1)
+# exempts only the exact metric names "BPB"/"Bits/byte"/"Perplexity"/..., so a
+# fraction-valued metric under any other spelling was multiplied by 100 row by
+# row, while its values > 1 were left alone. The column then mixes two scales.
+#
+# Keyed by benchmark_id; each rule divides `score` by `divide_by` for the rows
+# matching `source_name` + `metric_name` whose score exceeds `min_score`.
+# Every entry must cite the published value it was checked against.
+SCALE_CORRECTIONS = {
+    "the_pile": {
+        "source_name": "Papers With Code",
+        "metric_name": "Bits per byte",
+        "min_score": 10.0,
+        "divide_by": 100.0,
+        "evidence": "22 PwC rows at 55.7-96.31 are BPB x100. Verified against "
+                    "the published tables: Pile paper (arXiv 2101.00027) GPT-3 "
+                    "Davinci 0.7177 / Curie 0.7980 / Babbage 0.8718 / Ada "
+                    "0.9631 (stored 71.77/79.80/87.18/96.31); GLM-130B paper "
+                    "(arXiv 2210.02414) GLM 0.634, Jurassic-1 0.650, GPT-3 "
+                    "0.742 (stored 63.4/65.0/74.2). The 4 GPT-2 rows > 1 "
+                    "(1.05-1.23) were never scaled and are already correct. "
+                    "HELM's 'BPB' rows (0.47-1.61) share the column.",
+    },
+}
+
+# --- Additional source-level scale conflicts (same semantics as
+# SOURCE_SCALE_CONFLICTS above: keep the named source, drop the rest) ------
+#
+# Same mechanism as gpqa: Open LLM Leaderboard v2 publishes NORMALIZED scores
+# (random baseline -> 0) and, for MATH, only the Level-5 subset. Other sources
+# report raw full-set scores. No model is scored by both, so the offset cannot
+# be calibrated; the minority source is dropped. Not added here: gsm / gsm8k /
+# math_chain_of_thought also show large between-source gaps, but with no
+# mechanism (HELM Classic vs Lite, Open LLM Leaderboard v1 vs PwC differ in
+# WHICH models they evaluate, 2022-era vs newer) -- the benign kind.
+REVISION_SOURCE_SCALE_CONFLICTS = {
+    "bbh":  ("Open LLM Leaderboard v2",
+             "447 OLL-v2 rows median 22.0 (normalized) vs 7 llm-stats.com rows "
+             "median 86.8 (raw). 0 shared models."),
+    "math": ("Open LLM Leaderboard v2",
+             "447 OLL-v2 rows are 'MATH Lvl 5' (median 5.2) vs 14 rows from "
+             "Vellum / official papers on full MATH (median 71-82). 0 shared "
+             "models."),
+}
+
+# --- Metric orientation ----------------------------------------------------
+#
+# Benchmarks whose canonical metric is LOWER-is-better by its DOCUMENTED
+# scoring semantics. make_oriented_copy.py negates these (score -> -score) so
+# that, for every column, larger = better. Negation, not 100 - x: every
+# downstream consumer column-standardises, so the two are equivalent, and
+# negation also works for unbounded metrics (BPB, perplexity, MAE).
+#
+# Curated per BENCHMARK, never read from results.metric_lower_is_better: that
+# flag is blank on 2,253 of 13,251 analysis-view rows (every perplexity
+# benchmark) and WRONG on several (ProphetArena Brier, maliciousinstruct /
+# jailbreakbench ASR, SocialStigmaQA bias proportion all flagged False;
+# SpiralBench carries both values).
+#
+# Orientation follows documented semantics ONLY -- never the sign of a
+# column's correlations. copyright_text is the case that shows why: lower LCS
+# is better (less regurgitation), yet it correlates +0.21 with the rest of the
+# matrix because stronger models memorise more. Flipping by correlation sign
+# would manufacture a positive manifold by construction.
+#
+# `kind` separates capability metrics (unambiguous) from harm/behaviour rates
+# (lower is better normatively, but not a capability) so the two can be
+# reported separately.
+LOWER_IS_BETTER_BENCHMARKS = {
+    # capability -- language-model likelihood / prediction error
+    "the_pile":      ("capability", "BPB (bits per byte)"),
+    "ice":           ("capability", "BPB (bits per byte)"),
+    "twitter_aae":   ("capability", "BPB (bits per byte)"),
+    "pwc_c4":        ("capability", "Perplexity"),
+    "pwc_one_billion_word": ("capability", "PPL"),
+    "pwc_openwebtext": ("capability", "eval_perplexity"),
+    "pwc_penn_treebank_word_level": ("capability", "Test perplexity"),
+    "pwc_wikitext_103": ("capability", "Test perplexity"),
+    "pwc_wikitext_2": ("capability", "Test perplexity"),
+    "pwc_text8":     ("capability", "BPC (bits per character)"),
+    "pwc_enwik8":    ("capability", "BPC (bits per character)"),
+    "pwc_ag_news":   ("capability", "Error (classification error rate)"),
+    "sportsmetrics": ("capability", "MAE"),
+    "ProphetArena":  ("capability", "Brier score"),
+    # harm / behaviour -- lower rate of the undesired behaviour is better
+    "bold":                  ("harm", "Toxic fraction"),
+    "real_toxicity_prompts": ("harm", "Toxic fraction"),
+    "copyright_text":        ("harm", "LCS with copyrighted text (HELM: lower is better)"),
+    "copyright_code":        ("harm", "LCS with copyrighted code (HELM: lower is better)"),
+    "maliciousinstruct":     ("harm", "Attack success rate (greedy, no system prompt)"),
+    "jailbreakbench":        ("harm", "Attack success rate"),
+    "do_not_answer":         ("harm", "Harmful response rate"),
+    "DeceptionBench":        ("harm", "Deception rate"),
+    "HistRev":               ("harm", "Revisionist output %"),
+    "SocialStigmaQA":        ("harm", "Biased output proportion"),
+    "SpiralBench":           ("harm", "Negative behaviour frequency"),
+    "DarkBench":             ("harm", "Brand bias score (dark-pattern frequency)"),
+    "trustllm":              ("harm", "Benign-prompt refusal rate (over-refusal)"),
+}
+
+# Benchmarks whose direction LOOKED doubtful (generic metric name, unusual
+# range) and was checked against the source documentation and found to be
+# HIGHER-is-better. Documentation only -- nothing is transformed -- kept so the
+# decision and its evidence are on record next to the ones that were flipped.
+CHECKED_HIGHER_IS_BETTER = {
+    "cogbench": "Stored metric is the PERFORMANCE metric of the probabilistic-"
+                "reasoning task, not a behavioural one (prior/likelihood "
+                "weighting, which have no 'better' direction). CogBench paper "
+                "(arXiv 2402.18225) App. B.1.4: 'Performance: Calculated as the "
+                "posterior accuracy, therefore 1 minus the Bayes optimal'; §4: "
+                "performance metrics 'represent the score participants aim to "
+                "optimize'. Checked 2026-11-11.",
+}
+
+# Orientation genuinely unclear from the documentation -- run BOTH ways
+# (make_oriented_copy.py --orient all flips these too) and report the spread.
+AMBIGUOUS_DIRECTION_BENCHMARKS = {
+    "disinformation_reiteration":
+        "HELM Self-BLEU: a DIVERSITY measure (lower = more diverse "
+        "generations), not a quality score; whether diversity of generated "
+        "disinformation is 'better' is itself a normative call. Row flag False.",
+    "disinformation_wedging": "Same as disinformation_reiteration.",
+    "StrongREJECT":
+        "'Reject Rate': higher refusal of forbidden prompts is safer, but the "
+        "row flag is blank and the source framing is jailbreak strength.",
+}
+
 # --- Multilingual benchmark-cluster discovery (used by
 # scripts/lib/benchmark_clusters.find_language_clusters) ---
 #
