@@ -43,8 +43,8 @@ TAIL ?= 50
 export JOBS TAIL
 LOGS := $(DENSITY_RESULTS)/logs
 
-IMPUTE_METHODS := softimpute softimpute_corr onesidedmc missforest missforest_corr knn knn_corr default zeros
-FACTOR_METHODS := softimpute softimpute_corr onesidedmc missforest missforest_corr knn knn_corr default zeros
+IMPUTE_METHODS := softimpute softimpute_corr onesidedmc missforest knn default zeros
+FACTOR_METHODS := softimpute softimpute_corr onesidedmc missforest default zeros
 LOCO_PLAIN     := default zeros softimpute onesidedmc knn   # plain missforest loco skipped
 
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
@@ -168,12 +168,12 @@ runall-impute:
 runall-factor:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor -- $(FACTOR_METHODS) -- $(ROOTS)
-	./scripts/runmulti.sh $(LOGS) factor raw -- $(FACTOR_METHODS) -- $(ROOTS)
+	# ./scripts/runmulti.sh $(LOGS) factor raw -- $(FACTOR_METHODS) -- $(ROOTS)
 
 runall-loco:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor loco -- $(LOCO_PLAIN) -- $(ROOTS)
-	./scripts/runmulti.sh $(LOGS) factor raw loco -- $(FACTOR_METHODS) -- $(ROOTS)
+	# ./scripts/runmulti.sh $(LOGS) factor raw loco -- $(FACTOR_METHODS) -- $(ROOTS)
 
 runall:
 	$(CLEAR_SUMMARY)

@@ -383,7 +383,11 @@ factoring and all I/O.** A method just returns the contract above, and
   the segment (`<root>/<density>/`), except corpus root files (`results.csv`,
   `models.csv`, `benchmarks.csv`) and the `--synth`/`--smoke` fixtures, which
   stay density-free. Two densities share nothing: each has its own
-  `combinations_<dz>`, `imputed/`, flat results, and `database.db`.
+  `combinations_<dz>`, `imputed/`, flat results, and `database.db`. The
+  exception is the viewer: `viewer/compute_positions.py` takes no `--density` —
+  it discovers every density slice under its results root and embeds all of
+  them in one payload, with views keyed `<density>|<dz>|<tag>` and a density
+  dropdown in the UI (defaulting to the densest slice).
 - **PA cache** is correctness-sensitive and keyed by shape only — never reuse a
   cutoff across shapes.
 - **Column scale:** columns are z-scored, rows never (rows are models;

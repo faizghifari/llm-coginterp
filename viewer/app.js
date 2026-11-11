@@ -45,31 +45,31 @@ const canvas = $("plot");
 const ctx = canvas.getContext("2d");
 const tooltip = $("tooltip");
 
-// selection key: aggregate is "dz|tag", a year cohort appends "|y<year>", and a
-// per-imputer view inserts "|m<method>" before the year segment.
+// selection key: "<density>|dz|tag"; a per-imputer view inserts "|m<method>"
+// and a year cohort appends "|y<year>".
 function keyOf() {
   const y = $("year").value;
   const imp = $("imputer").value;
   // Tag dropdown removed: the pipeline only embeds the pa (parallel analysis)
   // run, so the tag segment is fixed.
   return (
-    `${$("dz").value}|pa` +
+    `${$("density").value}|${$("dz").value}|pa` +
     (imp === "aggregate" ? "" : `|m${imp}`) +
     (y === "all" ? "" : `|y${y}`)
   );
 }
 
-// Imputation methods available for the current dz x tag x cohort. Derived from
-// the key set: per-method keys carry a "|m<method>" segment.
+// Imputation methods available for the current density x dz x tag x cohort.
+// Derived from the key set: per-method keys carry a "|m<method>" segment.
 function imputerOptions() {
-  const prefix = `${$("dz").value}|pa`;
+  const prefix = `${$("density").value}|${$("dz").value}|pa`;
   const y = $("year").value;
   const methods = new Set(["aggregate"]);
   for (const k of Object.keys(state.data)) {
     if (!k.startsWith(prefix)) continue;
     let method = "aggregate";
     let year = "all";
-    for (const seg of k.split("|").slice(2)) {
+    for (const seg of k.split("|").slice(3)) {
       if (seg.startsWith("y")) year = seg.slice(1);
       else method = seg.slice(1);
     }
@@ -78,12 +78,23 @@ function imputerOptions() {
   return [...methods].sort();
 }
 
-// years that exist for the current dz x tag; aggregate ("all") always offered.
+// densifiers that exist for the current density slice.
+function dzOptions() {
+  const prefix = `${$("density").value}|`;
+  return [
+    ...new Set(
+      Object.keys(state.data)
+        .filter((k) => k.startsWith(prefix))
+        .map((k) => k.split("|")[1])
+    ),
+  ];
+}
+
+// years that exist for the current density x dz x tag; "all" always offered.
 function yearOptions() {
-  const dz = $("dz").value;
-  const tag = "pa";
+  const prefix = `${$("density").value}|${$("dz").value}|pa|y`;
   const years = Object.keys(state.data)
-    .filter((k) => k.startsWith(`${dz}|${tag}|y`) && state.data[k].year !== undefined)
+    .filter((k) => k.startsWith(prefix) && state.data[k].year !== undefined)
     .map((k) => String(state.data[k].year))
     .sort();
   return ["all", ...years];
@@ -456,6 +467,7 @@ function rebuild() {
     d.tag === "pa" ? "PA factor count" : d.tag === "2f" ? "forced 2 factors" : d.tag;
   const cohort = d.year === undefined ? "all years" : `cohort ${d.year}`;
   $("meta").textContent =
+    (d.density ? `density ${d.density} · ` : "") +
     `${cohort} · ${d.benchmarks.length} benchmarks · averaged over ${d.n_cells} cells · ` +
     (d.method ? `imputer ${d.method} · ` : "") +
     imputationText(d) +
@@ -807,7 +819,7 @@ $("dl").addEventListener("click", () => {
   canvas.toBlob((blob) => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${$("dz").value}_${$("imputer").value}.png`;
+    a.download = `${$("density").value}_${$("dz").value}_${$("imputer").value}.png`;
     a.click();
     URL.revokeObjectURL(a.href);
   }, "image/png");
@@ -816,21 +828,21 @@ $("dl").addEventListener("click", () => {
 function init(data) {
   state.data = data;
   const keys = Object.keys(data);
-  const dzs = [...new Set(keys.map((k) => k.split("|")[0]))];
+  // Densities lead the key; sorted descending so the default (and the dropdown
+  // order) leads with the densest slice.
+  const densities = [...new Set(keys.map((k) => k.split("|")[0]))].sort().reverse();
+  setOptions($("density"), densities, densities[0]);
+  const dzs = dzOptions();
   // Tag dropdown removed: payload only ever carries the pa tag now.
-  // const tags = [...new Set(keys.map((k) => k.split("|")[1]))];
-  // Prefer the pa tag as the default view; fall back to insertion order.
   const defaultDz = dzs.includes("C") ? "C" : dzs[0];
-  // const defaultTag = tags.includes("pa") ? "pa" : tags[0];
-  const defaultTag = "pa";
-  state.key = `${defaultDz}|${defaultTag}`;
+  state.key = `${densities[0]}|${defaultDz}|pa`;
   setOptions($("dz"), dzs, defaultDz);
-  // setOptions($("tag"), tags, defaultTag);
   setOptions($("year"), ["all"], "all");
 
   const apply = () => {
-    // The imputer list depends on dz x tag x cohort, so it is resynced here;
-    // an imputer absent from the new view falls back to the aggregate.
+    // The imputer list depends on density x dz x tag x cohort, so it is
+    // resynced here; an imputer absent from the new view falls back to the
+    // aggregate.
     const cur = $("imputer").value;
     const opts = imputerOptions();
     setOptions($("imputer"), opts, opts.includes(cur) ? cur : "aggregate");
@@ -838,14 +850,18 @@ function init(data) {
     if (!state.data[state.key]) return; // stale selection: keep last valid view
     rebuild();
   };
+  $("density").addEventListener("change", () => {
+    // Densifier and cohort sets are per density; resync both, preferring the
+    // densifier "C" and the all-years cohort when present.
+    const opts = dzOptions();
+    setOptions($("dz"), opts, opts.includes("C") ? "C" : opts[0]);
+    setOptions($("year"), yearOptions(), "all");
+    apply();
+  });
   $("dz").addEventListener("change", () => {
     setOptions($("year"), yearOptions(), "all");
     apply();
   });
-  // $("tag").addEventListener("change", () => {
-  //   setOptions($("year"), yearOptions(), "all");
-  //   apply();
-  // });
   $("year").addEventListener("change", apply);
   setOptions($("year"), yearOptions(), "all");
 
@@ -883,6 +899,8 @@ function init(data) {
     k.split("|").some((seg) => /^m./.test(seg))
   );
   $("imputer").closest("label").hidden = !hasMethods;
+  // one density in the payload: the dropdown would be a no-op, hide it
+  $("density").closest("label").hidden = densities.length < 2;
   $("legend-head").hidden = !hasClusters;
   $("legend").hidden = !hasClusters;
 

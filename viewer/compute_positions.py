@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Composite benchmark-similarity embedding and clustering for the viewer.
 
-Reads every *_bifactor_*_loadings.csv under results/text_only/, builds a
-consensus cosine-distance matrix between benchmarks per (densifier, tag,
-year) by averaging the within-cell cosine distances (rotation/sign invariant
-per cell, hence well-defined to average), then clusters and UMAP-embeds each
-composite distance matrix and writes viewer/positions.json. Year-less loadings
-files are the aggregate embedding (key "dz|tag"); per-release-year cohorts from
-factor.R --timed are embedded separately (key "dz|tag|y<year>").
+Reads every *_bifactor_*_loadings.csv under every density slice of the
+results root (each subdirectory holding loadings is one density slice --
+the script takes no --density argument), builds a consensus cosine-distance
+matrix between benchmarks per (density, densifier, tag, year) by averaging
+the within-cell cosine distances (rotation/sign invariant per cell, hence
+well-defined to average), then clusters and UMAP-embeds each composite
+distance matrix and writes viewer/positions.json. Year-less loadings files
+are the aggregate embedding (key "<density>|dz|tag"); per-release-year
+cohorts from factor.R --timed are embedded separately
+(key "<density>|dz|tag|y<year>").
 
 Each benchmark's vector within a cell is [g, F1..Fk] (group + general
 factors). Cells where a benchmark is absent simply don't contribute to that
@@ -137,6 +140,7 @@ class Cell:
     """
 
     key: str  # "<method>_<dz>_<st>", the factoring-registry identity
+    density: str  # density slice this run's loadings were read from
     method: str  # imputer that produced the matrix being factored
     dz: str  # densifier
     st: str  # stage (dedupe variant)
@@ -147,8 +151,9 @@ class Cell:
     cols: list[str]  # factor column names, g first
 
 
-type CellKey = tuple[str, str, int | None]
-"""(densifier, tag, release-year cohort or None for the all-years aggregate)."""
+type CellKey = tuple[str, str, str, int | None]
+"""(density, densifier, tag, release-year cohort or None for the all-years
+aggregate)."""
 
 
 @dataclass(frozen=True)
@@ -160,6 +165,7 @@ class Job:
     one it sits in -- no ambient loop variables, no key-string splitting.
     """
 
+    density: str
     dz: str
     tag: str
     year: int | None
@@ -168,8 +174,8 @@ class Job:
 
     @property
     def key(self) -> str:
-        """"dz|tag", with "|m<method>" then "|y<year>" appended when set."""
-        k = f"{self.dz}|{self.tag}"
+        """<density>|dz|tag", with "|m<method>" then "|y<year>" appended when set."""
+        k = f"{self.density}|{self.dz}|{self.tag}"
         if self.method is not None:
             k += f"|m{self.method}"
         if self.year is not None:
@@ -255,17 +261,17 @@ def imputation_for(
 
 
 def load_cells(
-    results_root: Path, *, legacy_names: bool = False
+    density_root: Path, density: str, *, legacy_names: bool = False
 ) -> dict[CellKey, list[Cell]]:
-    """{ (dz, tag, year|None): [Cell, ...] }"""
-    allowed = None if legacy_names else registered_runs(results_root / "database.db")
+    """{ (density, dz, tag, year|None): [Cell, ...] } for one density slice."""
+    allowed = None if legacy_names else registered_runs(density_root / "database.db")
     if allowed is None and not legacy_names:
         print(
-            f"no database at {results_root / 'database.db'} -- accepting every "
+            f"no database at {density_root / 'database.db'} -- accepting every "
             "loadings file; run factoring to register runs"
         )
     cells: dict[CellKey, list[Cell]] = defaultdict(list)
-    for path in sorted(results_root.glob("*/*_loadings.csv")):
+    for path in sorted(density_root.glob("*/*_loadings.csv")):
         m = NAME_RE.match(path.name)
         year = (int(m["year"]) if m["year"] else None) if m else None
         tag = m["tag"] if m else None
@@ -301,9 +307,10 @@ def load_cells(
         if not np.isfinite(mat).all():
             continue
         key = f"{m['method']}_{m['dz']}_{m['st']}"
-        cells[(m["dz"], tag, year)].append(
+        cells[(density, m["dz"], tag, year)].append(
             Cell(
                 key=key,
+                density=density,
                 method=m["method"],
                 dz=m["dz"],
                 st=m["st"],
@@ -318,24 +325,40 @@ def load_cells(
 
 
 def build_jobs(cells: dict[CellKey, list[Cell]]) -> list[Job]:
-    """The views to emit: one all-imputer aggregate per (dz, tag, cohort), plus
-    one per imputer.
+    """The views to emit, per density: one all-imputer aggregate per
+    (dz, tag, cohort), plus one per imputer.
 
-    Ordering: densifier, tag, all-years before year cohorts, and each aggregate
-    before its per-imputer views, so the payload order is stable and the
-    viewer's dropdowns need no sorting of their own.
+    Ordering: density (as loaded), densifier, tag, all-years before year
+    cohorts, and each aggregate before its per-imputer views, so the payload
+    order is stable and the viewer's dropdowns need no sorting of their own.
     """
     jobs: list[Job] = []
-    for (dz, tag, year), cell_list in sorted(
-        cells.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2] is not None, kv[0][2] or 0)
+    for (density, dz, tag, year), cell_list in sorted(
+        cells.items(),
+        key=lambda kv: (
+            kv[0][0],
+            kv[0][1],
+            kv[0][2],
+            kv[0][3] is not None,
+            kv[0][3] or 0,
+        ),
     ):
         by_method: dict[str, list[Cell]] = defaultdict(list)
         for cell in cell_list:
             by_method[cell.method].append(cell)
-        jobs.append(Job(dz=dz, tag=tag, year=year, method=None, cells=tuple(cell_list)))
+        jobs.append(
+            Job(density=density, dz=dz, tag=tag, year=year, method=None, cells=tuple(cell_list))
+        )
         for method, method_cells in sorted(by_method.items()):
             jobs.append(
-                Job(dz=dz, tag=tag, year=year, method=method, cells=tuple(method_cells))
+                Job(
+                    density=density,
+                    dz=dz,
+                    tag=tag,
+                    year=year,
+                    method=method,
+                    cells=tuple(method_cells),
+                )
             )
     return jobs
 
@@ -450,12 +473,12 @@ def report_missing_patterns(jobs: list[Job]) -> None:
         print("missing-entry report: every embedding has full pair coverage")
         return
     print("missing-entry report (embeddings with missing pairs only)")
-    print("|dataset|tag|imputer|year|n|missing|total|% missing|")
-    print("|-|-|-|-|-|-|-|-|")
+    print("|density|dataset|tag|imputer|year|n|missing|total|% missing|")
+    print("|-|-|-|-|-|-|-|-|-|")
     for job, n, miss, pct in rows_nonzero:
         total = n * (n - 1) // 2
         print(
-            f"|{job.dz}|{job.tag}|{job.method or 'aggregate'}"
+            f"|{job.density}|{job.dz}|{job.tag}|{job.method or 'aggregate'}"
             f"|{job.year if job.year is not None else 'all'}|{n}|{miss}|{total}|{pct:.2f}%|"
         )
     for i, (pat, pj) in enumerate(
@@ -472,7 +495,7 @@ def report_missing_patterns(jobs: list[Job]) -> None:
         print(
             "embeddings: "
             + ", ".join(
-                f"{j.dz}|{j.tag}|{j.method or 'aggregate'}"
+                f"{j.density}|{j.dz}|{j.tag}|{j.method or 'aggregate'}"
                 f"|{j.year if j.year is not None else 'all'}"
                 for j in pj
             )
@@ -978,6 +1001,7 @@ def build_entry(
     """
     imp = imputation_for(job, imputation)
     return {
+        "density": job.density,
         "densifier": job.dz,
         "tag": job.tag,
         **({} if job.method is None else {"method": job.method}),
@@ -1000,9 +1024,6 @@ not match results/text_only. Code-path verification only."""
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--density", required=True, metavar="FRAC",
-                    help="density slice, e.g. 0.1 (results root gains a <density> "
-                    "segment; the data root stays at the corpus files)")
     ap.add_argument("--results-root", default="results/text_only")
     ap.add_argument("--data-root", default="data/text_only")
     ap.add_argument(
@@ -1052,6 +1073,24 @@ def resolve(root: str) -> Path:
     return p if p.is_absolute() else REPO / p
 
 
+def discover_densities(results_root: Path) -> list[str]:
+    """Density slice names under the results root, highest first.
+
+    A density slice is any subdirectory holding at least one
+    ``*/*_loadings.csv`` (e.g. results/text_only/0.1/<method>/...). Sorted
+    descending so the payload order -- and the viewer's default selection --
+    lead with the densest slice.
+    """
+    found = [
+        p.name
+        for p in sorted(results_root.iterdir())
+        if p.is_dir() and any(p.glob("*/*_loadings.csv"))
+    ]
+    if not found:
+        raise SystemExit(f"no density slices with loadings found under {results_root}")
+    return sorted(found, reverse=True)
+
+
 def main() -> None:
     args = parse_args()
     out_path = resolve(args.out)
@@ -1082,11 +1121,9 @@ def main() -> None:
         prior = json.loads(out_path.read_text())
         print(f"relabel mode: reusing points + clusters from {out_path} ({len(prior)} cells)")
 
-    results_root = resolve(args.results_root) / args.density
-    cells = load_cells(results_root, legacy_names=args.legacy_names)
-    if not cells:
-        raise SystemExit(f"no loadings found under {results_root}")
-    imputation = load_imputation(results_root / "database.db")
+    results_root = resolve(args.results_root)
+    densities = discover_densities(results_root)
+    print(f"embedding density slices: {', '.join(densities)}")
     subject_groups = load_subject_groups(resolve(args.subject_groups))
     categories, axis_labels = load_labels(resolve(args.data_root), subject_groups)
     # qualified child id -> qualified parent id, for the viewer's nested legend
@@ -1103,103 +1140,114 @@ def main() -> None:
     rng = np.random.default_rng(42)
 
     out = {}
-    jobs = build_jobs(cells)
-    report_missing_patterns(jobs)
-    # One job per composite matrix: the aggregate over every imputation method
-    # (key "dz|tag", unchanged for backwards compatibility) plus one per method
-    # (key "dz|tag|m<method>"). Identity lives on the Job; its key is derived
-    # from the fields and never parsed back apart.
-    for job in jobs:
-        key = job.key
-        old = prior.get(key) if args.relabel else None
-        if old is not None and not same_inputs(old, job):
-            out[key] = carry_forward(old, categories, label_params)
-            print(f"{key}: local loadings differ from the prior's -- carried forward")
+    for density in densities:
+        density_root = results_root / density
+        cells = load_cells(density_root, density, legacy_names=args.legacy_names)
+        if not cells:
+            print(f"{density}: no loadings found under {density_root} -- skipping")
             continue
-        dist, bench = composite_distance(job.cells)
-        dist_ng, bench_ng = composite_distance(job.cells, drop_g=True)
-        pristine, pristine_ng = dist.copy(), dist_ng.copy()
-        if bench_ng != bench:
-            raise RuntimeError("drop_g changed the benchmark ordering")
+        imputation = load_imputation(density_root / "database.db")
+        jobs = build_jobs(cells)
+        report_missing_patterns(jobs)
+        # One job per composite matrix: the aggregate over every imputation
+        # method (key "<density>|dz|tag") plus one per method
+        # (key "<density>|dz|tag|m<method>"). Identity lives on the Job; its
+        # key is derived from the fields and never parsed back apart.
+        for job in jobs:
+            key = job.key
+            old = prior.get(key) if args.relabel else None
+            if old is not None and not same_inputs(old, job):
+                out[key] = carry_forward(old, categories, label_params)
+                print(f"{key}: local loadings differ from the prior's -- carried forward")
+                continue
+            dist, bench = composite_distance(job.cells)
+            dist_ng, bench_ng = composite_distance(job.cells, drop_g=True)
+            pristine, pristine_ng = dist.copy(), dist_ng.copy()
+            if bench_ng != bench:
+                raise RuntimeError("drop_g changed the benchmark ordering")
 
-        if old is not None and [p["benchmark"] for p in old["points"]] != bench:
-            raise SystemExit(
-                f"{key}: benchmark set changed since {out_path} was written; "
-                "--relabel cannot reuse its geometry -- re-run without it"
+            if old is not None and [p["benchmark"] for p in old["points"]] != bench:
+                raise SystemExit(
+                    f"{key}: benchmark set changed since {out_path} was written; "
+                    "--relabel cannot reuse its geometry -- re-run without it"
+                )
+
+            n = len(bench)
+            # Year cohorts are far smaller than the aggregate, so k is clamped to n.
+            k_values = [k for k in range(args.k_min, args.k_max + 1) if k < n]
+            coverage, fabricated = pair_coverage(job.cells, bench)
+            cohort = "all years" if job.year is None else f"cohort {job.year}"
+
+            xy = (
+                [(p["x"], p["y"]) for p in old["points"]]
+                if old is not None
+                else embed(dist)
             )
+            entry = build_entry(job, bench, xy, imputation)
+            out[key] = entry
 
-        n = len(bench)
-        # Year cohorts are far smaller than the aggregate, so k is clamped to n.
-        k_values = [k for k in range(args.k_min, args.k_max + 1) if k < n]
-        coverage, fabricated = pair_coverage(job.cells, bench)
-        cohort = "all years" if job.year is None else f"cohort {job.year}"
+            # A cohort too small to cut into >=2 groups still gets an embedding; the
+            # viewer hides the cluster controls per-cell when `clusters` is absent.
+            if not k_values:
+                print(f"{key}: {n} benchmarks ({cohort}) — too few to cluster, embedding only")
+                continue
 
-        xy = (
-            [(p["x"], p["y"]) for p in old["points"]] if old is not None else embed(dist)
-        )
-        entry = build_entry(job, bench, xy, imputation)
-        out[key] = entry
+            if old is not None and "clusters" in old:
+                variants = {v: old["clusters"][v] for v in ("with_g", "without_g")}
+            else:
+                variants = {
+                    "with_g": cluster_variant(dist, bench, k_values, args),
+                    "without_g": cluster_variant(dist_ng, bench, k_values, args),
+                }
+            if not (np.array_equal(dist, pristine) and np.array_equal(dist_ng, pristine_ng)):
+                raise RuntimeError(
+                    "clustering mutated the distance matrix (see sklearn HDBSCAN copy=)"
+                )
 
-        # A cohort too small to cut into >=2 groups still gets an embedding; the
-        # viewer hides the cluster controls per-cell when `clusters` is absent.
-        if not k_values:
-            print(f"{key}: {n} benchmarks ({cohort}) — too few to cluster, embedding only")
-            continue
-
-        if old is not None and "clusters" in old:
-            variants = {v: old["clusters"][v] for v in ("with_g", "without_g")}
-        else:
-            variants = {
-                "with_g": cluster_variant(dist, bench, k_values, args),
-                "without_g": cluster_variant(dist_ng, bench, k_values, args),
+            # Deterministic, so it is computed even in --relabel mode: it adds a
+            # second layout without touching the reused UMAP points.
+            pcoa_xy, pcoa_explained = pcoa(dist)
+            entry["pcoa"] = [[round(float(x), 5), round(float(y), 5)] for x, y in pcoa_xy]
+            entry["categories"] = [categories.get(b, []) for b in bench]
+            strata = coverage_strata(bench, model_coverage)
+            entry["category_cohesion"] = {
+                "with_g": category_cohesion(dist, bench, categories, strata, rng),
+                "without_g": category_cohesion(dist_ng, bench, categories, strata, rng),
             }
-        if not (np.array_equal(dist, pristine) and np.array_equal(dist_ng, pristine_ng)):
-            raise RuntimeError(
-                "clustering mutated the distance matrix (see sklearn HDBSCAN copy=)"
-            )
-
-        # Deterministic, so it is computed even in --relabel mode: it adds a
-        # second layout without touching the reused UMAP points.
-        pcoa_xy, pcoa_explained = pcoa(dist)
-        entry["pcoa"] = [[round(float(x), 5), round(float(y), 5)] for x, y in pcoa_xy]
-        entry["categories"] = [categories.get(b, []) for b in bench]
-        strata = coverage_strata(bench, model_coverage)
-        entry["category_cohesion"] = {
-            "with_g": category_cohesion(dist, bench, categories, strata, rng),
-            "without_g": category_cohesion(dist_ng, bench, categories, strata, rng),
-        }
-        entry["clusters"] = {
-            "params": {
-                "linkage": args.linkage,
-                "k_values": k_values,
-                "hdbscan": {
-                    "min_samples": args.hdbscan_min_samples,
-                    "cluster_selection_method": args.hdbscan_selection,
+            entry["clusters"] = {
+                "params": {
+                    "linkage": args.linkage,
+                    "k_values": k_values,
+                    "hdbscan": {
+                        "min_samples": args.hdbscan_min_samples,
+                        "cluster_selection_method": args.hdbscan_selection,
+                    },
+                    **label_params,
                 },
-                **label_params,
-            },
-            "diagnostics": {
-                "n_factors": [len(c.cols) for c in job.cells],
-                "pair_coverage": coverage,
-                "n_fabricated_pairs": fabricated,
-                "n_labelled": sum(1 for b in bench if categories.get(b)),
-                "pcoa_explained": pcoa_explained,
-            },
-            **variants,
-        }
+                "diagnostics": {
+                    "n_factors": [len(c.cols) for c in job.cells],
+                    "pair_coverage": coverage,
+                    "n_fabricated_pairs": fabricated,
+                    "n_labelled": sum(1 for b in bench if categories.get(b)),
+                    "pcoa_explained": pcoa_explained,
+                },
+                **variants,
+            }
 
-        hac = variants["with_g"]["hac"]
-        hdb = variants["with_g"]["hdbscan"]
-        print(
-            f"{key}: {n} benchmarks, {len(job.cells)} cells ({cohort}), "
-            f"coverage {coverage:.3f} | HAC best k={hac['best_k']} "
-            f"sil={hac['by_k'][str(hac['best_k'])]['silhouette']} | "
-            f"HDBSCAN {hdb['n_clusters']} clusters, {hdb['noise_frac']:.0%} noise"
-        )
+            hac = variants["with_g"]["hac"]
+            hdb = variants["with_g"]["hdbscan"]
+            print(
+                f"{key}: {n} benchmarks, {len(job.cells)} cells ({cohort}), "
+                f"coverage {coverage:.3f} | HAC best k={hac['best_k']} "
+                f"sil={hac['by_k'][str(hac['best_k'])]['silhouette']} | "
+                f"HDBSCAN {hdb['n_clusters']} clusters, {hdb['noise_frac']:.0%} noise"
+            )
 
     # --relabel must never shrink the payload: cells whose loadings are not on
-    # this machine are carried forward rather than silently dropped.
-    for key in [k for k in prior if k not in out]:
+    # this machine are carried forward rather than silently dropped. Keys whose
+    # first segment is not a discovered density are an older payload format and
+    # are dropped instead of being carried into the new-layout file.
+    for key in [k for k in prior if k not in out and k.split("|")[0] in densities]:
         out[key] = carry_forward(prior[key], categories, label_params)
         print(f"{key}: no local loadings -- carried forward; changed labels have no cohesion")
 
