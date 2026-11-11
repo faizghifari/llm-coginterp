@@ -50,7 +50,9 @@ CMAP = LinearSegmentedColormap.from_list(
 FDR_Q = 0.05
 IMPUTER_ABBR = {
     "default": "def",
+    "knn_corr": "knn-corr",
     "missforest": "mf",
+    "missforest_corr": "mf-corr",
     "onesidedmc": "omc",
     "softimpute": "si",
     "softimpute_corr": "si-corr",

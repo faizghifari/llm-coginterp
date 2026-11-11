@@ -25,7 +25,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/factor.R [--method <name>] [--raw]
-#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | default | zeros | cvxr | ggm | all
+#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | knn_corr | missforest_corr | default | zeros | cvxr | ggm | all
 #     --raw          run ONLY the "raw" densifier level (default: C,S,R)
 #     --data-root    input tree, relative to repo root
 #                    (default data/text_only -- the analysis corpus; pass
@@ -63,13 +63,15 @@ source(file.path(SRC, "impute", "common.R"))
 
 ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "onesidedmc", "knn", "missforest", "mice",
+                 "knn_corr", "missforest_corr",
                  "optspace", "usvt",
                  "default", "zeros", "cvxr", "ggm")
 RAW_METHODS <- c("default", "zeros")   # fill-smooth: factor the cached correlation
 # Correlation-level / surrogate-emitting methods: their completed matrix is a
 # synthetic n x p draw matching the recovered covariance, so its rows cannot be
 # split by any per-model attribute (release year).
-SURROGATE_METHODS <- c("onesidedmc", "softimpute_corr", "cvxr", "ggm", "optspace", "usvt")
+SURROGATE_METHODS <- c("onesidedmc", "softimpute_corr", "cvxr", "ggm", "optspace", "usvt",
+                       "knn_corr", "missforest_corr")
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE; timed <- FALSE
   data_root <- "data/text_only"; results_root <- "results/text_only"

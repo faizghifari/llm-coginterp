@@ -43,8 +43,8 @@ TAIL ?= 50
 export JOBS TAIL
 LOGS := $(DENSITY_RESULTS)/logs
 
-IMPUTE_METHODS := softimpute onesidedmc missforest knn default zeros
-FACTOR_METHODS := softimpute onesidedmc missforest knn default zeros
+IMPUTE_METHODS := softimpute softimpute_corr onesidedmc missforest missforest_corr knn knn_corr default zeros
+FACTOR_METHODS := softimpute softimpute_corr onesidedmc missforest missforest_corr knn knn_corr default zeros
 LOCO_PLAIN     := default zeros softimpute onesidedmc knn   # plain missforest loco skipped
 
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
@@ -101,7 +101,7 @@ mnar-synth:
 impute:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) impute -- $(EXTRA) -- $(ROOTS)
-	./scripts/runmulti.sh $(LOGS) impute raw -- $(EXTRA) -- $(ROOTS)
+	# ./scripts/runmulti.sh $(LOGS) impute raw -- $(EXTRA) -- $(ROOTS)
 
 # Synthetic-corpus imputation (impute.R --synth): one job per method, each
 # sweeping all 16 data/synth/<cell>/<mask>/s0 roots. No $(ROOTS): --synth
@@ -117,12 +117,12 @@ impute-synth:
 factor:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor -- $(EXTRA) -- $(ROOTS)
-	./scripts/runmulti.sh $(LOGS) factor raw -- $(EXTRA) -- $(ROOTS)
+	# ./scripts/runmulti.sh $(LOGS) factor raw -- $(EXTRA) -- $(ROOTS)
 
 loco:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor loco -- $(EXTRA) -- $(ROOTS)
-	./scripts/runmulti.sh $(LOGS) factor raw loco -- $(EXTRA) -- $(ROOTS)
+	# ./scripts/runmulti.sh $(LOGS) factor raw loco -- $(EXTRA) -- $(ROOTS)
 
 # Year-separated factoring: one EFA per release-year cohort of models.
 # Fill-smooth methods (default/zeros) are excluded by construction — their
@@ -132,7 +132,7 @@ loco:
 factor-timed:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) factor timed -- $(if $(EXTRA),$(EXTRA),$(FACTOR_METHODS)) -- $(ROOTS)
-	./scripts/runmulti.sh $(LOGS) factor timed raw -- $(if $(EXTRA),$(EXTRA),$(FACTOR_METHODS)) -- $(ROOTS)
+	# ./scripts/runmulti.sh $(LOGS) factor timed raw -- $(if $(EXTRA),$(EXTRA),$(FACTOR_METHODS)) -- $(ROOTS)
 
 # Release-date analysis (paper appendix "Release-date analysis"). Needs `make
 # factor` on the same roots first. Models are binned into release cohorts
@@ -163,7 +163,7 @@ $(EXTRA):
 runall-impute:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) impute -- $(IMPUTE_METHODS) -- $(ROOTS)
-	./scripts/runmulti.sh $(LOGS) impute raw -- $(IMPUTE_METHODS) -- $(ROOTS)
+	# ./scripts/runmulti.sh $(LOGS) impute raw -- $(IMPUTE_METHODS) -- $(ROOTS)
 
 runall-factor:
 	$(CLEAR_SUMMARY)

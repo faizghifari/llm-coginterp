@@ -176,6 +176,78 @@ run_corr_single <- function(x, fit_fn, param_name, param_value, seed = 1L) {
        param_name = param_name, metric_name = "Held-out RMSE")
 }
 
+# Sweep variant of run_corr_single for correlation imputers with a real
+# hyperparameter grid (knn_corr, missforest_corr). Identical held-out protocol:
+# mask, train-moment standardization, observed pairwise correlation, conditional-
+# Gaussian cell prediction, column-balanced scoring — repeated per parameter
+# value; CV-best by held-out RMSE, refit on the FULL correlation matrix, and a
+# covariance-matched surrogate as M. `fit_fn(R_obs, param)` fills the NA entries
+# of the correlation matrix at a single FIXED parameter value (need not return a
+# valid correlation — symmetrize_nearpd runs on top, here and on the final refit).
+run_corr_sweep <- function(x, fit_fn, params, param_name, seed = 1L) {
+  set.seed(seed)
+  holdout <- make_holdout(x, frac = 0.2)
+
+  # standardize by TRAIN-cell moments (mask holdout first), like the other R
+  # methods, so the held-out baseline is the train column mean = 0 in z-space.
+  x_train <- x; x_train[holdout] <- NA
+  mu  <- colMeans(x_train, na.rm = TRUE)
+  sdv <- apply(x_train, 2, sd, na.rm = TRUE)
+  sdv[!is.finite(sdv) | sdv == 0] <- 1
+  z       <- corr_zscore(x, mu, sdv)
+  z_train <- z; z_train[holdout] <- NA
+
+  R_train <- observed_corr(z_train)
+  R_full  <- observed_corr(z)
+
+  test_cells <- make_holdout_cells(z, holdout)
+  zt <- vapply(test_cells, function(tc) tc$held_val, numeric(1))
+  nrow_x <- nrow(x)
+
+  ok <- logical(length(params))
+  rmse_v <- rep(NA_real_, length(params))
+  r2_v   <- rep(NA_real_, length(params))
+  for (i in seq_along(params)) {
+    # one parameter failing (fill, PD projection, or the cell predictor) must not
+    # kill the sweep — skip it and let the surviving params drive the choice
+    res <- tryCatch({
+      R_hat <- fit_fn(R_train, params[[i]])
+      R_corr <- symmetrize_nearpd(R_hat)
+      zh     <- predict_cells_from_corr(R_corr, test_cells)
+      sc     <- score_corr_holdout(zt, zh, holdout, nrow_x)
+      list(rmse = unname(sc["rmse"]), r2 = unname(sc["r2"]))
+    }, error = function(e) {
+      cat(sprintf("  %s=%s | FAILED (%s) - skipping\n", param_name,
+                  as.character(params[i]), conditionMessage(e)))
+      NULL
+    })
+    if (is.null(res)) next
+    rmse_v[i] <- res$rmse; r2_v[i] <- res$r2
+    ok[i] <- TRUE
+    cat(sprintf("  %s=%s | RMSE %.4f | R2 %.3f\n", param_name,
+                as.character(params[i]), rmse_v[i], r2_v[i]))
+  }
+  if (!any(ok))
+    stop(sprintf("run_corr_sweep: every %s failed (%s), no valid imputation;",
+                 param_name, paste(params, collapse = ",")),
+         " try other methods for this cell")
+  best_i <- which.min(replace(rmse_v, !ok, Inf))
+  best_param <- params[[best_i]]
+  cat(sprintf("  >> CV-best %s = %s (RMSE %.4f, R2 %.3f)\n", param_name,
+              as.character(best_param), rmse_v[best_i], r2_v[best_i]))
+
+  # final surrogate on original scale (observed-cell moments), covariance = the
+  # FULL (no-holdout) refit at the CV-best parameter.
+  R_final <- symmetrize_nearpd(fit_fn(R_full, best_param))
+  mom <- corr_column_moments(x)
+  M <- generate_surrogate(R_final, nrow(x), mom$mu, mom$sd, seed = seed)
+
+  list(M = M, R = R_final,
+       best_param = best_param, params = params[ok],
+       curve = rmse_v[ok], curve_r2 = r2_v[ok],
+       param_name = param_name, metric_name = "Held-out RMSE")
+}
+
 # ── fill-smooth (methods "default" and "zeros") ──────────────────────────────
 # Correlation-matrix completion by recipe: fill the never-co-observed entries of
 # the observed pairwise correlation matrix, then PSD-smooth (psych::cor.smooth).

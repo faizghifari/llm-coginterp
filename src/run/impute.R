@@ -16,7 +16,7 @@
 #
 # Run from anywhere:
 #   Rscript src/run/impute.R [--method <name>] [--raw] [--reimpute]
-#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | cvxr | ggm | default | zeros | all
+#     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | knn_corr | missforest_corr | cvxr | ggm | default | zeros | all
 #     --raw          run ONLY the undensified "raw" level (default: C,S,R)
 #     --reimpute     force fresh imputation even if an imputed CSV exists
 #     --data-root    input tree, relative to repo root
@@ -53,6 +53,7 @@ source(file.path(SRC, "impute", "db.R"))
 
 ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
                  "onesidedmc", "knn", "missforest", "mice",
+                 "knn_corr", "missforest_corr",
                  "optspace", "usvt", "cvxr", "ggm",
                  "default", "zeros")
 # Fill-smooth methods: their contract carries the extra smoothed correlation R,
@@ -189,6 +190,14 @@ impute_R <- function(method, x) {
   } else if (method == "missforest") {
     source(file.path(SRC, "impute", "missforest", "method.R"))
     impute_missforest(x)
+  } else if (method == "knn_corr") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "knn_corr", "method.R"))
+    impute_knn_corr(x)
+  } else if (method == "missforest_corr") {
+    source(file.path(SRC, "impute", "corr_common.R"))
+    source(file.path(SRC, "impute", "missforest_corr", "method.R"))
+    impute_missforest_corr(x)
   } else if (method == "mice") {
     source(file.path(SRC, "impute", "mice", "method.R"))
     impute_mice(x)
