@@ -344,7 +344,8 @@ Drops rows/columns to reach a workable density, producing several *bias
 profiles* (not one "best" table). Density is the only target — pairwise-overlap
 and positive-definiteness are deliberately **not** optimized, so the densifier
 stays neutral across downstream imputers. Reads `data/combinations/<strategy>/`,
-writes `data/combinations_<C|R|S>/<strategy>/`.
+writes `data/<density>/combinations_<C|R|S>/<strategy>/` (`--density` is
+required; e.g. `--density 0.1` → `data/text_only/0.1/combinations_C/...`).
 
 - **C** (column-primary peel): drop the sparsest benchmark, then any emptied
   model → famous benchmarks × wide model coverage.

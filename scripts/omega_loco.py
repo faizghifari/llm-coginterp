@@ -179,6 +179,8 @@ def make_plots(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="LOCO sensitivity: freq vs delta_omega_h and freq vs g-loading correlations")
+    parser.add_argument("--density", required=True, metavar="FRAC",
+                        help="density slice, e.g. 0.1 (roots gain a <density> segment)")
     parser.add_argument("--data-root", default=str(DATA_ROOT))
     parser.add_argument("--results-root", default=str(RESULTS_ROOT))
     parser.add_argument("--dpi", type=int, default=300, help="DPI for saved plot")
@@ -186,8 +188,8 @@ def main() -> None:
     parser.add_argument("--no-plot", action="store_true", help="skip plot generation, table only")
     args = parser.parse_args()
 
-    data_root = Path(args.data_root)
-    results_root = Path(args.results_root)
+    data_root = Path(args.data_root) / args.density
+    results_root = Path(args.results_root) / args.density
     db_path = results_root / "database.db"
 
     if not db_path.exists():

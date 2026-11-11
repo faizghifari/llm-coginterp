@@ -48,10 +48,12 @@ No single fix works, so:
 ## Stage 1 — Densify (`scripts/densify.py`)
 
 Reads `data/combinations/<strategy>/model_benchmark_table.csv`, writes
-`data/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv` (+ `summary.csv`
-per densifier and `data/densify_summary.csv` rollup).
+`data/<density>/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv` (+ `summary.csv`
+per densifier and `data/<density>/densify_summary.csv` rollup). `--density` is
+required; the density dir also gets a verbatim copy of the raw `combinations/`
+level.
 
-Three densifiers, all greedy-peel to `TARGET` density (currently `0.10`), then
+Three densifiers, all greedy-peel to the `--density` target, then
 enforce a hardcoded `MIN_OBS = 2` floor on **both** axes (every kept model ≥2
 scores AND every kept benchmark ≥2 scores — needed so all imputers, esp. OSMC's
 pairwise loss, are well-posed):

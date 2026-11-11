@@ -37,15 +37,15 @@ sudo docker build -t machineg .
 The container does not copy data/ or results/, so build them first in host:
 
 ``` bash
-make preproc
+make preproc DENSITY=0.1
 
 # note: default is "fill-mean" in the paper, and zeros is "fill-zeros"
 # ggm and cvxr skipped because they all crashed
 sudo docker build -t machineg .
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make impute softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor-timed softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
-sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make loco softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make impute DENSITY=0.1 softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor DENSITY=0.1 softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make factor-timed DENSITY=0.1 softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
+sudo docker run --rm -it -v $PWD/data:/app/data -v $PWD/results:/app/results machineg make loco DENSITY=0.1 softimpute softimpute_corr missforest onesidedmc knn usvt default zeros
 
 # unsudo outputs recursively
 sudo chown -R $USER:$USER data
@@ -66,11 +66,11 @@ for c in \
   scripts/factor_summary.py \
   scripts/sensitivity.py; do
   log="results/pyout/$(basename ${c%.py}).log"
-  uv run $c 2>&1 | tee "$log"
+  uv run $c --density 0.1 2>&1 | tee "$log"
 done
 
-make release-date DATA_ROOT=data/text_only RESULTS_ROOT=results/text_only
-make release-date-report RUNS="10%=results/text_only/release_date"
+make release-date DATA_ROOT=data/text_only RESULTS_ROOT=results/text_only DENSITY=0.1
+make release-date-report RUNS="10%=results/text_only/0.1/release_date"
 ```
 
 ### Scripts
@@ -87,17 +87,19 @@ python3 scripts/make_text_only_copy.py          # regenerate data/text_only/
 python3 scripts/make_text_only_copy.py --check  # assert it is reproducible; changes nothing
 
 # MachineG2 pipeline. Everything below defaults to the TEXT-ONLY analysis view.
-python3 scripts/collapse_results.py             # preproc stage 0a
-python3 scripts/densify.py                      # preproc stage 1 (or: make preproc runs both)
-Rscript src/run/impute.R --method softimpute    # impute + held-out sweep
-Rscript src/run/factor.R --method softimpute    # factor the completed matrix
-python3 scripts/compare_loadings.py             # cross-method factor congruence
-make release-date                               # release-cohort EFA + benchmark release year (after factor)
-make runall                                     # canned sequence across all methods
+# --density is required at every entry point: both roots gain the segment,
+# i.e. data/text_only/<density>/ and results/text_only/<density>/.
+python3 scripts/collapse_results.py             # preproc stage 0a (density-free)
+python3 scripts/densify.py --density 0.1        # preproc stage 1 (or: make preproc DENSITY=0.1)
+Rscript src/run/impute.R --density 0.1 --method softimpute    # impute + held-out sweep
+Rscript src/run/factor.R --density 0.1 --method softimpute    # factor the completed matrix
+python3 scripts/compare_loadings.py --density 0.1             # cross-method factor congruence
+make release-date DENSITY=0.1                  # release-cohort EFA + benchmark release year (after factor)
+make runall DENSITY=0.1                        # canned sequence across all methods
 
 # The multimodal-inclusive corpus is retained; reach it by naming both roots:
-make runall DATA_ROOT=data RESULTS_ROOT=results
-Rscript src/run/impute.R --method softimpute --data-root data --results-root results
+make runall DATA_ROOT=data RESULTS_ROOT=results DENSITY=0.1
+Rscript src/run/impute.R --density 0.1 --method softimpute --data-root data --results-root results
 
 # methods: softimpute | softimpute_corr | knn | missforest | mice | onesidedmc
 #          | optspace | usvt | cvxr | ggm | default | zeros (fill-smooth)
@@ -283,10 +285,11 @@ implemented but deferred/untested):
   with model release date, and whether a benchmark's release year relates to its place in it.
   Written up in the paper's release-date appendix; see [Release-date analysis](#release-date-analysis).
 
-Outputs, under whichever root is active (`data/text_only` + `results/text_only` by default):
-`<data-root>/imputed/<method>/<densifier>/<strategy>/` holds the imputed CSV;
-`<results-root>/<method>/` holds the bifactor loadings and scalars; numeric results also land in
-a SQLite store at `<results-root>/database.db`, which `scripts/impute_summary.py`,
+Outputs, under whichever root is active (`data/text_only` + `results/text_only` by default;
+`--density` is required and nests a density segment into both):
+`<data-root>/<density>/imputed/<method>/<densifier>/<strategy>/` holds the imputed CSV;
+`<results-root>/<density>/<method>/` holds the bifactor loadings and scalars; numeric results also land in
+a SQLite store at `<results-root>/<density>/database.db`, which `scripts/impute_summary.py`,
 `factor_summary.py` and `correlations.py` read.
 
 ### Release-date analysis
@@ -294,8 +297,8 @@ a SQLite store at `<results-root>/database.db`, which `scripts/impute_summary.py
 Run after `make factor` on the same roots. One run covers one target density:
 
 ```bash
-make release-date DATA_ROOT=<data-root> RESULTS_ROOT=<results-root>
-# = uv run python scripts/release_date.py run --data-root ... --results-root ...
+make release-date DATA_ROOT=<data-root> RESULTS_ROOT=<results-root> DENSITY=<density>
+# = uv run python scripts/release_date.py run --density ... --data-root ... --results-root ...
 #   [--dz C,S] [--strategy all_standard] [--reps 50] [--cores N] [--skip-efa]
 ```
 

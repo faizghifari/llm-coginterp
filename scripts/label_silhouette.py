@@ -298,6 +298,8 @@ def print_tables(results: list[Result], cells: list[str]) -> None:
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (results root gains a <density> segment)")
     ap.add_argument("--results-root", default="results/text_only")
     ap.add_argument("--data-root", default="data/text_only")
     ap.add_argument("--subject-groups", default=str(cp.DEFAULT_SUBJECT_GROUPS))
@@ -316,7 +318,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    results_root = cp.resolve(args.results_root)
+    results_root = cp.resolve(args.results_root) / args.density
     cells = cp.load_cells(results_root)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")

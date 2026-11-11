@@ -19,22 +19,25 @@ Density is the only target (imputer-agnostic). Pairwise-overlap / PD-ness are
 SoftImpute-specific notions of "well-posed" and are deliberately NOT optimized
 here, so the densifier stays neutral across imputation methods.
 
-Defaults to the TEXT-ONLY analysis view, which is the corpus the analysis is run
-on. The multimodal-inclusive corpus is retained and reachable with an explicit
-root:
+Requires an explicit --density (fraction, e.g. 0.1). Outputs are nested in a
+density-specific directory so multiple densities can coexist side by side:
 
-    python3 scripts/densify.py                       # text-only (default)
-    python3 scripts/densify.py --data-root data      # multimodal-inclusive
+    python3 scripts/densify.py --density 0.1                   # text-only (default root)
+    python3 scripts/densify.py --density 0.2 --data-root data  # multimodal-inclusive
 
 Reads:  <root>/combinations/<strategy>/model_benchmark_table.csv
-Writes: <root>/combinations_<densifier>/<strategy>/model_benchmark_table.csv
-        <root>/combinations_<densifier>/<strategy>/summary.csv
-        <root>/combinations_<densifier>/summary.csv   (rollup per densifier)
-        <root>/densify_summary.csv                    (rollup across all)
-where <root> defaults to data/text_only.
+Writes: <root>/<density>/combinations (copy of the raw level + collapse_mapping.csv)
+        <root>/<density>/combinations_<densifier>/<strategy>/model_benchmark_table.csv
+        <root>/<density>/combinations_<densifier>/<strategy>/summary.csv
+        <root>/<density>/combinations_<densifier>/summary.csv   (rollup per densifier)
+        <root>/<density>/densify_summary.csv                    (rollup across all)
+where <root> defaults to data/text_only. The raw "combinations" level is
+density-independent, so it is copied verbatim into every density dir
+(downstream reads of <dz>=="raw" and collapse_mapping.csv resolve there).
 """
 
 from pathlib import Path
+import shutil
 
 import numpy as np
 import polars as pl
@@ -44,7 +47,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATA_ROOT = REPO / "data" / "text_only"   # text-only is the analysis default
 SRC = DATA_ROOT / "combinations"
 DST_ROOT = DATA_ROOT
-TARGET = 0.1  # target density (fraction)
+TARGET = None  # target density (fraction); set by --density (required)
 MIN_OBS = 3  # floor: every kept model AND benchmark must have >= MIN_OBS scores.
 # Needed so all downstream methods are well-posed: prep_matrix drops <2-obs cols,
 # and OneSidedMC's pairwise-product loss needs >=2 obs per row (1 obs = 0 pairs).
@@ -157,17 +160,18 @@ def col_obs_counts(df, value_cols):
     return [df[c].len() - df[c].null_count() for c in value_cols]
 
 
-def run_densifier(mask: np.ndarray, densifier: str):
+def run_densifier(mask: np.ndarray, densifier: str, target: float):
     if densifier == "C":
-        return peel(mask, TARGET, "col")
+        return peel(mask, target, "col")
     if densifier == "R":
-        return peel(mask, TARGET, "row")
+        return peel(mask, target, "row")
     if densifier == "S":
-        return symmetric_peel(mask, TARGET)
+        return symmetric_peel(mask, target)
     raise ValueError(f"unknown densifier {densifier!r}")
 
 
-def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
+def densify_one(strategy: str, densifier: str, dst_root: Path,
+                peek: bool = False) -> dict:
     df = pl.read_csv(SRC / strategy / "model_benchmark_table.csv")
     value_cols = [c for c in df.columns if c != KEY]
 
@@ -182,7 +186,7 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
     orig_models, orig_bench = mask.shape
     orig_filled = int(mask.sum())
 
-    rkeep, ckeep = run_densifier(mask, densifier)
+    rkeep, ckeep = run_densifier(mask, densifier, TARGET)
     rkeep, ckeep = enforce_min_obs(mask, rkeep, ckeep, MIN_OBS)
 
     kept_cols = [KEY] + [c for c, k in zip(value_cols, ckeep) if k]
@@ -205,7 +209,7 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
     density = kept_filled / sub.size if sub.size else 0.0
 
     if not peek:  # --peek: compute + report only, write nothing
-        out_dir = DST_ROOT / f"combinations_{densifier}" / strategy
+        out_dir = dst_root / f"combinations_{densifier}" / strategy
         out_dir.mkdir(parents=True, exist_ok=True)
         out.write_csv(out_dir / "model_benchmark_table.csv")
 
@@ -247,6 +251,14 @@ def densify_one(strategy: str, densifier: str, peek: bool = False) -> dict:
 def main(peek: bool = False):
     all_rows = []
 
+    # ── density dir: <root>/<density>/, seeded with a copy of the raw level ──
+    density_dir = DST_ROOT / DENSITY
+    if not peek:
+        density_dir.mkdir(parents=True, exist_ok=True)
+        # The raw "combinations" level (undensified tables + collapse_mapping.csv)
+        # is density-independent; copy it so every density dir is self-contained.
+        shutil.copytree(SRC, density_dir / "combinations", dirs_exist_ok=True)
+
     # ── raw table column-obs diagnostics (undensified inputs) ──────────────
     print("| Densifier | Strategy | Shape | Density | Retained |")
     print("| --------- | -------- | ---------- | ------: | -------: |")
@@ -267,11 +279,12 @@ def main(peek: bool = False):
     for densifier in DENSIFIERS:
         rows = []
         for strategy in STRATEGIES:
-            r = densify_one(strategy, densifier, peek=peek)
+            r = densify_one(strategy, densifier, density_dir, peek=peek)
             rows.append(r)
             all_rows.append(r)
         if not peek:
-            pl.DataFrame(rows).write_csv(DST_ROOT / f"combinations_{densifier}" / "summary.csv")
+            pl.DataFrame(rows).write_csv(
+                density_dir / f"combinations_{densifier}" / "summary.csv")
     if peek:
         print(
             f"\n[peek] {len(all_rows)} tables previewed "
@@ -279,17 +292,22 @@ def main(peek: bool = False):
             f"— nothing written."
         )
     else:
-        pl.DataFrame(all_rows).write_csv(DST_ROOT / "densify_summary.csv")
+        pl.DataFrame(all_rows).write_csv(density_dir / "densify_summary.csv")
         print(
             f"\nWrote {len(all_rows)} densified tables "
             f"({len(STRATEGIES)} strategies x {len(DENSIFIERS)} densifiers) "
-            f"to data/combinations_<C|R|S>/ + rollup data/densify_summary.csv"
+            f"to {density_dir.relative_to(REPO)}/combinations_<C|R|S>/ "
+            f"+ rollup {density_dir.relative_to(REPO)}/densify_summary.csv"
         )
 
 
 if __name__ == "__main__":
     import sys
     argv = sys.argv[1:]
+    if "--density" not in argv:
+        sys.exit("error: --density <fraction> is required (e.g. --density 0.1)")
+    DENSITY = argv[argv.index("--density") + 1]
+    TARGET = float(DENSITY)  # validated here: raises on a non-numeric density
     if "--data-root" in argv:
         _root = Path(argv[argv.index("--data-root") + 1])
         _root = _root if _root.is_absolute() else REPO / _root

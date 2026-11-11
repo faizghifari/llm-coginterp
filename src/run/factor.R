@@ -32,6 +32,9 @@
 #                     `--data-root data` for the multimodal-inclusive one)
 #     --results-root output tree, relative to repo root
 #                    (default results/text_only)
+#     --density      REQUIRED. Density slice, e.g. 0.1. Roots gain a density
+#                    segment: <data-root>/<density>/ and <results-root>/<density>/.
+#                    --smoke rejects it (the fixture has no density dimension).
 #     --smoke        use data/smoke fixture
 #     --timed        year-separated factoring: partition rows by release year
 #                    (collapse_mapping.csv, written by scripts/collapse_results.py)
@@ -70,12 +73,14 @@ SURROGATE_METHODS <- c("onesidedmc", "softimpute_corr", "cvxr", "ggm", "optspace
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE; loco <- FALSE; timed <- FALSE
   data_root <- "data/text_only"; results_root <- "results/text_only"
+  density <- NULL
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]
     if (a == "--method") { method <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--data-root")    { data_root    <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--results-root") { results_root <- args[[i + 1L]]; i <- i + 2L }
+    else if (a == "--density")      { density      <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--raw")   { raw   <- TRUE; i <- i + 1L }
     else if (a == "--smoke") { smoke <- TRUE; i <- i + 1L }
     else if (a == "--loco")  { loco  <- TRUE; i <- i + 1L }
@@ -84,10 +89,13 @@ parse_args <- function(args) {
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
+  if (is.null(density)) stop("--density <fraction> is required (e.g. --density 0.1)")
   if (timed && loco)
     stop("--timed and --loco are mutually exclusive: per-year cohorts are too small for a LOCO sweep")
+  if (smoke)
+    stop("--smoke uses the fixed data/smoke fixture (no density dimension); drop --density")
   list(methods = if (method == "all") ALL_METHODS else method,
-       raw = raw, smoke = smoke, loco = loco, timed = timed,
+       raw = raw, smoke = smoke, loco = loco, timed = timed, density = density,
        data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -97,8 +105,13 @@ DENSIFIERS <- if (opt$raw) "raw" else c("C", "S", "R")
 STRATEGIES <- c("all_standard", "all_aggressive")
 LOCO       <- opt$loco       # leave-one-covariate-out delta omega_h mode
 TIMED      <- opt$timed      # year-partitioned factoring mode
-DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
-RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
+# --density nests a density segment into both roots: inputs read from
+# <data-root>/<density>/ (combinations_<dz> incl. the copied raw level,
+# imputed/), outputs go to <results-root>/<density>/ (flat artifacts + db).
+DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke"
+                        else file.path(opt$data_root, opt$density))
+RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke"
+                          else file.path(opt$results_root, opt$density))
 dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
 cat(sprintf("factor: methods=[%s]  data_root=%s  results=%s\n",
             paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT))

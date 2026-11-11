@@ -261,7 +261,10 @@ def observed_pairs(M: pd.DataFrame, years: pd.Series) -> dict:
 
 # ── run ──────────────────────────────────────────────────────────────────────
 def cmd_run(a) -> None:
-    data, res = REPO / a.data_root, REPO / a.results_root
+    # --density nests a density segment into both roots (combinations/imputed
+    # reads + database.db/loadings); root-level corpus files (benchmarks.csv)
+    # stay at the plain data root.
+    data, res = REPO / a.data_root / a.density, REPO / a.results_root / a.density
     out = REPO / a.out if a.out else res / "release_date"
     out.mkdir(parents=True, exist_ok=True)
     dzs, st = a.dz.split(","), a.strategy
@@ -271,7 +274,7 @@ def cmd_run(a) -> None:
     ym = year_map(data, st)
     ym.to_frame().rename_axis("collapse_key").to_csv(out / "year_map.csv")
     coh = ym.map(cohort_of).dropna()
-    by = bench_years(data)
+    by = bench_years(REPO / a.data_root)
     print(f"release_date: {ym.notna().sum()}/{len(ym)} collapse keys dated, R2 gate {gate}", flush=True)
 
     # which methods enter
@@ -516,6 +519,8 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="analyse one data/results root")
+    r.add_argument("--density", required=True, metavar="FRAC",
+                   help="density slice, e.g. 0.1 (roots gain a <density> segment)")
     r.add_argument("--data-root", default="data/text_only")
     r.add_argument("--results-root", default="results/text_only")
     r.add_argument("--out", help="default <results-root>/release_date")

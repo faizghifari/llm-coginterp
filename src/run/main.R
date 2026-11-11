@@ -26,6 +26,9 @@
 #     --data-root    input tree, relative to the repo root (default data; e.g.
 #                    data/text_only for the derived text-only copy)
 #     --results-root output tree, relative to the repo root (default results)
+#     --density      REQUIRED. Density slice, e.g. 0.1. Roots gain a density
+#                    segment: <data-root>/<density>/ and <results-root>/<density>/.
+#                    --smoke rejects it (the fixture has no density dimension).
 #     --reimpute     force fresh imputation even if an imputed CSV exists
 #     --no-balance   revert to cell-weighted holdout scores
 # Strategies (all_standard, all_aggressive) always run.
@@ -65,12 +68,14 @@ parse_args <- function(args) {
   method <- "all"; smoke <- FALSE; raw <- FALSE
   reimpute <- FALSE; no_balance <- FALSE; loco <- FALSE
   data_root <- "data"; results_root <- "results"
+  density <- NULL
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]
     if (a == "--method") { method <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--data-root")    { data_root    <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--results-root") { results_root <- args[[i + 1L]]; i <- i + 2L }
+    else if (a == "--density")      { density      <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--smoke")       { smoke      <- TRUE; i <- i + 1L }
     else if (a == "--raw")         { raw        <- TRUE; i <- i + 1L }
     else if (a == "--reimpute")    { reimpute   <- TRUE; i <- i + 1L }
@@ -80,9 +85,12 @@ parse_args <- function(args) {
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
+  if (is.null(density)) stop("--density <fraction> is required (e.g. --density 0.1)")
+  if (smoke)
+    stop("--smoke uses the fixed data/smoke fixture (no density dimension); drop --density")
   list(methods = if (method == "all") ALL_METHODS else method,
        smoke = smoke, raw = raw, reimpute = reimpute,
-       no_balance = no_balance, loco = loco,
+       no_balance = no_balance, loco = loco, density = density,
        data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -99,16 +107,22 @@ LOCO       <- opt$loco       # leave-one-covariate-out delta omega_h mode
 # scores). Set in common.R's BALANCE_HOLDOUT, which the scorers read.
 BALANCE_HOLDOUT <- !opt$no_balance
 MAX_RANK   <- 10L
-DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
-RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
+# --density nests a density segment into both roots: inputs read from
+# <data-root>/<density>/ (combinations_<dz>, imputed/), outputs go to
+# <results-root>/<density>/ (flat artifacts + database.db).
+DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke"
+                        else file.path(opt$data_root, opt$density))
+RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke"
+                          else file.path(opt$results_root, opt$density))
 dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
 cat(sprintf("methods=[%s]  data_root=%s  results=%s  reimpute=%s\n",
             paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT, REIMPUTE))
 
 DB_FILE <- file.path(RESULTS_ROOT, "database.db")
 
-# Input table for a densifier level. "raw" reads the undensified aggregated
-# table under data/combinations/; C/S/R read the densified copies.
+# Input table for a densifier level, within the density dir. "raw" reads the
+# undensified aggregated table under <data_root>/<density>/combinations/
+# (copied there verbatim by densify.py); C/S/R read the densified copies.
 combos_path <- function(dz, st) {
   sub <- if (dz == "raw") "combinations" else sprintf("combinations_%s", dz)
   file.path(DATA_ROOT, sub, st, "model_benchmark_table.csv")

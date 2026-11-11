@@ -1,13 +1,13 @@
 """Plot KDE density of benchmark observation counts (non-missing scores per
 benchmark column) across the raw table and each densifier, for both strategies.
 Defaults to the TEXT-ONLY analysis view; pass `--data-root data` for the
-multimodal-inclusive corpus.
+multimodal-inclusive corpus. --density selects the density slice (required).
 
 Reads:
-  <data-root>/combinations/<strategy>/model_benchmark_table.csv
-  <data-root>/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv
+  <data-root>/<density>/combinations/<strategy>/model_benchmark_table.csv
+  <data-root>/<density>/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv
 Writes:
-  <results-root>/density_data.png   (4 rows x 2 columns, KDE + histograms)
+  <results-root>/<density>/density_data.png   (4 rows x 2 columns, KDE + histograms)
 """
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -109,6 +109,8 @@ def main():
 def parse_args():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (roots gain a <density> segment)")
     ap.add_argument("--data-root", default="data/text_only",
                     help="input tree, relative to the repo root "
                          "(e.g. data/text_only for the derived text-only copy)")
@@ -120,8 +122,11 @@ def parse_args():
 if __name__ == "__main__":
     _a = parse_args()
     # Paths are anchored to the repo root, not the CWD, so this runs from
-    # anywhere (matching densify.py / collapse_results.py).
+    # anywhere (matching densify.py / collapse_results.py). --density nests a
+    # density segment into both roots.
     DATA = Path(_a.data_root) if Path(_a.data_root).is_absolute() else REPO / _a.data_root
     RESULTS = (Path(_a.results_root) if Path(_a.results_root).is_absolute()
                else REPO / _a.results_root)
+    DATA = DATA / _a.density
+    RESULTS = RESULTS / _a.density
     main()

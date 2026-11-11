@@ -123,7 +123,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 Usage:
-    python3 scripts/latent_scores.py
+    python3 scripts/latent_scores.py --density <fraction>
         [--data-root data/text_only] [--results-root results/text_only]
         [--method <name>] [--tag <pa|2f>]
 """
@@ -155,6 +155,8 @@ TIMED_RE = re.compile(r"_bifactor_(?:pa|forced2f)_y\d{4}_")
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (roots gain a <density> segment)")
     ap.add_argument("--data-root", default="data/text_only",
                     help="tree holding imputed/ and combinations[_dz]/ matrices")
     ap.add_argument("--results-root", default="results/text_only",
@@ -343,8 +345,8 @@ def score_cell_raw(loadings_path: Path, sparse_path: Path, corr_path: Path) -> b
 
 def main():
     args = parse_args()
-    results_root = REPO / args.results_root
-    data_root = REPO / args.data_root
+    results_root = REPO / args.results_root / args.density
+    data_root = REPO / args.data_root / args.density
     if not results_root.exists():
         print(f"No results tree at {results_root} — run factoring first.", file=sys.stderr)
         sys.exit(1)

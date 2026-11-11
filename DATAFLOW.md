@@ -46,26 +46,35 @@ results at the repo root**.
 
 ```
 data/                    multimodal-inclusive corpus (analysis-adjacent)
-  results.csv            raw model × benchmark scores (the source of truth)
-  models.csv benchmarks.csv
-  combinations/<strategy>/model_benchmark_table.csv   aggregated, ~3–5% filled
-  combinations_<C|R|S>/<strategy>/model_benchmark_table.csv   densified slices
-  densify_summary.csv    shape/density rollup across all densifiers
-  imputed/<method>/<dz>/<strategy>/imputed_model_benchmark_table.csv  completed/surrogate
-data/text_only/          DEFAULT analysis corpus (subset of data/, mirror layout)
-data/smoke/              tiny synthetic fixture (make_smoke.py), mirror layout
+   results.csv            raw model × benchmark scores (the source of truth)
+   models.csv benchmarks.csv
+   combinations/<strategy>/model_benchmark_table.csv   aggregated, ~3–5% filled
+   <density>/combinations/            copy of the raw level (densify Stage 0 seeds
+                                      every density dir with it)
+   <density>/combinations_<C|R|S>/<strategy>/model_benchmark_table.csv  densified
+                                      slices at that density (e.g. <density>=0.1)
+   <density>/densify_summary.csv      shape/density rollup for that density
+   <density>/imputed/<method>/<dz>/<strategy>/imputed_model_benchmark_table.csv
+data/text_only/          DEFAULT analysis corpus (subset of data/, mirror layout;
+                         density slices live one level down, data/text_only/<density>/)
+data/smoke/              tiny synthetic fixture (make_smoke.py), mirror layout,
+                         density-free
 data/synth/              synthetic MNAR stress corpus (make_mnar.py): truth/ +
                          <cell>/<mask>/s0/ drop-in --data-roots (side branch below)
 
-results/<method>/<method>_<dz>_<st>_<suffix>   all factoring outputs (flat names)
-results/_osmc_sweep/<dz>_<st>/                OSMC per-r surrogates + curves
-results/<...>/database.db                     SQLite: imputation, factoring, loco
-results/smoke/...                             smoke variant of the above
+results/<density>/<method>/<method>_<dz>_<st>_<suffix>   all factoring outputs
+results/<density>/database.db                  SQLite: imputation, factoring, loco
+results/smoke/...                              smoke variant of the above
 ```
 
-> The default `data_root` differs by entry point: `main.R` defaults to `data`,
-> while `impute.R` and `factor.R` (and `densify.py`) default to
-> `data/text_only`. `--data-root` / `--results-root` overrides all of them.
+> `--density` is REQUIRED at every entry point (e.g. `--density 0.1`); both roots
+> gain the density segment: `<data-root>/<density>/` and `<results-root>/<density>/`.
+> The raw `combinations/` level and the corpus root files (`results.csv`,
+> `models.csv`, `benchmarks.csv`) are density-independent and stay at the plain
+> data root (densify copies `combinations/` into each density dir). The default
+> `data_root` differs by entry point: `main.R` defaults to `data`, while
+> `impute.R` and `factor.R` (and `densify.py`) default to `data/text_only`.
+> `--data-root` / `--results-root` overrides all of them.
 
 ## Stage 0 — densify (`scripts/densify.py`)
 
@@ -75,14 +84,18 @@ imputers read.
 | | path |
 |---|---|
 | read | `<root>/combinations/<strategy>/model_benchmark_table.csv` |
-| write | `<root>/combinations_<dz>/<strategy>/model_benchmark_table.csv` |
-| write | `<root>/combinations_<dz>/<strategy>/summary.csv`, `<root>/combinations_<dz>/summary.csv`, `<root>/densify_summary.csv` |
+| write | `<root>/<density>/combinations/` (verbatim copy of the raw level) |
+| write | `<root>/<density>/combinations_<dz>/<strategy>/model_benchmark_table.csv` |
+| write | `<root>/<density>/combinations_<dz>/<strategy>/summary.csv`, `<root>/<density>/combinations_<dz>/summary.csv`, `<root>/<density>/densify_summary.csv` |
 
-Densifiers `C`/`R`/`S` greedily peel to `TARGET = 0.10` density with a
-`MIN_OBS` floor on both axes (`MIN_OBS` is currently `3` in code — the docs
-still say `2`; the floor is a constant at the top of the file). `raw` (the
-undensified table) is *not* produced here — it is the source table read
-directly.
+`--density` is required (e.g. `--density 0.1`); the value is both the peel
+target and the verbatim directory name. Densifiers `C`/`R`/`S` greedily peel to
+that target with a `MIN_OBS` floor on both axes (`MIN_OBS` is currently `3` in
+code — the docs still say `2`; the floor is a constant at the top of the file).
+`raw` (the undensified table) is *not* produced here — it is the source table
+read directly, and copied unchanged into each density dir so every density dir
+is self-contained (downstream `raw`-level reads and `collapse_mapping.csv`
+resolve inside `<root>/<density>/combinations/`).
 
 ## Stage 1 — imputation (`src/impute/`, OSMC in Julia)
 
@@ -90,9 +103,12 @@ directly.
 
 ```
 combos_path(dz, st) =
-  dz == "raw" ? <root>/combinations/<st>/model_benchmark_table.csv
-              : <root>/combinations_<dz>/<st>/model_benchmark_table.csv
+  dz == "raw" ? <root>/<density>/combinations/<st>/model_benchmark_table.csv
+              : <root>/<density>/combinations_<dz>/<st>/model_benchmark_table.csv
 ```
+
+(`<root>` is `--data-root` minus the density segment; the orchestrators append
+`--density` once, right after arg parsing, so `DATA_ROOT` already contains it.)
 
 **Preprocessing** — `prep_matrix(path)` (`impute/common.R`): reads the CSV,
 drops columns with `<2` observed cells **or** zero observed variance (breaks
@@ -141,10 +157,10 @@ reads those outputs back through `osmc_contract()` as if they were an imputer's
 
 | output | path | writer |
 |---|---|---|
-| completed matrix | `data/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` | `write_completed` (or OSMC `write_surrogate`) |
-| rank-sweep curve | `results/<method>/<method>_<dz>_<st>_rank_sweep.csv` | orchestrator |
-| smoothed correlation (fill-smooth `default`/`zeros` only) | `results/<method>/<method>_<dz>_<st>_correlation.csv` | orchestrator (`write_correlation_csv`) |
-| imputation row | `results/<...>/database.db` table `imputation` (PK `dataset,method`) | `db_insert_imputation` |
+| completed matrix | `data/<density>/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` | `write_completed` (or OSMC `write_surrogate`) |
+| rank-sweep curve | `results/<density>/<method>/<method>_<dz>_<st>_rank_sweep.csv` | orchestrator |
+| smoothed correlation (fill-smooth `default`/`zeros` only) | `results/<density>/<method>/<method>_<dz>_<st>_correlation.csv` | orchestrator (`write_correlation_csv`) |
+| imputation row | `results/<density>/database.db` table `imputation` (PK `dataset,method`) | `db_insert_imputation` |
 
 The completed CSV is the **hand-off artifact** to the factor stage: columns are
 benchmarks, rows are models, first column `collapse_key`. For the fill-smooth
@@ -191,10 +207,10 @@ it: it only matches the covariance up to sampling noise).
 
 | output | path |
 |---|---|
-| bifactor loadings | `results/<method>/<method>_<dz>_<st>_bifactor_<pa\|2f>_loadings.csv` + `.md` |
-| omega scalars | `results/<method>/..._bifactor_<pa\|2f>_scalars.csv` |
-| per-group ω_hs | `results/<method>/..._bifactor_<pa\|2f>_omega_group.csv` |
-| factoring row | `results/<...>/database.db` table `factoring` (PK `dataset,method,run`) |
+| bifactor loadings | `results/<density>/<method>/<method>_<dz>_<st>_bifactor_<pa\|2f>_loadings.csv` + `.md` |
+| omega scalars | `results/<density>/<method>/..._bifactor_<pa\|2f>_scalars.csv` |
+| per-group ω_hs | `results/<density>/<method>/..._bifactor_<pa\|2f>_omega_group.csv` |
+| factoring row | `results/<density>/database.db` table `factoring` (PK `dataset,method,run`) |
 
 `write_higher_order` (CSV + MD) and `db_insert_factoring` (SQLite) are the only
 writers here. `matrix_to_markdown` bolds |loading| ≥ 0.4 and sorts rows by
@@ -204,7 +220,8 @@ so the recipe lives in exactly one place.
 
 **Timed mode** (`make factor-timed` → `factor.R --timed`): year-separated EFA
 instead of the pooled matrix. Reads
-`<data_root>/combinations/<st>/collapse_mapping.csv` (written by
+`<data_root>/<density>/combinations/<st>/collapse_mapping.csv` (the raw-level
+copy densify.py seeds every density dir with; originally written by
 `scripts/collapse_results.py`), maps each `collapse_key` to a release year via
 the first `19xx`/`20xx` in `release_date` (blank/junk dates excluded), then for
 every `(method, dz, st)` cell partitions the completed matrix's rows into
@@ -241,8 +258,8 @@ weights via the correlation matrix, pseudoinverse fallback for low-rank R:
 
 | cell type | data read | R used | writes |
 |---|---|---|---|
-| imputed methods (incl. onesidedmc) | `data/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` | `cor(Z)` of the scored columns | `results/<method>/<method>_<dz>_<st>_bifactor_<tag>_scores.csv` |
-| fill-smooth methods (default/zeros) | sparse `data/combinations[_<dz>]/<st>/model_benchmark_table.csv` + the imputation-persisted `..._correlation.csv` | the persisted smoothed fill+smooth R | `..._bifactor_<tag>_scores_conditional.csv` + `..._scores_prorated.csv` |
+| imputed methods (incl. onesidedmc) | `data/<density>/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` | `cor(Z)` of the scored columns | `results/<density>/<method>/<method>_<dz>_<st>_bifactor_<tag>_scores.csv` |
+| fill-smooth methods (default/zeros) | sparse `data/<density>/combinations[_<dz>]/<st>/model_benchmark_table.csv` + the imputation-persisted `..._correlation.csv` | the persisted smoothed fill+smooth R | `..._bifactor_<tag>_scores_conditional.csv` + `..._scores_prorated.csv` |
 
 Fill-smooth cells get **two** estimators for triangulation (both use Λ; they differ
 only in how they handle missing cells):
@@ -270,8 +287,8 @@ and punches calibrated holes; each output root is a drop-in `--data-root`.
 
 | | path |
 |---|---|
-| read | `data/text_only/combinations_C/all_standard/model_benchmark_table.csv` (671×78) |
-| read | `data/text_only/combinations_S/all_standard/model_benchmark_table.csv` (669×124) |
+| read | `data/text_only/<density>/combinations_C/all_standard/model_benchmark_table.csv` |
+| read | `data/text_only/<density>/combinations_S/all_standard/model_benchmark_table.csv` |
 | write | `data/synth/truth/<tag>_<cell>_{complete.csv, correlation.csv, factors.npz, meta.json}` |
 | write | `data/synth/<cell>/<mask>/s0/combinations[_<dz>]/<st>/model_benchmark_table.csv` |
 | write | `data/synth/<cell>/<mask>/s0/truth/<tag>_<cell>_{mask.npz, meta.json}` |
@@ -324,8 +341,8 @@ the corpus.
 
 ## The SQLite database
 
-One `database.db` per results root (`results/`, `results/smoke/`,
-`results/text_only/`), written by both stages:
+One `database.db` per density slice (`results/<density>/database.db` — e.g.
+`results/text_only/0.1/database.db`), written by both stages:
 
 | table | PK | written by | purpose |
 |---|---|---|---|
@@ -339,7 +356,7 @@ One `database.db` per results root (`results/`, `results/smoke/`,
 
 ```
 densify.py            ──CSV──►  impute_<method>            ──M──►  factor_<method>
-(combinations_<dz>)                 │  │                          │
+(<density>/combinations_<dz>)       │  │                          │
                                     │  └─ imputed CSV ────────────┘ (completed matrix)
                                     │       (data/imputed/...)
                                     └─ sweep ──► rank_sweep.csv
@@ -361,6 +378,12 @@ factoring and all I/O.** A method just returns the contract above, and
 - **Path anchoring:** every entry point derives `REPO` from its own file
   location (`--file=` in R, `@__DIR__` in Julia, `__file__` in Python). Never
   assume the current working directory.
+- **Density slicing:** `--density` is required everywhere and names the
+  directory verbatim (`--density 0.1` → `.../0.1/`). Data and results roots gain
+  the segment (`<root>/<density>/`), except corpus root files (`results.csv`,
+  `models.csv`, `benchmarks.csv`) and the `--synth`/`--smoke` fixtures, which
+  stay density-free. Two densities share nothing: each has its own
+  `combinations_<dz>`, `imputed/`, flat results, and `database.db`.
 - **PA cache** is correctness-sensitive and keyed by shape only — never reuse a
   cutoff across shapes.
 - **Column scale:** columns are z-scored, rows never (rows are models;

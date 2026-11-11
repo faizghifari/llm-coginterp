@@ -24,6 +24,9 @@
 #                     `--data-root data` for the multimodal-inclusive one)
 #     --results-root output tree, relative to repo root
 #                    (default results/text_only)
+#     --density      REQUIRED. Density slice, e.g. 0.1. Roots gain a density
+#                    segment: <data-root>/<density>/ and <results-root>/<density>/.
+#                    --synth and --smoke fix their own layouts and reject it.
 #     --smoke        use data/smoke fixture
 #     --no-balance   revert to cell-weighted holdout scores
 #     --synth        run the synthetic stress corpus instead: loops over every
@@ -80,12 +83,14 @@ parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
   reimpute <- FALSE; no_balance <- FALSE; synth <- FALSE
   data_root <- "data/text_only"; results_root <- "results/text_only"
+  density <- NULL
   i <- 1L
   while (i <= length(args)) {
     a <- args[[i]]
     if (a == "--method") { method <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--data-root")    { data_root    <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--results-root") { results_root <- args[[i + 1L]]; i <- i + 2L }
+    else if (a == "--density")      { density      <- args[[i + 1L]]; i <- i + 2L }
     else if (a == "--smoke")       { smoke      <- TRUE; i <- i + 1L }
     else if (a == "--raw")         { raw        <- TRUE; i <- i + 1L }
     else if (a == "--reimpute")    { reimpute   <- TRUE; i <- i + 1L }
@@ -95,13 +100,18 @@ parse_args <- function(args) {
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
+  if (is.null(density)) stop("--density <fraction> is required (e.g. --density 0.1)")
   if (synth && smoke) stop("--synth and --smoke are mutually exclusive")
   if (synth && raw)   stop("--synth covers only the C/S all_standard cells (no raw level)")
   if (synth && (data_root != "data/text_only" || results_root != "results/text_only"))
     stop("--synth fixes its own data roots and results layout; drop --data-root/--results-root")
+  if (synth)
+    stop("--synth fixes its own data roots and results layout; drop --density")
+  if (smoke)
+    stop("--smoke uses the fixed data/smoke fixture (no density dimension); drop --density")
   list(methods = if (method == "all") ALL_METHODS else method,
        smoke = smoke, raw = raw, reimpute = reimpute,
-       no_balance = no_balance, synth = synth,
+       no_balance = no_balance, synth = synth, density = density,
        data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
@@ -117,8 +127,13 @@ SYNTH      <- opt$synth
 # re-points DATA_ROOT/RESULTS_ROOT per (cell, mask) inside main().
 SYNTH_CELL <- NULL
 SYNTH_MASK <- NULL
-DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke" else opt$data_root)
-RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke" else opt$results_root)
+# --density nests a density segment into both roots: inputs read from
+# <data-root>/<density>/ (combinations_<dz>, imputed/), outputs go to
+# <results-root>/<density>/ (flat artifacts + database.db).
+DATA_ROOT  <- file.path(REPO, if (opt$smoke) "data/smoke"
+                        else file.path(opt$data_root, opt$density))
+RESULTS_ROOT <- file.path(REPO, if (opt$smoke) "results/smoke"
+                          else file.path(opt$results_root, opt$density))
 if (SYNTH) {
   # The generator writes only combinations_C/S at all_standard; nothing else
   # exists to skip.

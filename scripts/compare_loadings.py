@@ -118,10 +118,12 @@ def factor_congruence(La, Lb):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (results root gains a <density> segment)")
     ap.add_argument("--results", default=str(REPO / "results" / "text_only"))
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
-    results_dir = Path(args.results)
+    results_dir = Path(args.results) / args.density
     out_path = Path(args.out) if args.out else results_dir / "loadings_congruence.md"
 
     # collect every loadings csv (first-order, secondorder, bifactor). Every

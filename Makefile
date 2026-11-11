@@ -1,12 +1,20 @@
 JULIA_PROJECT := src/impute/OneSidedMC
 
-# The analysis runs on the TEXT-ONLY view. The multimodal-inclusive corpus is
-# retained and reachable by overriding both roots on the command line, e.g.
-#   make preproc DATA_ROOT=data
-#   make runall  DATA_ROOT=data RESULTS_ROOT=results
+# The analysis runs on the TEXT-ONLY view, at an explicit density. DENSITY is
+# required (it names the density slice, e.g. 0.1); both roots gain that segment:
+#   data/text_only/<DENSITY>/   results/text_only/<DENSITY>/
+# The multimodal-inclusive corpus is retained and reachable by overriding the
+# roots on the command line, e.g.
+#   make preproc DATA_ROOT=data DENSITY=0.1
+#   make runall  DATA_ROOT=data RESULTS_ROOT=results DENSITY=0.1
 DATA_ROOT    ?= data/text_only
 RESULTS_ROOT ?= results/text_only
-ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT)
+ifeq ($(strip $(DENSITY)),)
+$(error DENSITY is required, e.g. make runall DENSITY=0.1)
+endif
+DENSITY_DATA    := $(DATA_ROOT)/$(DENSITY)
+DENSITY_RESULTS := $(RESULTS_ROOT)/$(DENSITY)
+ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT) --density $(DENSITY)
 
 # --- parallel runs ------------------------------------------------------------
 # Methods are passed as space-separated arguments; each method gets its own
@@ -30,10 +38,10 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT)
 # Every job logs to $(LOGS)/<job>.log; one "[ok] <job>" / "[error] <job>" line
 # per job goes to $(LOGS)/summary.txt, with the tail of failing logs inlined.
 # ------------------------------------------------------------------------------
-JOBS ?= 8
+JOBS ?= 6
 TAIL ?= 50
 export JOBS TAIL
-LOGS := $(RESULTS_ROOT)/logs
+LOGS := $(DENSITY_RESULTS)/logs
 
 IMPUTE_METHODS := softimpute onesidedmc missforest knn default zeros
 FACTOR_METHODS := softimpute onesidedmc missforest knn default zeros
@@ -79,7 +87,7 @@ env-jl:
 
 preproc:
 	uv run python scripts/collapse_results.py --data-root $(DATA_ROOT)
-	uv run python scripts/densify.py --data-root $(DATA_ROOT)
+	uv run python scripts/densify.py --data-root $(DATA_ROOT) --density $(DENSITY)
 
 # Synthetic MNAR stress-test data (scripts/make_mnar.py). Takes no arguments:
 # writes the 4 truth cells x 4 masks grid (s0 seed) into data/synth/. Each
@@ -132,18 +140,18 @@ factor-timed:
 # imputers that pass factor.R's R2_GATE, against 50 random subsets of the same
 # size. Also: g level per cohort, an imputation-free check on the benchmarks
 # every cohort took, and benchmark release year vs the pooled solutions.
-# Writes $(RESULTS_ROOT)/release_date/ (summary.md has every table).
-#   make release-date DATA_ROOT=<d> RESULTS_ROOT=<r>
+# Writes $(DENSITY_RESULTS)/release_date/ (summary.md has every table).
+#   make release-date DATA_ROOT=<d> RESULTS_ROOT=<r> DENSITY=<d>
 release-date:
 	uv run python scripts/release_date.py run $(ROOTS)
 
 # Combine release-date runs (one per target density) into the paper's tables
 # and figure. RUNS is a space-separated list of LABEL=<results-root>/release_date.
 #   make release-date-report RUNS="10%=results/a/release_date 20%=results/b/release_date"
-RUNS ?= $(RESULTS_ROOT)/release_date
+RUNS ?= $(DENSITY_RESULTS)/release_date
 release-date-report:
 	uv run python scripts/release_date.py report $(foreach r,$(RUNS),--run $(r)) \
-		--out $(RESULTS_ROOT)/release_date_report
+		--out $(DENSITY_RESULTS)/release_date_report
 
 # The method words after the target (e.g. "usvt" in "make factor usvt") arrive as
 # goals make wants to build; they're consumed by runmulti via $(EXTRA) above, so
@@ -170,7 +178,7 @@ runall-loco:
 runall:
 	$(CLEAR_SUMMARY)
 	$(MAKE) --no-print-directory -j$(JOBS) runall-impute runall-factor runall-loco
-	./scripts/runone.sh compare-loadings $(LOGS) uv run python scripts/compare_loadings.py --results $(RESULTS_ROOT)
+	./scripts/runone.sh compare-loadings $(LOGS) uv run python scripts/compare_loadings.py --results $(RESULTS_ROOT) --density $(DENSITY)
 
 clean:
 	cd results && rm -rf *

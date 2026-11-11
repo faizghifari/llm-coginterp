@@ -14,6 +14,8 @@ DEFAULT_RESULTS = REPO_ROOT / "results" / "text_only"
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (results root gains a <density> segment)")
     ap.add_argument("--results-root", default=str(DEFAULT_RESULTS),
                     help="results tree holding database.db (e.g. results/text_only)")
     return ap.parse_args()
@@ -105,4 +107,5 @@ def main(db_path):
 
 
 if __name__ == "__main__":
-    main(Path(parse_args().results_root) / "database.db")
+    _a = parse_args()
+    main(Path(_a.results_root) / _a.density / "database.db")

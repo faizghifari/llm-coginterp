@@ -337,10 +337,13 @@ def run_axis(payload: dict, cells: list[str], axis: str, args, cell_note: str, o
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (the default --csv path gains a "
+                    "<density> segment)")
     ap.add_argument(
-        "--csv", default=str(REPO / "results" / "text_only" / "distance_tests" /
-                              "label_cohesion_pa.csv"),
-        help="rows from scripts/label_cohesion.py (default: its standard pa output path)",
+        "--csv", default=None,
+        help="rows from scripts/label_cohesion.py (default: its standard pa output "
+        "path under the density-specific results root)",
     )
     ap.add_argument(
         "--positions", default=None,
@@ -382,7 +385,9 @@ def main() -> None:
         payload = json.loads(Path(args.positions).read_text(encoding="utf-8"))
         source = args.positions
     else:
-        csv_path = Path(args.csv)
+        csv_path = Path(args.csv) if args.csv else (
+            REPO / "results" / "text_only" / args.density /
+            "distance_tests" / "label_cohesion_pa.csv")
         if not csv_path.exists():
             raise SystemExit(
                 f"{csv_path} not found; run scripts/label_cohesion.py first "

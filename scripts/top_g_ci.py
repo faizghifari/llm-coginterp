@@ -25,7 +25,7 @@ Fallbacks when a cell cannot be residualized: a benchmark without a frequency
 in that cell (or a cell with < 3 freq/rank pairs or zero freq variance) gets
 its centered raw rank (rank - mean_rank) instead of an OLS residual.
 
-Usage: python scripts/top_g_ci.py [--results-root results/text_only]
+Usage: python scripts/top_g_ci.py --density FRAC [--results-root results/text_only]
 """
 
 import argparse
@@ -122,9 +122,14 @@ def main():
     from scipy.stats import linregress, pearsonr
 
     ap = argparse.ArgumentParser()
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (roots gain a <density> segment)")
     ap.add_argument("--results-root", default=os.path.join(REPO, "results", "text_only"))
     args = ap.parse_args()
 
+    args.results_root = os.path.join(args.results_root, args.density)
+    global DATA_ROOT
+    DATA_ROOT = DATA_ROOT / args.density
     allowed = registered_pa_runs(os.path.join(args.results_root, "database.db"))
     if allowed is None:
         print(

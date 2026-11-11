@@ -69,6 +69,7 @@ old tree first (rm -rf data/synth).
 
 import json
 import sys
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -79,7 +80,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import densify  # KEY convention only
 
 REPO = Path(__file__).resolve().parent.parent
-SOURCE = REPO / "data" / "text_only"
+SOURCE = REPO / "data" / "text_only"   # --density nests a <density> segment into this
 OUT = REPO / "data" / "synth"
 KEY = densify.KEY
 
@@ -374,6 +375,14 @@ def jwrite(path, obj):
 # ------------------------------------------------------------------- main --
 
 def main():
+    ap = argparse.ArgumentParser(description="synthetic MNAR stress corpus generator")
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice to read, e.g. 0.1 "
+                         "(source root gains a <density> segment)")
+    a = ap.parse_args()
+    global SOURCE
+    SOURCE = SOURCE / a.density
+
     tables = []
     for dz, sub, st in TABLES:
         p = SOURCE / sub / st / "model_benchmark_table.csv"

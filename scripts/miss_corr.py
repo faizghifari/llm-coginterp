@@ -368,6 +368,8 @@ def main():
 def parse_args():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (roots gain a <density> segment)")
     ap.add_argument("--data-root", default="data/text_only",
                     help="input tree, relative to the repo root "
                          "(e.g. data/text_only for the derived text-only copy)")
@@ -379,8 +381,11 @@ def parse_args():
 if __name__ == "__main__":
     _a = parse_args()
     # Paths are anchored to the repo root, not the CWD, so this runs from
-    # anywhere (matching densify.py / collapse_results.py).
+    # anywhere (matching densify.py / collapse_results.py). --density nests a
+    # density segment into both roots.
     DATA = Path(_a.data_root) if Path(_a.data_root).is_absolute() else REPO / _a.data_root
     RESULTS = (Path(_a.results_root) if Path(_a.results_root).is_absolute()
                else REPO / _a.results_root)
+    DATA = DATA / _a.density
+    RESULTS = RESULTS / _a.density
     main()

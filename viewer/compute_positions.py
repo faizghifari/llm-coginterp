@@ -1000,6 +1000,9 @@ not match results/text_only. Code-path verification only."""
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (results root gains a <density> "
+                    "segment; the data root stays at the corpus files)")
     ap.add_argument("--results-root", default="results/text_only")
     ap.add_argument("--data-root", default="data/text_only")
     ap.add_argument(
@@ -1079,7 +1082,7 @@ def main() -> None:
         prior = json.loads(out_path.read_text())
         print(f"relabel mode: reusing points + clusters from {out_path} ({len(prior)} cells)")
 
-    results_root = resolve(args.results_root)
+    results_root = resolve(args.results_root) / args.density
     cells = load_cells(results_root, legacy_names=args.legacy_names)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")

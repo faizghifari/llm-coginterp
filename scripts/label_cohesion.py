@@ -44,7 +44,6 @@ import polars as pl
 
 REPO = Path(__file__).resolve().parents[1]
 SEED = 42
-DEFAULT_CSV = REPO / "results" / "text_only" / "distance_tests" / "label_cohesion_pa.csv"
 
 
 def _load(name: str, path: Path):
@@ -121,21 +120,24 @@ def axes_summary(rows: list[Row]) -> None:
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="density slice, e.g. 0.1 (results root gains a <density> segment)")
     ap.add_argument("--results-root", default="results/text_only")
     ap.add_argument("--data-root", default="data/text_only")
     ap.add_argument("--subject-groups", default=str(cp.DEFAULT_SUBJECT_GROUPS))
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--tag", action="append", choices=("pa", "2f"),
                     help="factor tag to include; repeatable (default: pa)")
-    ap.add_argument("--csv", default=str(DEFAULT_CSV),
+    ap.add_argument("--csv", default=None,
                     help="where to write every result row (default: the standard pa "
-                    "path plot_cohesion_summary.py reads by default)")
+                    "path under the density-specific results root, which is what "
+                    "plot_cohesion_summary.py reads by default)")
     return ap.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    results_root = cp.resolve(args.results_root)
+    results_root = cp.resolve(args.results_root) / args.density
     cells = cp.load_cells(results_root)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")
@@ -156,7 +158,8 @@ def main() -> None:
     if not rows:
         raise SystemExit("no cell produced a result")
 
-    out_path = cp.resolve(args.csv)
+    out_path = (cp.resolve(args.csv) if args.csv
+                else results_root / "distance_tests" / "label_cohesion_pa.csv")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     pl.DataFrame([asdict(r) for r in rows]).write_csv(out_path)
     print(f"wrote {out_path}: {len(rows)} rows")
