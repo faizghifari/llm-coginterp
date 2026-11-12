@@ -33,7 +33,7 @@ the repo root so they run from any working directory:
 | orchestrator | does | when |
 |---|---|---|
 | `src/run/main.R` | impute → factor → bifactor → DB, per cell | full pipeline |
-| `src/run/impute.R` | impute + held-out sweep only | re-impute without re-factoring |
+| `src/run/impute.R` | impute + held-out sweep only; `--hier` = experimental density-descent mode (below) | re-impute without re-factoring |
 | `src/run/factor.R` | factor + bifactor only (reads completed CSVs) | re-factor without re-imputing |
 
 All three resolve their own location via `commandArgs(--file=)`, compute
@@ -56,7 +56,9 @@ data/                    multimodal-inclusive corpus (analysis-adjacent)
    <density>/densify_summary.csv      shape/density rollup for that density
    <density>/imputed/<method>/<dz>/<strategy>/imputed_model_benchmark_table.csv
 data/text_only/          DEFAULT analysis corpus (subset of data/, mirror layout;
-                         density slices live one level down, data/text_only/<density>/)
+                         density slices live one level down, data/text_only/<density>/;
+                         plus hierarchical/ — the experimental --hier outputs, below;
+                         and 0/ — the reserved hier final-step hand-off slice, below)
 data/smoke/              tiny synthetic fixture (make_smoke.py), mirror layout,
                          density-free
 data/synth/              synthetic MNAR stress corpus (make_mnar.py): truth/ +
@@ -174,12 +176,79 @@ it: it only matches the covariance up to sampling noise).
 > re-running the slow imputation. Fill-smooth cells skip only when the
 > correlation cache exists too (their imputation is cheap anyway).
 
+### Hierarchical mode (`impute.R --hier`, `make impute-hier` — experimental)
+
+`--hier` descends the density slices under `<data-root>` **densest-first**
+(`0.3 → 0.2 → 0.1`, discovered by globbing and sorted numerically; the
+Makefile's `--density` flag is parsed but IGNORED), for one imputer method at
+a time. `runmulti.sh` fans out one Rscript per method word exactly as for
+`impute` (`--hier --reimpute` injected); bare `make impute-hier` defaults to
+the full `IMPUTE_METHODS` set.
+
+- **Seed.** The chain starts from the standard run's cached completed matrix
+  at the densest density (`<data-root>/<d1>/imputed/<method>/<dz>/<st>/...`;
+  fill-smooth seeds also require their `..._correlation.csv` cache). Missing →
+  the cell logs and aborts; nothing is imputed. The seed is copied into the
+  hierarchical output tree verbatim and becomes the running matrix `P`.
+- **Descent.** Each sparser density `d` is imputed on the **union grid** of
+  `P` and that density's sparse table `T`: rows matched by exact
+  `collapse_key`, columns by exact benchmark name — never positional, since
+  column sets need not nest (densify's greedy peel + `prep_matrix` drops).
+  `T`'s observed cells win, `P`'s completed values fill the rest, NAs
+  elsewhere; the filled input is written as `filled_model_benchmark_table.csv`
+  for auditability. Each step's completed matrix becomes `P` for the next,
+  until the densities are exhausted.
+- **Honest holdouts.** Filled cells train but are NEVER held out or graded:
+  `make_holdout` samples only mask-TRUE cells (`HOLDOUT_MASK` global in
+  `common.R`, set per step — every R imputer inherits it; `prep_matrix` now
+  returns its surviving columns so the mask can be realigned). OSMC gets the
+  same treatment via the `holdout_mask.csv` sidecar: `run.jl`'s single-input
+  mode (`OSMC_SINGLE_INPUT`) processes one filled table per descent step with
+  `OSMC_HOLDOUT_MASK`, and `holdout_cells` (`pipeline.jl`) draws holdouts only
+  from mask-TRUE cells. So each step's sweep/R² measures recovery of that
+  density's REAL observations and is comparable to the standard run at the
+  same density — training data differs (it has the seeded columns), which is
+  exactly the effect under test, so some gain is expected by construction.
+- **Reuse.** Same `--reimpute` semantics as the standard loop: an existing
+  step CSV is loaded from disk and the chain continues from it (fill-smooth
+  steps also require their per-step correlation cache).
+
+| output | path |
+|---|---|
+| completed + filled-input + mask CSVs | `<data-root>/hierarchical/<density>/imputed/<method>/<dz>/<st>/imputed_model_benchmark_table.csv` (+ `filled_model_benchmark_table.csv`, `holdout_mask.csv`) |
+| rank sweep (+ fill-smooth correlation) | `<results-root>/hierarchical/<density>/<method>/<method>_<dz>_<st>_rank_sweep.csv` |
+| imputation row | `<results-root>/hierarchical/<density>/database.db` — the REGULAR per-density layout (table `imputation`, `dataset = "<dz>_<st>"`); `DB_FILE` is re-pointed per density step, the same pattern `--synth` uses per root. The seed step's standard-run sweep + best row are mirrored here too. |
+
+These files sit outside every density slice, so nothing picks them up
+accidentally — but they are no longer terminal:
+
+**Weighted R² (`wr2`) and the density-0 hand-off.** After the descent,
+`hier_finalize_cell` computes a cumulative weighted R² per step (re-derived
+from the per-step imputed CSVs + rank sweeps, so it comes out identically on
+`--reimpute` reuse): each step's held-out R² is weighted by the columns it
+INTRODUCES (`setdiff` vs the running matrix `P`; the seed introduces all of
+its columns), summed and divided by the running matrix's total column count —
+so wr2 at step d is the introduced-column-weighted mean R² of the matrix as
+of d. Every per-density `imputation` row gets its `wr2` (standard runs leave
+the column NULL). The FINAL (sparsest) step's imputed CSV + rank sweep (+
+correlation cache for fill-smooth) are then copied into the reserved
+density-`0` slice (`<data-root>/0/`, `<results-root>/0/`) — refreshed on
+every hier run — and that slice's `imputation` row is written with
+`wr2` = the final weighted R². `factor.R --density 0` then factors the
+hierarchical matrix through the completely standard path: `db_read_r2` reads
+`COALESCE(wr2, r2)`, so `R2_GATE` gates on the weighted R² there.
+`hier_densities()` excludes `"0"`, so the hand-off slice is never mistaken
+for a descent step. The mode itself stays pure imputation — no factoring, no
+`loco` — except through this hand-off.
+
 ## Stage 2 — factoring (`src/factor/`)
 
 `factor.R` (or `main.R`) reads a completed matrix, then:
 
-1. **Gate on imputation quality.** Reads `R²` for the cell from the SQLite
-   `imputation` table (`db_read_r2`). If `R² < 0.3` (or absent), the cell is
+1. **Gate on imputation quality.** Reads the cell's gate value from the SQLite
+   `imputation` table (`db_read_r2`): `COALESCE(wr2, r2)` — the hierarchical
+   weighted R² when present, else the plain held-out R². If the value `< 0.3`
+   (or absent), the cell is
    skipped — every method is gated, the fill-smooth pair included (they are
    imputers now and their held-out R² lives in the same table). Fill-smooth
    cells (`default`/`zeros`) then factor the **cached smoothed correlation**
@@ -346,7 +415,7 @@ One `database.db` per density slice (`results/<density>/database.db` — e.g.
 
 | table | PK | written by | purpose |
 |---|---|---|---|
-| `imputation` | `(dataset, method)` | `impute/db.R` | held-out RMSE/R² + param description; gates factoring |
+| `imputation` | `(dataset, method)` | `impute/db.R` | held-out RMSE/R² + param description; `wr2` = hierarchical weighted R² (NULL outside `--hier`); gates factoring |
 | `factoring` | `(dataset, method, run)` | `factor/db.R` | nf, variance, ω_t/ω_h/ω_hs, φ (JSON-encoded vectors) |
 | `loco` | `(dataset, method, run)` | `factor/db.R` | per-benchmark Δω_h from the LOCO sweep |
 
@@ -387,7 +456,10 @@ factoring and all I/O.** A method just returns the contract above, and
   exception is the viewer: `viewer/compute_positions.py` takes no `--density` —
   it discovers every density slice under its results root and embeds all of
   them in one payload, with views keyed `<density>|<dz>|<tag>` and a density
-  dropdown in the UI (defaulting to the densest slice).
+  dropdown in the UI (defaulting to the densest slice). Density `0` (the
+  hierarchical hand-off) shows up here too, displayed as "hier" — keys stay
+  keyed on `0`, and its imputation line reports both the plain and the
+  weighted R² (`wr2`).
 - **PA cache** is correctness-sensitive and keyed by shape only — never reuse a
   cutoff across shapes.
 - **Column scale:** columns are z-scored, rows never (rows are models;

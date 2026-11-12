@@ -4,7 +4,8 @@
 Reads every *_bifactor_*_loadings.csv under every density slice of the
 results root (each subdirectory holding loadings is one density slice --
 the script takes no --density argument), builds a consensus cosine-distance
-matrix between benchmarks per (density, densifier, tag, year) by averaging
+matrix between benchmarks per (density, densifier, tag, collapsing stage,
+year) by averaging
 the within-cell cosine distances (rotation/sign invariant per cell, hence
 well-defined to average), then clusters and UMAP-embeds each composite
 distance matrix and writes viewer/positions.json. Year-less loadings files
@@ -129,6 +130,11 @@ STAGES = ("all_standard", "all_aggressive")
 """Stage (dedupe variant) names, in reporting order. A stage name contains an
 underscore, so dataset tails are matched exactly -- never split on fields."""
 
+DENSITY_LABELS = {"0": "hier"}
+"""Display label per reserved density-slice name. Density "0" is not a
+density -- it is the hierarchical final-step hand-off slice -- so the payload
+presents it as "hier" while every key stays keyed on the raw "0"."""
+
 
 @dataclass(frozen=True)
 class Cell:
@@ -168,14 +174,18 @@ class Job:
     density: str
     dz: str
     tag: str
+    st: str  # collapsing: aggregate | standard | aggressive
     year: int | None
     method: str | None  # None = the all-imputer aggregate
     cells: tuple[Cell, ...]
 
     @property
     def key(self) -> str:
-        """<density>|dz|tag", with "|m<method>" then "|y<year>" appended when set."""
-        k = f"{self.density}|{self.dz}|{self.tag}"
+        """<density>|dz|tag|s_<collapsing>", with "|m<method>" then "|y<year>"
+        appended when set. The collapsing segment is ALWAYS present: the
+        all-stages aggregate is "|s_aggregate", never bare, so no view can be
+        mistaken for a stage view (or vice versa) by a prefix match."""
+        k = f"{self.density}|{self.dz}|{self.tag}|s_{self.st}"
         if self.method is not None:
             k += f"|m{self.method}"
         if self.year is not None:
@@ -208,20 +218,28 @@ def split_dataset(name: str) -> tuple[str, str] | None:
 
 
 def load_imputation(db_path: Path) -> dict[tuple[str, str, str], dict]:
-    """{(dz, st, method): {method, rmse, r2, desc}} -- EVERY row of the table.
+    """{(dz, st, method): {method, rmse, r2, wr2, desc}} -- EVERY row of the table.
 
     Datasets in the table are "<dz>_<st>" (e.g. C_all_standard). No selection
     happens here: a view reports the held-out scores of ITS OWN imputer, so
     dropping the non-winners at load time would show one imputer's numbers
-    under another imputer's name.
+    under another imputer's name. wr2 (the hierarchical weighted R2) is
+    reported only when the column exists AND the row carries one -- standard
+    runs leave it NULL, so their payload is unchanged.
     """
     if not db_path.exists():
         return {}
     con = sqlite3.connect(str(db_path))
     con.row_factory = sqlite3.Row
-    rows = con.execute(
-        "SELECT dataset, method, rmse, r2, desc FROM imputation"
-    ).fetchall()
+    cols = {r[1] for r in con.execute("PRAGMA table_info(imputation)")}
+    if "wr2" in cols:
+        rows = con.execute(
+            "SELECT dataset, method, rmse, r2, wr2, desc FROM imputation"
+        ).fetchall()
+    else:
+        rows = con.execute(
+            "SELECT dataset, method, rmse, r2, NULL AS wr2, desc FROM imputation"
+        ).fetchall()
     con.close()
     out: dict[tuple[str, str, str], dict] = {}
     for r in rows:
@@ -229,12 +247,15 @@ def load_imputation(db_path: Path) -> dict[tuple[str, str, str], dict]:
         if parsed is None:
             continue
         dz, st = parsed
-        out[(dz, st, r["method"])] = {
+        rec = {
             "method": r["method"],
             "rmse": r["rmse"],
             "r2": r["r2"],
             "desc": r["desc"],
         }
+        if r["wr2"] is not None:
+            rec["wr2"] = r["wr2"]
+        out[(dz, st, r["method"])] = rec
     return out
 
 
@@ -326,11 +347,14 @@ def load_cells(
 
 def build_jobs(cells: dict[CellKey, list[Cell]]) -> list[Job]:
     """The views to emit, per density: one all-imputer aggregate per
-    (dz, tag, cohort), plus one per imputer.
+    (dz, tag, cohort), plus one per imputer -- each of them over ALL stages
+    collapsed together, and again per collapsing stage (standard, aggressive)
+    whenever that stage has cells of its own.
 
     Ordering: density (as loaded), densifier, tag, all-years before year
-    cohorts, and each aggregate before its per-imputer views, so the payload
-    order is stable and the viewer's dropdowns need no sorting of their own.
+    cohorts, aggregate before stages, and each aggregate before its
+    per-imputer views, so the payload order is stable and the viewer's
+    dropdowns need no sorting of their own.
     """
     jobs: list[Job] = []
     for (density, dz, tag, year), cell_list in sorted(
@@ -343,23 +367,32 @@ def build_jobs(cells: dict[CellKey, list[Cell]]) -> list[Job]:
             kv[0][3] or 0,
         ),
     ):
-        by_method: dict[str, list[Cell]] = defaultdict(list)
-        for cell in cell_list:
-            by_method[cell.method].append(cell)
-        jobs.append(
-            Job(density=density, dz=dz, tag=tag, year=year, method=None, cells=tuple(cell_list))
-        )
-        for method, method_cells in sorted(by_method.items()):
+        views: list[tuple[str, list[Cell]]] = [("aggregate", cell_list)] + [
+            (st, [c for c in cell_list if c.st == f"all_{st}"])
+            for st in ("standard", "aggressive")
+        ]
+        for st, st_cells in views:
+            if not st_cells:
+                continue
+            by_method: dict[str, list[Cell]] = defaultdict(list)
+            for cell in st_cells:
+                by_method[cell.method].append(cell)
             jobs.append(
-                Job(
-                    density=density,
-                    dz=dz,
-                    tag=tag,
-                    year=year,
-                    method=method,
-                    cells=tuple(method_cells),
-                )
+                Job(density=density, dz=dz, tag=tag, st=st, year=year,
+                    method=None, cells=tuple(st_cells))
             )
+            for method, method_cells in sorted(by_method.items()):
+                jobs.append(
+                    Job(
+                        density=density,
+                        dz=dz,
+                        tag=tag,
+                        st=st,
+                        year=year,
+                        method=method,
+                        cells=tuple(method_cells),
+                    )
+                )
     return jobs
 
 
@@ -1001,7 +1034,7 @@ def build_entry(
     """
     imp = imputation_for(job, imputation)
     return {
-        "density": job.density,
+        "density": DENSITY_LABELS.get(job.density, job.density),
         "densifier": job.dz,
         "tag": job.tag,
         **({} if job.method is None else {"method": job.method}),
@@ -1149,10 +1182,12 @@ def main() -> None:
         imputation = load_imputation(density_root / "database.db")
         jobs = build_jobs(cells)
         report_missing_patterns(jobs)
-        # One job per composite matrix: the aggregate over every imputation
-        # method (key "<density>|dz|tag") plus one per method
-        # (key "<density>|dz|tag|m<method>"). Identity lives on the Job; its
-        # key is derived from the fields and never parsed back apart.
+        # One job per composite matrix: over every imputation method
+        # (key "<density>|dz|tag|s_<coll>") and per method
+        # (key "...|s_<coll>|m<method>"), each as an all-stages aggregate and
+        # again per collapsing stage when that stage has cells. Identity lives
+        # on the Job; its key is derived from the fields and never parsed
+        # back apart.
         for job in jobs:
             key = job.key
             old = prior.get(key) if args.relabel else None
@@ -1244,10 +1279,15 @@ def main() -> None:
             )
 
     # --relabel must never shrink the payload: cells whose loadings are not on
-    # this machine are carried forward rather than silently dropped. Keys whose
-    # first segment is not a discovered density are an older payload format and
-    # are dropped instead of being carried into the new-layout file.
-    for key in [k for k in prior if k not in out and k.split("|")[0] in densities]:
+    # this machine are carried forward rather than silently dropped. Keys
+    # without an "|s_" collapsing segment (or whose first segment is not a
+    # discovered density) are an older payload format and are dropped instead
+    # of being carried into the new-layout file.
+    for key in [
+        k
+        for k in prior
+        if k not in out and "|s_" in k and k.split("|")[0] in densities
+    ]:
         out[key] = carry_forward(prior[key], categories, label_params)
         print(f"{key}: no local loadings -- carried forward; changed labels have no cohesion")
 

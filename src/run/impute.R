@@ -28,7 +28,12 @@
 #                    observations. Outputs: <data-root>/hierarchical/<density>/
 #                    imputed/... and <results-root>/hierarchical/. --density is
 #                    accepted (the Makefile always passes it) but IGNORED here —
-#                    densities are discovered and sorted descending.
+#                    densities are discovered and sorted descending. The FINAL
+#                    (sparsest) step's artifacts are also copied into the
+#                    density-"0" slice (<data-root>/0/, <results-root>/0/),
+#                    reserved for factoring the hierarchical matrix; that
+#                    slice's imputation row carries wr2 (the cumulative
+#                    weighted R2) and the factoring gate reads it.
 #     --data-root    input tree, relative to repo root
 #                    (default data/text_only -- the analysis corpus; pass
 #                     `--data-root data` for the multimodal-inclusive one)
@@ -468,11 +473,24 @@ run_cell <- function(method, dz, st) {
 #            imputed_model_benchmark_table.csv (+ filled + holdout_mask CSVs)
 #          <RESULTS_ROOT>/<density>/<method>/<method>_<dz>_<st>_rank_sweep.csv
 #            (+ ..._correlation.csv for fill-smooth)
-#          <RESULTS_ROOT>/database.db, dataset = "<density>_<dz>_<st>"
-#            (the density prefix keeps the (dataset, method) PK unique)
+#          <RESULTS_ROOT>/<density>/database.db — the REGULAR per-density
+#            layout: table `imputation`, dataset = "<dz>_<st>" (DB_FILE is
+#            re-pointed per density, as --synth re-points it per root). Every
+#            row also carries wr2 — the cumulative weighted R2 (each step's
+#            held-out R2 weighted by the columns it introduces, divided by the
+#            running matrix's column count).
+#
+# Hand-off: after the descent, the FINAL (sparsest) step's imputed CSV + sweep
+# (+ correlation cache) are copied into the density-"0" slice
+# (<data-root>/0/, <results-root>/0/) and its `imputation` row is written with
+# wr2 = the final weighted R2. `factor.R --density 0` then factors the
+# hierarchical matrix through the completely standard path, gated on wr2.
 hier_densities <- function() {
   d <- list.dirs(DATA_ROOT, full.names = FALSE, recursive = FALSE)
   d <- d[grepl("^[0-9]+(\\.[0-9]+)?$", d)]
+  # Density "0" is reserved for the final-step hand-off slice (below) — never
+  # a descent step itself.
+  d <- d[d != "0"]
   as.character(sort(as.numeric(d), decreasing = TRUE))
 }
 
@@ -524,6 +542,23 @@ hier_fill_grid <- function(P, t_csv) {
   list(M = M, mask = mask, keys = keys)
 }
 
+# Per-density DB for hier mode: the REGULAR impute.R layout, rooted under the
+# hierarchical results tree. DB_FILE is re-pointed per density step (the same
+# global-reassignment pattern --synth uses per synth root).
+hier_db_at <- function(density) {
+  d <- file.path(RESULTS_ROOT, density)
+  dir.create(d, recursive = TRUE, showWarnings = FALSE)
+  file.path(d, "database.db")
+}
+
+# Density "0" slice — reserved for the hierarchical hand-off. The FINAL
+# (sparsest) step's imputation + results are copied here at the end of every
+# hier cell, so the standard factoring path (`factor.R --density 0`) runs on
+# the hierarchical matrix. Its imputation row carries wr2 (the weighted R2),
+# which is what the R2 gate reads there.
+hier0_data_root    <- function() file.path(REPO, opt$data_root, "0")
+hier0_results_root <- function() file.path(REPO, opt$results_root, "0")
+
 run_hier_cell <- function(method, dz, st, densities) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
   cat("\n======== hier ", tag, " ========\n", sep = "")
@@ -548,10 +583,25 @@ run_hier_cell <- function(method, dz, st, densities) {
     file.copy(hier_seed_cache(d1, method, dz, st),
               res_path(method, dz, st, "correlation.csv", density = d1),
               overwrite = TRUE)
+  # Parity: mirror the seed's standard-run sweep + DB row. No imputation runs
+  # at the seed — its numbers ARE the standard run's.
+  DB_FILE <<- hier_db_at(d1)
+  seed_sweep_src <- file.path(REPO, opt$results_root, d1, method,
+                              sprintf("%s_%s_%s_rank_sweep.csv", method, dz, st))
+  if (file.exists(seed_sweep_src)) {
+    sw <- read.csv(seed_sweep_src)
+    write.csv(sw, res_path(method, dz, st, "rank_sweep.csv", density = d1),
+              row.names = FALSE)
+    best_idx <- which.min(replace(sw$rmse, is.na(sw$rmse), Inf))
+    best_r2 <- if ("r2" %in% names(sw)) sw$r2[best_idx] else NA
+    desc <- build_desc(sw$param, sw$param_name[1L], sw$param[best_idx])
+    db_record(method, paste0(dz, "_", st), sw$rmse[best_idx], best_r2, desc)
+  }
   P <- list(M = mb$M, keys = mb$keys, cols = colnames(mb$M))
 
   for (d in densities[-1]) {
     cat("\n-------- hier ", tag, " @ ", d, " --------\n", sep = "")
+    DB_FILE <<- hier_db_at(d)
     out_dir <- hier_imputed_dir(d, method, dz, st)
     imputed_csv <- file.path(out_dir, "imputed_model_benchmark_table.csv")
     sweep_csv   <- res_path(method, dz, st, "rank_sweep.csv", density = d)
@@ -614,11 +664,78 @@ run_hier_cell <- function(method, dz, st, densities) {
     best_rmse <- res$curve[best_idx]
     best_r2   <- if (!is.null(res$curve_r2)) res$curve_r2[best_idx] else NA
     desc <- build_desc(res$params, res$param_name, res$best_param)
-    db_record(method, paste0(d, "_", dz, "_", st), best_rmse, best_r2, desc)
+    db_record(method, paste0(dz, "_", st), best_rmse, best_r2, desc)
 
     P <- list(M = res$M, keys = pm$keys, cols = pm$cols)
     colnames(P$M) <- pm$cols
   }
+
+  hier_finalize_cell(method, dz, st, densities)
+}
+
+# Weighted R2 (wr2) for a finished hier descent — cumulative per step. Each
+# step's held-out R2 is weighted by the columns it INTRODUCES (setdiff vs the
+# running matrix P; the seed introduces all of its columns), summed and
+# divided by the running matrix's total column count: wr2 at step d is the
+# introduced-column-weighted mean R2 of the matrix factored at d. Every input
+# is re-derived from artifacts on disk (per-step imputed CSVs + rank sweeps),
+# so the numbers come out identically on --reimpute reuse. Also hands the
+# FINAL step's artifacts to the density-0 slice and writes that slice's
+# imputation row with wr2 — the row (and value) the factoring gate reads at
+# --density 0.
+hier_finalize_cell <- function(method, dz, st, densities) {
+  dataset <- paste0(dz, "_", st)
+  tag     <- sprintf("%s/%s/%s", method, dz, st)
+  dlast   <- densities[length(densities)]
+
+  num <- 0
+  prev_cols <- character(0)
+  best <- NULL
+  for (d in densities) {
+    csv <- file.path(DATA_ROOT, "hierarchical", d, "imputed", method, dz, st,
+                     "imputed_model_benchmark_table.csv")
+    sweep <- res_path(method, dz, st, "rank_sweep.csv", density = d)
+    if (!file.exists(csv) || !file.exists(sweep)) {
+      cat("  wr2: missing step artifacts at ", d, " — skipping hand-off\n")
+      return(invisible())
+    }
+    cols <- setdiff(names(read.csv(csv, nrow = 0, check.names = FALSE)),
+                    "collapse_key")
+    sw <- read.csv(sweep)
+    i <- which.min(replace(sw$rmse, is.na(sw$rmse), Inf))
+    step_r2 <- if ("r2" %in% names(sw)) sw$r2[i] else NA_real_
+    num <- num + length(setdiff(cols, prev_cols)) * step_r2
+    prev_cols <- cols
+    wr2 <- if (length(cols)) num / length(cols) else NA_real_
+    desc <- build_desc(sw$param, sw$param_name[1L], sw$param[i])
+    db_insert_imputation(method, dataset, sw$rmse[i], step_r2, desc,
+                         hier_db_at(d), overwrite = TRUE, wr2 = wr2)
+    best <- list(rmse = sw$rmse[i], r2 = step_r2, wr2 = wr2)
+  }
+
+  # Hand-off: the sparsest step's imputation + results, copied into the
+  # density-0 slice (refreshed on every hier run).
+  src_dir <- file.path(DATA_ROOT, "hierarchical", dlast, "imputed",
+                       method, dz, st)
+  dst_dir <- file.path(hier0_data_root(), "imputed", method, dz, st)
+  dir.create(dst_dir, recursive = TRUE, showWarnings = FALSE)
+  file.copy(file.path(src_dir, "imputed_model_benchmark_table.csv"), dst_dir,
+            overwrite = TRUE)
+  dst_res <- file.path(hier0_results_root(), method)
+  dir.create(dst_res, recursive = TRUE, showWarnings = FALSE)
+  for (suffix in c("rank_sweep.csv",
+                   if (method %in% RAW_METHODS) "correlation.csv")) {
+    src <- res_path(method, dz, st, suffix, density = dlast)
+    if (file.exists(src)) file.copy(src, dst_res, overwrite = TRUE)
+  }
+  # The row the R2 gate reads at --density 0: wr2 carries the FINAL step's
+  # weighted R2 (db_read_r2 selects COALESCE(wr2, r2)).
+  db_insert_imputation(method, dataset, best$rmse, best$r2,
+                       sprintf("hier %s", paste(densities, collapse = "->")),
+                       file.path(hier0_results_root(), "database.db"),
+                       overwrite = TRUE, wr2 = best$wr2)
+  cat(sprintf("  hier hand-off: %s @ %s -> density 0 (wr2=%.3f)\n",
+              tag, dlast, best$wr2))
 }
 
 main_hier <- function() {
@@ -636,8 +753,11 @@ main_hier <- function() {
   }
   cat("\nDONE.\n  imputed CSVs -> ", file.path(DATA_ROOT, "hierarchical"),
       "/<density>/imputed/<method>/<densifier>/<strategy>/\n  results       -> ",
-      RESULTS_ROOT, "/<density>/ (flat)\n  db            -> ", DB_FILE,
-      "\n", sep = "")
+      RESULTS_ROOT, "/<density>/ (flat)\n  db            -> ",
+      RESULTS_ROOT, "/<density>/database.db (imputation.wr2 = weighted R2)\n",
+      "  final step    -> ", hier0_data_root(),
+      " + ", hier0_results_root(), "/ (density 0; factor there with --density 0)\n",
+      sep = "")
 }
 
 main <- function() {

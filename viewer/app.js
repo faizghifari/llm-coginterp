@@ -45,24 +45,48 @@ const canvas = $("plot");
 const ctx = canvas.getContext("2d");
 const tooltip = $("tooltip");
 
-// selection key: "<density>|dz|tag"; a per-imputer view inserts "|m<method>"
-// and a year cohort appends "|y<year>".
+// Display label per reserved density-slice name (mirrors the payload: density
+// "0" is the hierarchical final-step hand-off, presented as "hier"). Keys are
+// still built from the raw value.
+const DENSITY_LABELS = { 0: "hier" };
+
+// selection key: "<density>|dz|tag|s_<collapsing>"; a per-imputer view
+// inserts "|m<method>" and a year cohort appends "|y<year>". The collapsing
+// segment is always present: the all-stages aggregate is "|s_aggregate".
 function keyOf() {
   const y = $("year").value;
   const imp = $("imputer").value;
   // Tag dropdown removed: the pipeline only embeds the pa (parallel analysis)
   // run, so the tag segment is fixed.
   return (
-    `${$("density").value}|${$("dz").value}|pa` +
+    `${$("density").value}|${$("dz").value}|pa|s_${$("collapsing").value}` +
     (imp === "aggregate" ? "" : `|m${imp}`) +
     (y === "all" ? "" : `|y${y}`)
   );
 }
 
-// Imputation methods available for the current density x dz x tag x cohort.
-// Derived from the key set: per-method keys carry a "|m<method>" segment.
+// Collapsing variants available for the current density x dz: the all-stages
+// aggregate plus every stage that has its own embedding. Stage availability
+// is nearly uniform across imputers and cohorts, so options are not filtered
+// on those -- a missing exact view falls to the stale-selection guard.
+function collapseOptions() {
+  const prefix = `${$("density").value}|${$("dz").value}|pa|s_`;
+  const found = new Set(["aggregate"]);
+  for (const k of Object.keys(state.data)) {
+    if (!k.startsWith(prefix)) continue;
+    for (const seg of k.split("|").slice(3)) {
+      if (seg.startsWith("s_")) found.add(seg.slice(2));
+    }
+  }
+  return ["aggregate", "standard", "aggressive"].filter((o) => found.has(o));
+}
+
+// Imputation methods available for the current density x dz x collapsing x
+// cohort. Derived from the key set: per-method keys carry a "|m<method>"
+// segment.
 function imputerOptions() {
-  const prefix = `${$("density").value}|${$("dz").value}|pa`;
+  const prefix =
+    `${$("density").value}|${$("dz").value}|pa|s_${$("collapsing").value}`;
   const y = $("year").value;
   const methods = new Set(["aggregate"]);
   for (const k of Object.keys(state.data)) {
@@ -70,6 +94,7 @@ function imputerOptions() {
     let method = "aggregate";
     let year = "all";
     for (const seg of k.split("|").slice(3)) {
+      if (seg.startsWith("s_")) continue;
       if (seg.startsWith("y")) year = seg.slice(1);
       else method = seg.slice(1);
     }
@@ -90,9 +115,11 @@ function dzOptions() {
   ];
 }
 
-// years that exist for the current density x dz x tag; "all" always offered.
+// years that exist for the current density x dz x collapsing; "all" always
+// offered.
 function yearOptions() {
-  const prefix = `${$("density").value}|${$("dz").value}|pa|y`;
+  const prefix =
+    `${$("density").value}|${$("dz").value}|pa|s_${$("collapsing").value}|y`;
   const years = Object.keys(state.data)
     .filter((k) => k.startsWith(prefix) && state.data[k].year !== undefined)
     .map((k) => String(state.data[k].year))
@@ -417,12 +444,12 @@ function drawLegend(d) {
   }
 }
 
-function setOptions(sel, values, keep) {
+function setOptions(sel, values, keep, label = (v) => v) {
   sel.textContent = "";
   for (const v of values) {
     const o = document.createElement("option");
     o.value = v;
-    o.textContent = v;
+    o.textContent = label(v);
     sel.appendChild(o);
   }
   if (keep !== undefined && values.includes(keep)) sel.value = keep;
@@ -437,9 +464,12 @@ function imputationText(d) {
   const imp = d.imputation;
   if (!imp) return "";
   const num = (v) => (Number.isFinite(v) ? v.toFixed(3) : "n/a");
-  const parts = Object.entries(imp).map(
-    ([stage, r]) => `${stage}: R² ${num(r.r2)} / RMSE ${num(r.rmse)}`
-  );
+  const parts = Object.entries(imp).map(([stage, r]) => {
+    // wr2 (the hierarchical weighted R2) is present only on the density-0
+    // "hier" slice -- the value the factoring gate actually used there.
+    const wr2 = Number.isFinite(r.wr2) ? ` · wR² ${num(r.wr2)}` : "";
+    return `${stage}: R² ${num(r.r2)}${wr2} / RMSE ${num(r.rmse)}`;
+  });
   return parts.length ? `held-out ${parts.join(" · ")} · ` : "";
 }
 
@@ -819,7 +849,7 @@ $("dl").addEventListener("click", () => {
   canvas.toBlob((blob) => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${$("density").value}_${$("dz").value}_${$("imputer").value}.png`;
+    a.download = `${$("density").value}_${$("dz").value}_${$("collapsing").value}_${$("imputer").value}.png`;
     a.click();
     URL.revokeObjectURL(a.href);
   }, "image/png");
@@ -831,18 +861,21 @@ function init(data) {
   // Densities lead the key; sorted descending so the default (and the dropdown
   // order) leads with the densest slice.
   const densities = [...new Set(keys.map((k) => k.split("|")[0]))].sort().reverse();
-  setOptions($("density"), densities, densities[0]);
+  setOptions($("density"), densities, densities[0], (v) => DENSITY_LABELS[v] ?? v);
   const dzs = dzOptions();
   // Tag dropdown removed: payload only ever carries the pa tag now.
   const defaultDz = dzs.includes("C") ? "C" : dzs[0];
-  state.key = `${densities[0]}|${defaultDz}|pa`;
+  state.key = `${densities[0]}|${defaultDz}|pa|s_aggregate`;
   setOptions($("dz"), dzs, defaultDz);
   setOptions($("year"), ["all"], "all");
 
   const apply = () => {
-    // The imputer list depends on density x dz x tag x cohort, so it is
-    // resynced here; an imputer absent from the new view falls back to the
-    // aggregate.
+    // The collapsing and imputer lists depend on the other selections, so
+    // both are resynced here; a selection absent from the new view falls back
+    // (to aggregate).
+    const curColl = $("collapsing").value;
+    const collOpts = collapseOptions();
+    setOptions($("collapsing"), collOpts, collOpts.includes(curColl) ? curColl : "aggregate");
     const cur = $("imputer").value;
     const opts = imputerOptions();
     setOptions($("imputer"), opts, opts.includes(cur) ? cur : "aggregate");
@@ -860,6 +893,14 @@ function init(data) {
   });
   $("dz").addEventListener("change", () => {
     setOptions($("year"), yearOptions(), "all");
+    apply();
+  });
+  $("collapsing").addEventListener("change", () => {
+    // Cohort sets are per collapsing stage; keep the cohort when it still
+    // exists, else fall back to all years.
+    const curY = $("year").value;
+    const yOpts = yearOptions();
+    setOptions($("year"), yOpts, yOpts.includes(curY) ? curY : "all");
     apply();
   });
   $("year").addEventListener("change", apply);
@@ -899,6 +940,12 @@ function init(data) {
     k.split("|").some((seg) => /^m./.test(seg))
   );
   $("imputer").closest("label").hidden = !hasMethods;
+  // per-stage views absent from the payload: the collapsing dropdown would be
+  // a no-op, hide it
+  const hasStages = Object.keys(data).some((k) =>
+    k.split("|").some((seg) => seg === "s_standard" || seg === "s_aggressive")
+  );
+  $("collapsing").closest("label").hidden = !hasStages;
   // one density in the payload: the dropdown would be a no-op, hide it
   $("density").closest("label").hidden = densities.length < 2;
   $("legend-head").hidden = !hasClusters;

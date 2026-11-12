@@ -40,16 +40,23 @@ db_ensure_table <- function(db_file, table = "imputation") {
         rmse    REAL NOT NULL,
         r2      REAL,
         desc    TEXT,
+        wr2     REAL,
         PRIMARY KEY (dataset, method)
       )
     ")
+    # wr2: hierarchical weighted R2 (impute.R --hier) — the held-out R2
+    # weighted by per-step introduced columns. Old DBs predate the column;
+    # ALTER is the in-place migration (errors away when it already exists).
+    if (!"wr2" %in% dbListFields(con, "imputation"))
+      dbExecute(con, "ALTER TABLE imputation ADD COLUMN wr2 REAL")
   }
 }
 
 db_insert_imputation <- function(method, dataset, rmse, r2, desc,
                                  db_file, overwrite = FALSE,
                                  table = "imputation",
-                                 cell = NULL, mask = NULL) {
+                                 cell = NULL, mask = NULL,
+                                 wr2 = NA_real_) {
   synth <- identical(table, "imputation_synth")
   db_ensure_table(db_file, table)
   con <- dbConnect(SQLite(), db_file)
@@ -82,18 +89,20 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
   } else {
     res <- dbSendStatement(con, paste0(
       "INSERT OR REPLACE INTO imputation ",
-      "(dataset, method, rmse, r2, desc) VALUES (?, ?, ?, ?, ?)"))
+      "(dataset, method, rmse, r2, desc, wr2) VALUES (?, ?, ?, ?, ?, ?)"))
     vals <- list(dataset, method, rmse,
-                 if (is.na(r2)) NA_real_ else r2, desc)
+                 if (is.na(r2)) NA_real_ else r2, desc,
+                 if (is.na(wr2)) NA_real_ else wr2)
   }
   dbBind(res, vals)
   dbClearResult(res)
+  wr2_txt <- if (is.na(wr2)) "" else sprintf(" wr2=%.3f", wr2)
   if (synth)
-    cat(sprintf("  db: [%s/%s] %s/%s rmse=%.4f r2=%.3f\n",
-                cell, mask, method, dataset, rmse, r2))
+    cat(sprintf("  db: [%s/%s] %s/%s rmse=%.4f r2=%.3f%s\n",
+                cell, mask, method, dataset, rmse, r2, wr2_txt))
   else
-    cat(sprintf("  db: %s/%s rmse=%.4f r2=%.3f\n",
-                method, dataset, rmse, r2))
+    cat(sprintf("  db: %s/%s rmse=%.4f r2=%.3f%s\n",
+                method, dataset, rmse, r2, wr2_txt))
   invisible(TRUE)
 }
 
