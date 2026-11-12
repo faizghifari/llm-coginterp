@@ -9,8 +9,20 @@ JULIA_PROJECT := src/impute/OneSidedMC
 #   make runall  DATA_ROOT=data RESULTS_ROOT=results DENSITY=0.1
 DATA_ROOT    ?= data/text_only
 RESULTS_ROOT ?= results/text_only
+# impute-hier spans the whole density ladder (it discovers the density dirs
+# itself), so it is the one target exempt from the DENSITY requirement: with
+# DENSITY empty, make only proceeds if every goal is impute-hier (or method
+# words, which are not known targets and drop out of the filter below).
+NON_HIER_GOALS := $(filter-out impute-hier,$(filter \
+                    deps env env-py env-r env-jl preproc clean \
+                    impute impute-synth impute-hier factor factor-timed loco \
+                    release-date release-date-report \
+                    runall runall-impute runall-factor runall-loco,\
+                    $(MAKECMDGOALS)))
 ifeq ($(strip $(DENSITY)),)
+ifneq ($(strip $(NON_HIER_GOALS)),)
 $(error DENSITY is required, e.g. make runall DENSITY=0.1)
+endif
 endif
 DENSITY_DATA    := $(DATA_ROOT)/$(DENSITY)
 DENSITY_RESULTS := $(RESULTS_ROOT)/$(DENSITY)
@@ -27,6 +39,9 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT) --densit
 #                                           # fill-smooth default/zeros)
 #   make impute-synth [methods]             # --synth: all data/synth roots
 #                                           # (default: missforest softimpute)
+#   make impute-hier [methods]              # hierarchical: descends the density
+#                                           # ladder (no DENSITY needed; default
+#                                           # method word "all")
 #
 # Aggregates run the whole default set:
 #
@@ -54,13 +69,18 @@ CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
 SYNTH_LOGS  := results/synth/logs
 CLEAR_SYNTH := @mkdir -p $(SYNTH_LOGS) && : > $(SYNTH_LOGS)/summary.txt
 
+# impute-hier spans densities, so its logs live at the hierarchical results
+# root instead of any $(DENSITY_RESULTS) slice.
+HIER_LOGS  := $(RESULTS_ROOT)/hierarchical/logs
+CLEAR_HIER := @mkdir -p $(HIER_LOGS) && : > $(HIER_LOGS)/summary.txt
+
 # The method words typed after the target (e.g. "make factor knn missforest").
 # "factor-timed" is itself a target, so keep it out of the method-word list.
 # Same for "impute-synth".
-EXTRA := $(filter-out impute factor factor-timed impute-synth loco,$(MAKECMDGOALS))
+EXTRA := $(filter-out impute factor factor-timed impute-synth impute-hier loco,$(MAKECMDGOALS))
 
 .PHONY: deps env env-py env-r env-jl preproc clean \
-        impute impute-synth factor factor-timed loco release-date release-date-report \
+        impute impute-synth impute-hier factor factor-timed loco release-date release-date-report \
         runall runall-impute runall-factor runall-loco
 
 SUDO := $(shell if [ "$$(id -u)" -eq 0 ]; then echo ""; else echo "sudo"; fi)
@@ -113,6 +133,19 @@ impute:
 impute-synth:
 	$(CLEAR_SYNTH)
 	./scripts/runmulti.sh $(SYNTH_LOGS) impute synth -- $(if $(EXTRA),$(EXTRA),missforest softimpute) --
+
+# Hierarchical imputation experiment (src/run/impute_hier.R): for each method,
+# descends the density ladder 0.3 -> 0.2 -> ..., seeding every sparser slice
+# with the previous (denser) slice's completed columns. Discovers the numeric
+# density dirs under $(DATA_ROOT) itself, so NO DENSITY is needed; logs and
+# the imputation_hier DB live under $(RESULTS_ROOT)/hierarchical/. Method
+# words after the target override the default ("all" = every R imputer in one
+# sequential process), e.g.
+#   make impute-hier missforest
+# runmulti.sh adds --reimpute to hier jobs (same as `make impute`).
+impute-hier:
+	$(CLEAR_HIER)
+	./scripts/runmulti.sh $(HIER_LOGS) impute_hier -- $(if $(EXTRA),$(EXTRA),all) -- --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT)
 
 factor:
 	$(CLEAR_SUMMARY)
