@@ -34,7 +34,7 @@ for s in "${suffix[@]}"; do namebase="${namebase}-${s}"; done
 
 flags=()
 for s in "${suffix[@]}"; do flags+=("--${s}"); done
-[[ $kind == impute || $kind == impute_hier ]] && flags+=(--reimpute)
+[[ $kind == impute ]] && flags+=(--reimpute)
 
 if ((${#methods[@]} == 0)); then
     printf '[error] runmulti: no methods given for %s\n' "$kind" >&2

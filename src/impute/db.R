@@ -32,21 +32,6 @@ db_ensure_table <- function(db_file, table = "imputation") {
         PRIMARY KEY (cell, mask, dataset, method)
       )
     ")
-  } else if (identical(table, "imputation_hier")) {
-    # Hierarchical descent rows (run/impute_hier.R). One database.db per
-    # results root (results/<...>/hierarchical/), but `dataset` (<dz>_<st>)
-    # repeats across density slices, so density joins the PK.
-    dbExecute(con, "
-      CREATE TABLE IF NOT EXISTS imputation_hier (
-        density TEXT NOT NULL,
-        dataset TEXT NOT NULL,
-        method  TEXT NOT NULL,
-        rmse    REAL NOT NULL,
-        r2      REAL,
-        desc    TEXT,
-        PRIMARY KEY (density, dataset, method)
-      )
-    ")
   } else {
     dbExecute(con, "
       CREATE TABLE IF NOT EXISTS imputation (
@@ -64,9 +49,8 @@ db_ensure_table <- function(db_file, table = "imputation") {
 db_insert_imputation <- function(method, dataset, rmse, r2, desc,
                                  db_file, overwrite = FALSE,
                                  table = "imputation",
-                                 cell = NULL, mask = NULL, density = NULL) {
+                                 cell = NULL, mask = NULL) {
   synth <- identical(table, "imputation_synth")
-  hier  <- identical(table, "imputation_hier")
   db_ensure_table(db_file, table)
   con <- dbConnect(SQLite(), db_file)
   on.exit(dbDisconnect(con))
@@ -74,9 +58,6 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
   if (synth) {
     key_where <- "cell = ? AND mask = ? AND dataset = ? AND method = ?"
     key_vals  <- list(cell, mask, dataset, method)
-  } else if (hier) {
-    key_where <- "density = ? AND dataset = ? AND method = ?"
-    key_vals  <- list(density, dataset, method)
   } else {
     key_where <- "dataset = ? AND method = ?"
     key_vals  <- list(dataset, method)
@@ -98,12 +79,6 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
     vals <- c(key_vals, list(rmse,
                              if (is.na(r2)) NA_real_ else r2,
                              NA_real_, desc))
-  } else if (hier) {
-    res <- dbSendStatement(con, paste0(
-      "INSERT OR REPLACE INTO imputation_hier ",
-      "(density, dataset, method, rmse, r2, desc) VALUES (?, ?, ?, ?, ?, ?)"))
-    vals <- c(key_vals, list(rmse,
-                             if (is.na(r2)) NA_real_ else r2, desc))
   } else {
     res <- dbSendStatement(con, paste0(
       "INSERT OR REPLACE INTO imputation ",
@@ -116,9 +91,6 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
   if (synth)
     cat(sprintf("  db: [%s/%s] %s/%s rmse=%.4f r2=%.3f\n",
                 cell, mask, method, dataset, rmse, r2))
-  else if (hier)
-    cat(sprintf("  db: [%s] %s/%s rmse=%.4f r2=%.3f\n",
-                density, method, dataset, rmse, r2))
   else
     cat(sprintf("  db: %s/%s rmse=%.4f r2=%.3f\n",
                 method, dataset, rmse, r2))

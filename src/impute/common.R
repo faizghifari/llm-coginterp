@@ -30,8 +30,17 @@ prep_matrix <- function(path, min_obs = 2L) {
         paste(names(which(drop_cols)), collapse = ", "), "\n")
     x <- x[, !drop_cols, drop = FALSE]
   }
-  list(x = x, keys = df[["collapse_key"]])
+  # cols = surviving benchmark names, in order. The hierarchical orchestrator
+  # needs them to align its holdout mask with the prepped matrix.
+  list(x = x, keys = df[["collapse_key"]], cols = colnames(x))
 }
+
+# When non-NULL, a logical matrix with the same shape as x marking the cells
+# that are REAL observations of the current density's table. Holdout sampling
+# is restricted to mask-TRUE cells; filled-in (seeded from a denser slice)
+# cells stay in training but are never held out or scored. Set per descent
+# step by the hierarchical orchestrator (impute.R --hier), NULL otherwise.
+HOLDOUT_MASK <- NULL
 
 # Column-stratified holdout, SHARED by every method so all use the same masking.
 # Samples ~frac of observed cells, but never masks so many in a column that fewer
@@ -39,27 +48,14 @@ prep_matrix <- function(path, min_obs = 2L) {
 # (densifier MIN_OBS, prep_matrix, OSMC all require >=2 obs/col); leaving a column
 # with <2 training cells breaks softImpute's biScale and starves the imputers.
 # Returns linear indices into the matrix (column-major), like which(is.na(x)).
-# Optional eligibility mask: HOLDOUT_MASK (logical matrix, same shape as x)
-# restricts which cells may be SAMPLED into the holdout. NULL (default) = every
-# observed cell is eligible. The hierarchical orchestrator (run/impute_hier.R)
-# sets it per descent step to the real-observed mask of the current density's
-# table, so cells filled in from the previous (denser) run serve as training
-# data but are never sampled into the held-out truth set. Columns whose mask is
-# all-FALSE contribute no holdout cells at all.
-HOLDOUT_MASK <- NULL
-
 make_holdout <- function(x, frac = 0.2, min_keep = 2L) {
   nr <- nrow(x)
   holdout <- integer(0)
   for (j in seq_len(ncol(x))) {
-    eligible <- !is.na(x[, j])
-    if (!is.null(HOLDOUT_MASK)) {
-      m <- HOLDOUT_MASK[, j]
-      if (!is.logical(m) || length(m) != nr)
-        stop("HOLDOUT_MASK has the wrong shape for column ", j)
-      eligible <- eligible & m
-    }
-    rows_obs <- which(eligible)
+    rows_obs <- which(!is.na(x[, j]))
+    # Hierarchical mode: grade only on real observations of this density's
+    # table — never on cells seeded from the previous (denser) run.
+    if (!is.null(HOLDOUT_MASK)) rows_obs <- rows_obs[HOLDOUT_MASK[rows_obs, j]]
     n_obs <- length(rows_obs)
     if (n_obs == 0L) next
     n_hold <- min(floor(frac * n_obs), n_obs - min_keep)
@@ -110,15 +106,6 @@ score_holdout <- function(zt, zh, holdout, nrow_x, balance = BALANCE_HOLDOUT) {
   mse  <- mean(tapply(resid2, col, mean))
   base <- mean(tapply(base2,  col, mean))
   c(rmse = rmse, r2 = if (base > 0) 1 - mse / base else NA_real_)
-}
-
-# Read a completed (+ collapse_key) CSV back into a matrix + keys. Used by the
-# orchestrators to rebuild a contract from a cached imputed CSV.
-read_matrix <- function(path) {
-  df <- read.csv(path, check.names = FALSE)
-  M <- as.matrix(df[, setdiff(names(df), "collapse_key")])
-  storage.mode(M) <- "double"
-  list(M = M, keys = df$collapse_key)
 }
 
 # data/imputed/<method>/<densifier>/<strategy>/  — created if missing.
