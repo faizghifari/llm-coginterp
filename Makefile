@@ -37,6 +37,10 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT) --densit
 #   make impute-synth-hier [methods]        # --hier --synth: density descent
 #                                           # per (cell, mask)
 #
+# The --hier targets are the exception to the method-per-process rule: methods
+# run SERIALLY and each method runs its independent dataset chains in parallel
+# (--jobs $(DATASET_JOBS)).
+#
 # Aggregates run the whole default set:
 #
 #   make runall-impute     all imputations (plain + --raw)
@@ -50,6 +54,13 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT) --densit
 # ------------------------------------------------------------------------------
 JOBS ?= 6
 TAIL ?= 50
+# Hierarchical imputation runs methods SERIALLY (JOBS=1 in the recipe) and
+# parallelises independent DATASET chains inside each method instead. DATASET_JOBS
+# is the --jobs value handed to impute.R; it is capped by the number of chains.
+DATASET_JOBS ?= 8
+# Forked chain workers must not each spin up a full BLAS thread pool, and fork
+# while OpenBLAS threads are live can deadlock. Pin every math library to 1.
+PAR_ENV := OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 export JOBS TAIL
 LOGS := $(DENSITY_RESULTS)/logs
 
@@ -118,16 +129,17 @@ impute:
 # Hierarchical imputation (impute.R --hier): descends the density slices under
 # $(DATA_ROOT) DENSEST-FIRST; each step trains on the union grid with the
 # previous step's completed columns filled in, and holdouts come only from the
-# step's real observations. Same calling convention as `impute` (method words
-# after the target, one parallel Rscript per method, --reimpute injected).
-# $(ROOTS) is passed verbatim; impute.R parses --density but IGNORES it — hier
-# discovers and sorts the densities itself. Outputs land under
-# $(DATA_ROOT)/hierarchical/ and $(RESULTS_ROOT)/hierarchical/.
+# step's real observations. Unlike the other imputation targets this one runs
+# methods SERIALLY (JOBS=1) and lets each method fan its independent dataset
+# chains out across $(DATASET_JOBS) workers (--jobs). $(ROOTS) is passed
+# verbatim; impute.R parses --density but IGNORES it — hier discovers and sorts
+# the densities itself. Outputs land under $(DATA_ROOT)/hierarchical/ and
+# $(RESULTS_ROOT)/hierarchical/.
 # Default methods: the full IMPUTE_METHODS set (as with `impute`); method
 # words after the target override, e.g. "make impute-hier knn".
 impute-hier:
 	$(CLEAR_SUMMARY)
-	./scripts/runmulti.sh $(LOGS) impute hier -- $(if $(EXTRA),$(EXTRA),$(IMPUTE_METHODS)) -- $(ROOTS)
+	JOBS=1 $(PAR_ENV) ./scripts/runmulti.sh $(LOGS) impute hier -- $(if $(EXTRA),$(EXTRA),$(IMPUTE_METHODS)) -- $(ROOTS) --jobs $(DATASET_JOBS)
 
 # Synthetic-corpus imputation (impute.R --synth): one job per method, each
 # sweeping all 16 data/synth/$(DENSITY)/<cell>/<mask>/s0 roots. --synth fixes
@@ -143,13 +155,17 @@ impute-synth:
 # Hierarchical imputation over the synth corpus (impute.R --hier --synth): for
 # each (cell, mask), descends the data/synth/<density>/.../s0 slices
 # densest-first, seeding from the standard --synth run's cached imputed CSV at
-# the densest density. Same calling convention as `impute-synth`; --density is
-# passed but ignored by the descent (it discovers the densities itself).
-# Results + DB: results/synth/hierarchical/<cell>/<mask>/<density>/; the final
-# step is handed off to the density-0 slice (data/synth/<cell>/<mask>/0/).
+# the densest density. Methods run SERIALLY (JOBS=1); each method fans its
+# independent (cell, mask, dz, st) chains across $(DATASET_JOBS) workers
+# (--jobs). --density is passed but ignored by the descent (it discovers the
+# densities itself). Results + DB: flat artifacts under
+# results/synth/hierarchical/<cell>/<mask>/<density>/, and ONE unified DB at
+# results/synth/hierarchical/database.db (table imputation_synth_hier, keyed by
+# cell/mask/density/dataset/method). The final step is handed off to the
+# density-0 slice (data/synth/<cell>/<mask>/0/).
 impute-synth-hier:
 	$(CLEAR_SYNTH)
-	./scripts/runmulti.sh $(SYNTH_LOGS) impute synth hier -- $(if $(EXTRA),$(EXTRA),missforest softimpute) -- --density $(DENSITY)
+	JOBS=1 $(PAR_ENV) ./scripts/runmulti.sh $(SYNTH_LOGS) impute synth hier -- $(if $(EXTRA),$(EXTRA),missforest softimpute) -- --density $(DENSITY) --jobs $(DATASET_JOBS)
 
 factor:
 	$(CLEAR_SUMMARY)
@@ -204,9 +220,10 @@ runall-impute:
 
 # All imputations through the hierarchical density descent (impute.R --hier):
 # seeds from the densest density's standard-run caches, then fills downward.
+# Methods serial; each method's independent chains run $(DATASET_JOBS)-wide.
 runall-impute-hier:
 	$(CLEAR_SUMMARY)
-	./scripts/runmulti.sh $(LOGS) impute hier -- $(IMPUTE_METHODS) -- $(ROOTS)
+	JOBS=1 $(PAR_ENV) ./scripts/runmulti.sh $(LOGS) impute hier -- $(IMPUTE_METHODS) -- $(ROOTS) --jobs $(DATASET_JOBS)
 
 runall-factor:
 	$(CLEAR_SUMMARY)

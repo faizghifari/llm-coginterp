@@ -19,6 +19,9 @@
 #     --method       softimpute | softimpute_corr | optspace | usvt | iterativepca | onesidedmc | knn | missforest | mice | knn_corr | missforest_corr | cvxr | ggm | default | zeros | all
 #     --raw          run ONLY the undensified "raw" level (default: C,S,R)
 #     --reimpute     force fresh imputation even if an imputed CSV exists
+#     --jobs N       run N independent hier chains concurrently (default 1 =
+#                    strictly serial). Methods stay serial: the chain fan-out
+#                    is per DATASET, inside one method. Ignored outside --hier.
 #     --hier         EXPERIMENTAL hierarchical imputation. Descends the density
 #                    slices under <data-root> DENSEST-FIRST: the seed is the
 #                    standard run's cached completed matrix at the densest
@@ -104,6 +107,7 @@ synth_roots <- function(base) {
 parse_args <- function(args) {
   method <- "all"; raw <- FALSE; smoke <- FALSE
   reimpute <- FALSE; no_balance <- FALSE; synth <- FALSE; hier <- FALSE
+  jobs <- 1L
   data_root <- "data/text_only"; results_root <- "results/text_only"
   density <- NULL
   i <- 1L
@@ -116,6 +120,7 @@ parse_args <- function(args) {
     else if (a == "--smoke")       { smoke      <- TRUE; i <- i + 1L }
     else if (a == "--raw")         { raw        <- TRUE; i <- i + 1L }
     else if (a == "--reimpute")    { reimpute   <- TRUE; i <- i + 1L }
+    else if (a == "--jobs")        { jobs       <- as.integer(args[[i + 1L]]); i <- i + 2L }
     else if (a == "--no-balance")  { no_balance <- TRUE; i <- i + 1L }
     else if (a == "--synth")       { synth      <- TRUE; i <- i + 1L }
     else if (a == "--hier")        { hier       <- TRUE; i <- i + 1L }
@@ -136,10 +141,12 @@ parse_args <- function(args) {
   if (hier && smoke) stop("--hier descends real density slices; drop --smoke")
   if (smoke && !is.null(density))
     stop("--smoke uses the fixed data/smoke fixture (no density dimension); drop --density")
+  if (is.na(jobs) || jobs < 1L)
+    stop("--jobs must be a positive integer")
   list(methods = if (method == "all") ALL_METHODS else method,
        smoke = smoke, raw = raw, reimpute = reimpute,
        no_balance = no_balance, synth = synth, hier = hier, density = density,
-       data_root = data_root, results_root = results_root)
+       jobs = jobs, data_root = data_root, results_root = results_root)
 }
 opt <- parse_args(commandArgs(trailingOnly = TRUE))
 
@@ -150,6 +157,9 @@ REIMPUTE   <- opt$reimpute
 HIER       <- opt$hier
 BALANCE_HOLDOUT <- !opt$no_balance
 MAX_RANK   <- 10L
+# Number of independent hier chains to run concurrently, inside one method
+# (--jobs). 1 reproduces the original strictly-serial behavior.
+JOBS_WORKERS <- opt$jobs
 SYNTH      <- opt$synth
 # Active synth slice/cell/mask; NULL (and unused) outside --synth mode. --synth
 # re-points DATA_ROOT/RESULTS_ROOT per (cell, mask) inside main().
@@ -298,6 +308,10 @@ run_osmc_subprocess <- function() {
 # CSV) marking the density's real observations — Julia must never grade on
 # seeded cells. run.jl's single-input mode (OSMC_SINGLE_INPUT) handles exactly
 # one table and returns; the dz/st loop is skipped.
+#
+# Threads: hier chains run in parallel (--jobs), so each step's Julia process
+# must NOT default to --threads=auto or N workers would each grab every core.
+# OSMC_THREADS (default 1) sets the per-step thread count.
 run_osmc_step <- function(filled_csv, mask_csv, out_dir, sweep_dir) {
   cat("\n##### OneSidedMC hier step (Julia subprocess) #####\n")
   Sys.setenv(OSMC_SINGLE_INPUT  = normalizePath(filled_csv, mustWork = FALSE),
@@ -308,7 +322,8 @@ run_osmc_step <- function(filled_csv, mask_csv, out_dir, sweep_dir) {
              OSMC_ALLCOLHOLDOUT = "1")
   osmc <- file.path(SRC, "impute", "OneSidedMC")
   status <- system2("julia",
-    args = c("--threads=auto", paste0("--project=", osmc),
+    args = c(paste0("--threads=", Sys.getenv("OSMC_THREADS", "1")),
+             paste0("--project=", osmc),
              file.path(osmc, "run.jl")))
   # Empty string = "not set" for run.jl's get(ENV, ...) defaults.
   Sys.setenv(OSMC_SINGLE_INPUT = "", OSMC_HOLDOUT_MASK = "")
@@ -336,15 +351,18 @@ osmc_contract <- function(dz, st, imputed_csv, sweep_dir = file.path(
        param_name = "r", metric_name = "Held-out RMSE")
 }
 
-# One imputation row: the standard `imputation` table, or `imputation_synth`
-# (keyed by cell/mask, gt_r2 reserved for truth scoring) in --synth mode.
-db_record <- function(method, dataset, rmse, r2, desc) {
+# One imputation row: the standard `imputation` table, `imputation_synth`
+# (keyed by cell/mask, gt_r2 reserved for truth scoring) in --synth mode, or
+# `imputation_synth_hier` (unified hierarchical DB; keyed by cell/mask/density)
+# in --hier --synth mode.
+db_record <- function(method, dataset, rmse, r2, desc, density = NULL) {
   if (!SYNTH)
     return(db_insert_imputation(method, dataset, rmse, r2, desc,
                                 DB_FILE, REIMPUTE))
   db_insert_imputation(method, dataset, rmse, r2, desc, DB_FILE, REIMPUTE,
-                       table = "imputation_synth",
-                       cell = SYNTH_CELL, mask = SYNTH_MASK)
+                       table = if (HIER) "imputation_synth_hier"
+                               else "imputation_synth",
+                       cell = SYNTH_CELL, mask = SYNTH_MASK, density = density)
 }
 
 # Ground-truth recovery R^2 for one --synth cell: score the completed matrix
@@ -519,16 +537,21 @@ run_cell <- function(method, dz, st) {
 # hierarchical matrix through the completely standard path, gated on wr2.
 #
 # Synth variant (--hier --synth): the descent runs over the SYNTH density
-# slices, for each (cell, mask) in turn — data/synth/<d1>/<cell>/<mask>/s0 ->
-# data/synth/<d2>/... densest-first, same union-grid algorithm. The seed is
-# the standard --synth run's cached completed matrix inside the densest s0
-# root. Per-step outputs mirror the real layout per s0 root:
+# slices, for each (cell, mask) and each (dz, st) chain —
+# data/synth/<d1>/<cell>/<mask>/s0 -> data/synth/<d2>/... densest-first, same
+# union-grid algorithm. The seed is the standard --synth run's cached completed
+# matrix inside the densest s0 root. Per-step outputs mirror the real layout per
+# s0 root:
 #   data/synth/<d>/<cell>/<mask>/s0/hierarchical/imputed/...   (the s0 root
 #     already names the density, so no inner density level)
-#   results/synth/hierarchical/<cell>/<mask>/<d>/ + database.db there
-#     (table imputation_synth, rows carry wr2)
-#   hand-off: data/synth/<cell>/<mask>/0/ +
-#     results/synth/hierarchical/<cell>/<mask>/0/
+#   results/synth/hierarchical/<cell>/<mask>/<d>/   (flat artifacts only)
+#   ONE unified DB for the whole run: results/synth/hierarchical/database.db,
+#     table imputation_synth_hier, key (cell, mask, density, dataset, method);
+#     rows carry wr2, and the hand-off row is density "0"
+#   hand-off: data/synth/<cell>/<mask>/0/ (+ the density-"0" DB rows)
+#
+# Independent chains are dispatched by run_hier_tasks(): --jobs N runs N chains
+# at once inside one method. Chain order INSIDE a descent never changes.
 hier_densities <- function() {
   base <- if (SYNTH) file.path(REPO, "data", "synth") else DATA_ROOT
   d <- list.dirs(base, full.names = FALSE, recursive = FALSE)
@@ -608,19 +631,26 @@ hier_fill_grid <- function(P, t_csv) {
   list(M = M, mask = mask, keys = keys)
 }
 
-# Per-density DB for hier mode: the REGULAR impute.R layout, rooted under the
-# hierarchical results tree. DB_FILE is re-pointed per density step (the same
-# global-reassignment pattern --synth uses per synth root). Synth variant:
-# results/synth/hierarchical/<cell>/<mask>/<density>/database.db.
+# Per-density DB for hier mode. Synth: ONE unified file for the entire
+# hierarchical run — results/synth/hierarchical/database.db — with `density` as
+# a key column (table imputation_synth_hier), so the descent is not scattered
+# across <cell>/<mask>/<density>/database.db files. `density` is still passed by
+# callers and stored as a column, just not used as a directory level.
+# Real corpus: unchanged, the REGULAR per-density impute.R layout.
 hier_db_at <- function(density) {
   d <- if (SYNTH)
-    file.path(REPO, "results", "synth", "hierarchical",
-              SYNTH_CELL, SYNTH_MASK, density)
+    file.path(REPO, "results", "synth", "hierarchical")
   else
     file.path(RESULTS_ROOT, density)
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
   file.path(d, "database.db")
 }
+
+# Table the hier rows go to: the unified synth table, or the regular
+# `imputation` table for the real corpus. Only meaningful inside --hier, but
+# guarded on HIER so a stray call can never misroute flat --synth rows.
+hier_table <- function()
+  if (HIER && SYNTH) "imputation_synth_hier" else "imputation"
 
 # Density "0" slice — reserved for the hierarchical hand-off. The FINAL
 # (sparsest) step's imputation + results are copied here at the end of every
@@ -677,7 +707,8 @@ run_hier_cell <- function(method, dz, st, densities) {
     best_idx <- which.min(replace(sw$rmse, is.na(sw$rmse), Inf))
     best_r2 <- if ("r2" %in% names(sw)) sw$r2[best_idx] else NA
     desc <- build_desc(sw$param, sw$param_name[1L], sw$param[best_idx])
-    db_record(method, paste0(dz, "_", st), sw$rmse[best_idx], best_r2, desc)
+    db_record(method, paste0(dz, "_", st), sw$rmse[best_idx], best_r2, desc,
+              density = d1)
   }
   P <- list(M = mb$M, keys = mb$keys, cols = colnames(mb$M))
 
@@ -750,7 +781,8 @@ run_hier_cell <- function(method, dz, st, densities) {
     best_rmse <- res$curve[best_idx]
     best_r2   <- if (!is.null(res$curve_r2)) res$curve_r2[best_idx] else NA
     desc <- build_desc(res$params, res$param_name, res$best_param)
-    db_record(method, paste0(dz, "_", st), best_rmse, best_r2, desc)
+    db_record(method, paste0(dz, "_", st), best_rmse, best_r2, desc,
+              density = d)
 
     P <- list(M = res$M, keys = pm$keys, cols = pm$cols)
     colnames(P$M) <- pm$cols
@@ -817,11 +849,11 @@ hier_finalize_cell <- function(method, dz, st, densities) {
     desc <- build_desc(sw$param, sw$param_name[1L], sw$param[i])
     db_insert_imputation(method, dataset, sw$rmse[i], step_r2, desc,
                          hier_db_at(d), overwrite = TRUE, wr2 = wr2,
-                         table = if (SYNTH) "imputation_synth" else "imputation",
-                         cell = SYNTH_CELL, mask = SYNTH_MASK)
+                         table = hier_table(),
+                         cell = SYNTH_CELL, mask = SYNTH_MASK, density = d)
     if (SYNTH)
       db_update_gt_r2(SYNTH_CELL, SYNTH_MASK, dataset, method, step_gt,
-                      hier_db_at(d))
+                      hier_db_at(d), table = hier_table(), density = d)
     best <- list(rmse = sw$rmse[i], r2 = step_r2, gt = step_gt, wr2 = wr2)
   }
 
@@ -841,18 +873,76 @@ hier_finalize_cell <- function(method, dz, st, densities) {
   }
   # The row the R2 gate reads at --density 0: wr2 carries the FINAL step's
   # weighted R2 (db_read_r2 selects COALESCE(wr2, r2)) — truth-weighted in
-  # synth mode.
+  # synth mode. Synth rows go to the ONE unified hierarchical DB, keyed by
+  # density "0"; the real corpus keeps its density-0 results tree.
+  handoff_db <- if (SYNTH) hier_db_at("0")
+                else file.path(hier0_results_root(), "database.db")
+  handoff_density <- if (SYNTH) "0" else NULL
   db_insert_imputation(method, dataset, best$rmse, best$r2,
                        sprintf("hier %s", paste(densities, collapse = "->")),
-                       file.path(hier0_results_root(), "database.db"),
+                       handoff_db,
                        overwrite = TRUE, wr2 = best$wr2,
-                       table = if (SYNTH) "imputation_synth" else "imputation",
-                       cell = SYNTH_CELL, mask = SYNTH_MASK)
+                       table = hier_table(),
+                       cell = SYNTH_CELL, mask = SYNTH_MASK,
+                       density = handoff_density)
   if (SYNTH)
     db_update_gt_r2(SYNTH_CELL, SYNTH_MASK, dataset, method, best$gt,
-                    file.path(hier0_results_root(), "database.db"))
+                    handoff_db, table = hier_table(), density = handoff_density)
   cat(sprintf("  hier hand-off: %s @ %s -> density 0 (wr2=%.3f)\n",
               tag, dlast, best$wr2))
+}
+
+# One hier chain: a single (method, dz, st) descent at a given (cell, mask) in
+# synth mode. Chains are independent of one another — each starts from its own
+# copy of the standard run's seed at the densest density. The density order
+# INSIDE run_hier_cell is untouched: densest -> sparsest, with each sparser
+# step reading the previous step's prefilled matrix.
+hier_task <- function(t, densities) {
+  if (SYNTH) {
+    # Fork children get a copy of the parent's globals; these assignments stay
+    # local to the child process, which is exactly what we want.
+    SYNTH_CELL <<- t$cell
+    SYNTH_MASK <<- t$mask
+  }
+  cat(sprintf("\n#### hier-%s %s%s/%s/%s ####\n",
+              if (SYNTH) "synth" else "real",
+              if (SYNTH) paste0(t$cell, "/", t$mask, " ") else "",
+              t$method, t$dz, t$st))
+  tryCatch({
+    run_hier_cell(t$method, t$dz, t$st, densities)
+    TRUE
+  }, error = function(e) {
+    cat("  CHAIN FAILED:", conditionMessage(e), "\n")
+    FALSE
+  })
+}
+
+# Dispatch independent chains. Callers loop methods one at a time, so methods
+# stay serial; within a method, up to JOBS_WORKERS chains run concurrently.
+# mc.preschedule = FALSE hands each finished worker the next chain, so a slow
+# missforest descent does not hold up the queue.
+run_hier_tasks <- function(tasks, densities) {
+  n <- length(tasks)
+  if (n == 0L) return(invisible(NULL))
+  jobs <- min(JOBS_WORKERS, n)
+  if (jobs <= 1L) {
+    for (t in tasks) hier_task(t, densities)
+    return(invisible(NULL))
+  }
+  cat(sprintf("  dispatching %d independent hier chains on %d workers\n",
+              n, jobs))
+  res <- parallel::mclapply(tasks, hier_task, densities = densities,
+                            mc.cores = jobs, mc.preschedule = FALSE)
+  ok <- vapply(res, function(x) isTRUE(x), logical(1))
+  cat(sprintf("  hier chains: %d ok, %d failed\n", sum(ok), sum(!ok)))
+  for (i in which(!ok))
+    cat(sprintf("  [error] %s%s/%s/%s %s\n",
+                if (SYNTH) paste0(tasks[[i]]$cell, "/", tasks[[i]]$mask, " ")
+                else "",
+                tasks[[i]]$method, tasks[[i]]$dz, tasks[[i]]$st,
+                if (inherits(res[[i]], "try-error"))
+                  "(worker died; see stderr)" else ""))
+  invisible(NULL)
 }
 
 main_hier <- function() {
@@ -861,44 +951,55 @@ main_hier <- function() {
     stop("no density slices found under ",
          if (SYNTH) file.path(REPO, "data", "synth") else DATA_ROOT)
   if (SYNTH) {
-    cat(sprintf("impute --hier --synth: methods=[%s]  densities=%s  results=results/synth/hierarchical  reimpute=%s\n",
+    cat(sprintf(paste0("impute --hier --synth: methods=[%s]  densities=%s  ",
+                       "jobs=%d  results=results/synth/hierarchical  reimpute=%s\n"),
                 paste(METHODS, collapse = ","),
-                paste(densities, collapse = " -> "), REIMPUTE))
-    # One descent per (cell, mask); the seeds come from the standard --synth
-    # runs at the densest density. Cells/masks are enumerated under the
-    # densest slice; a step whose density lacks that root carries P forward
-    # unchanged (run_hier_cell's missing-input branch).
+                paste(densities, collapse = " -> "), JOBS_WORKERS, REIMPUTE))
+    # Create the one unified DB/table up front, single-threaded, so concurrent
+    # workers never race on CREATE TABLE IF NOT EXISTS.
+    db_ensure_table(hier_db_at("0"), hier_table())
+
+    # Enumerate the corpus under the densest slice. A step whose density lacks
+    # that root carries P forward unchanged (run_hier_cell's missing-input
+    # branch).
     densest <- file.path(REPO, "data", "synth", densities[1])
+    pairs <- list()
     for (cell in sort(list.files(densest))) {
       cell_dir <- file.path(densest, cell)
       if (cell == "truth" || !dir.exists(cell_dir)) next
       for (mask in sort(list.files(cell_dir))) {
         if (!dir.exists(file.path(cell_dir, mask, "s0"))) next
-        SYNTH_CELL <<- cell
-        SYNTH_MASK <<- mask
-        cat(sprintf("\n#### hier-synth %s/%s ####\n", cell, mask))
-        for (method in METHODS) for (st in STRATEGIES) {
-          for (dz in DENSIFIERS) {
-            run_hier_cell(method, dz, st, densities)
-          }
-        }
+        pairs[[length(pairs) + 1L]] <- list(cell = cell, mask = mask)
       }
+    }
+    # Methods serial (outer), chains parallel (inner).
+    for (method in METHODS) {
+      tasks <- list()
+      for (p in pairs) for (st in STRATEGIES) for (dz in DENSIFIERS)
+        tasks[[length(tasks) + 1L]] <- list(
+          cell = p$cell, mask = p$mask, method = method, st = st, dz = dz)
+      cat(sprintf("\n#### method %s: %d chains ####\n", method, length(tasks)))
+      run_hier_tasks(tasks, densities)
     }
     cat("\nDONE.\n  imputed CSVs -> data/synth/<density>/<cell>/<mask>/s0/hierarchical/imputed/<method>/<dz>/<st>/\n",
         "  results      -> results/synth/hierarchical/<cell>/<mask>/<density>/ (flat)\n",
-        "  db           -> results/synth/hierarchical/<cell>/<mask>/<density>/database.db (imputation_synth.wr2 = weighted R2)\n",
-        "  final step   -> data/synth/<cell>/<mask>/0/ + results/synth/hierarchical/<cell>/<mask>/0/ (density 0)\n",
+        "  db           -> results/synth/hierarchical/database.db ",
+        "(table imputation_synth_hier; density = step, density '0' = hand-off; wr2 = weighted R2)\n",
+        "  final step   -> data/synth/<cell>/<mask>/0/\n",
         sep = "")
     return()
   }
-  cat(sprintf("impute --hier: methods=[%s]  densities=%s  data_root=%s  results=%s  reimpute=%s\n",
+  cat(sprintf("impute --hier: methods=[%s]  densities=%s  data_root=%s  results=%s  jobs=%d  reimpute=%s\n",
               paste(METHODS, collapse = ","),
               paste(densities, collapse = " -> "),
-              DATA_ROOT, RESULTS_ROOT, REIMPUTE))
-  for (method in METHODS) for (st in STRATEGIES) {
-    for (dz in DENSIFIERS) {
-      run_hier_cell(method, dz, st, densities)
-    }
+              DATA_ROOT, RESULTS_ROOT, JOBS_WORKERS, REIMPUTE))
+  for (method in METHODS) {
+    tasks <- list()
+    for (st in STRATEGIES) for (dz in DENSIFIERS)
+      tasks[[length(tasks) + 1L]] <- list(
+        cell = NA_character_, mask = NA_character_,
+        method = method, st = st, dz = dz)
+    run_hier_tasks(tasks, densities)
   }
   cat("\nDONE.\n  imputed CSVs -> ", file.path(DATA_ROOT, "hierarchical"),
       "/<density>/imputed/<method>/<densifier>/<strategy>/\n  results       -> ",

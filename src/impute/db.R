@@ -7,18 +7,27 @@
 #
 # table = "imputation_synth" instead targets results/synth/<density>/database.db
 # with the cell/mask in the key (impute.R --synth); see db_ensure_table.
+# table = "imputation_synth_hier" targets the ONE unified hierarchical synth DB,
+# results/synth/hierarchical/database.db, where `density` is part of the key
+# (impute.R --hier --synth).
 # ─────────────────────────────────────────────────────────────────────────────
 
 suppressMessages({ library(DBI); library(RSQLite) })
 
 # SQLite on a shared/WSL-mounted results root sees concurrent writers (one
-# process per method). Without a busy timeout a writer that finds the file
-# locked fails at once ("database is locked"), losing the row or halting the
-# run; wait for the lock instead. synchronous = NULL skips the connect-time
-# PRAGMA write, which can itself fail under contention.
+# process per method, and the hierarchical --synth descent forks JOBS_WORKERS
+# writers into ONE shared database.db, see impute.R). Without a busy timeout a
+# writer that finds the file locked fails at once ("database is locked"),
+# losing the row or halting the run; wait for the lock instead. It is set
+# before any other PRAGMA so those writes also wait rather than fail.
+# synchronous = NULL skips the connect-time PRAGMA write, which can itself
+# fail under contention. WAL lets readers proceed during a write and absorbs
+# concurrent INSERTs on distinct primary keys far better than the default
+# rollback journal.
 db_connect <- function(db_file) {
   con <- dbConnect(SQLite(), db_file, synchronous = NULL)
   dbExecute(con, "PRAGMA busy_timeout = 120000")
+  dbGetQuery(con, "PRAGMA journal_mode = WAL")
   con
 }
 
@@ -47,6 +56,27 @@ db_ensure_table <- function(db_file, table = "imputation") {
     ")
     if (!"wr2" %in% dbListFields(con, "imputation_synth"))
       dbExecute(con, "ALTER TABLE imputation_synth ADD COLUMN wr2 REAL")
+  } else if (identical(table, "imputation_synth_hier")) {
+    # Unified DB for the hierarchical synth descent (impute.R --hier --synth).
+    # Unlike `imputation_synth`, every density step of every (cell, mask) lands
+    # in the SAME file, so `density` must be part of the primary key: the same
+    # (cell, mask, dataset, method) row recurs at every step. The final
+    # hand-off matrix is stored as density "0".
+    dbExecute(con, "
+      CREATE TABLE IF NOT EXISTS imputation_synth_hier (
+        cell    TEXT NOT NULL,
+        mask    TEXT NOT NULL,
+        density TEXT NOT NULL,
+        dataset TEXT NOT NULL,
+        method  TEXT NOT NULL,
+        rmse    REAL NOT NULL,
+        r2      REAL,
+        gt_r2   REAL,
+        desc    TEXT,
+        wr2     REAL,
+        PRIMARY KEY (cell, mask, density, dataset, method)
+      )
+    ")
   } else {
     dbExecute(con, "
       CREATE TABLE IF NOT EXISTS imputation (
@@ -70,14 +100,19 @@ db_ensure_table <- function(db_file, table = "imputation") {
 db_insert_imputation <- function(method, dataset, rmse, r2, desc,
                                  db_file, overwrite = FALSE,
                                  table = "imputation",
-                                 cell = NULL, mask = NULL,
+                                 cell = NULL, mask = NULL, density = NULL,
                                  wr2 = NA_real_) {
   synth <- identical(table, "imputation_synth")
+  hier  <- identical(table, "imputation_synth_hier")
   db_ensure_table(db_file, table)
   con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
 
-  if (synth) {
+  if (hier) {
+    key_where <- paste("cell = ? AND mask = ? AND density = ?",
+                       "AND dataset = ? AND method = ?")
+    key_vals  <- list(cell, mask, density, dataset, method)
+  } else if (synth) {
     key_where <- "cell = ? AND mask = ? AND dataset = ? AND method = ?"
     key_vals  <- list(cell, mask, dataset, method)
   } else {
@@ -93,7 +128,16 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
       return(invisible(FALSE))
   }
 
-  if (synth) {
+  if (hier) {
+    res <- dbSendStatement(con, paste0(
+      "INSERT OR REPLACE INTO imputation_synth_hier ",
+      "(cell, mask, density, dataset, method, rmse, r2, gt_r2, desc, wr2) ",
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"))
+    vals <- c(key_vals, list(rmse,
+                             if (is.na(r2)) NA_real_ else r2,
+                             NA_real_, desc,
+                             if (is.na(wr2)) NA_real_ else wr2))
+  } else if (synth) {
     res <- dbSendStatement(con, paste0(
       "INSERT OR REPLACE INTO imputation_synth ",
       "(cell, mask, dataset, method, rmse, r2, gt_r2, desc, wr2) ",
@@ -113,7 +157,10 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
   dbBind(res, vals)
   dbClearResult(res)
   wr2_txt <- if (is.na(wr2)) "" else sprintf(" wr2=%.3f", wr2)
-  if (synth)
+  if (hier)
+    cat(sprintf("  db: [%s/%s @ %s] %s/%s rmse=%.4f r2=%.3f%s\n",
+                cell, mask, density, method, dataset, rmse, r2, wr2_txt))
+  else if (synth)
     cat(sprintf("  db: [%s/%s] %s/%s rmse=%.4f r2=%.3f%s\n",
                 cell, mask, method, dataset, rmse, r2, wr2_txt))
   else
@@ -125,14 +172,26 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
 # Refresh gt_r2 (truth-recovery R^2) for one imputation_synth row. Called by
 # impute.R --synth after the imputation pass; recomputed on every invocation,
 # independent of --reimpute. No-op when the row doesn't exist.
-db_update_gt_r2 <- function(cell, mask, dataset, method, gt_r2, db_file) {
-  db_ensure_table(db_file, "imputation_synth")
+#
+# table = "imputation_synth_hier" targets the unified hierarchical DB: there
+# the row is keyed by density too (one row per descent step).
+db_update_gt_r2 <- function(cell, mask, dataset, method, gt_r2, db_file,
+                            table = "imputation_synth", density = NULL) {
+  db_ensure_table(db_file, table)
   con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
-  res <- dbSendStatement(con, paste0(
-    "UPDATE imputation_synth SET gt_r2 = ? ",
-    "WHERE cell = ? AND mask = ? AND dataset = ? AND method = ?"))
-  dbBind(res, list(gt_r2, cell, mask, dataset, method))
+  if (identical(table, "imputation_synth_hier")) {
+    res <- dbSendStatement(con, paste0(
+      "UPDATE imputation_synth_hier SET gt_r2 = ? ",
+      "WHERE cell = ? AND mask = ? AND density = ? ",
+      "AND dataset = ? AND method = ?"))
+    dbBind(res, list(gt_r2, cell, mask, density, dataset, method))
+  } else {
+    res <- dbSendStatement(con, paste0(
+      "UPDATE imputation_synth SET gt_r2 = ? ",
+      "WHERE cell = ? AND mask = ? AND dataset = ? AND method = ?"))
+    dbBind(res, list(gt_r2, cell, mask, dataset, method))
+  }
   dbClearResult(res)
   invisible(TRUE)
 }
