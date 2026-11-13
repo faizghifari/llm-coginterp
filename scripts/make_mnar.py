@@ -185,13 +185,19 @@ def plant_truth(seed, keys, cols, pp, nf, target_mean_r):
     np.fill_diagonal(R, 1.0)
 
     mean_r = float(R[off].mean())
-    omega_h = float(lam_g.sum()**2
-                    / (lam_g.sum()**2 + (lam_f**2 + psi).sum()))
+    # Same estimand as psych::omega (what factor.R reports): general-factor
+    # share of the unit-weighted sum score, (sum lam_g)^2 / 1'R1. 1'R1 also
+    # carries the group factors' shared variance sum_f (sum_{j in f} lam_f)^2,
+    # which the per-item form (sum lam_g)^2 / ((sum lam_g)^2 + sum(lam_f^2 +
+    # psi)) omitted -- kept as omega_h_itemwise for reference only.
+    omega_h = float(lam_g.sum()**2 / R.sum())
+    omega_h_itemwise = float(lam_g.sum()**2
+                             / (lam_g.sum()**2 + (lam_f**2 + psi).sum()))
     X = 50.0 + 15.0 * z  # cosmetic 0-100-ish scale; correlations unchanged
     return {"X": X, "z": z, "R": R, "g": g, "eta": eta, "fcols": fcols,
             "lam_g": lam_g, "lam_f": lam_f, "psi": psi,
             "target_mean_r": target_mean_r, "mean_r": mean_r,
-            "omega_h": omega_h}
+            "omega_h": omega_h, "omega_h_itemwise": omega_h_itemwise}
 
 
 def mechanism_term(kind, z, g, rho_std):
