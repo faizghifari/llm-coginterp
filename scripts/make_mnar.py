@@ -48,10 +48,32 @@ of exactly zero. If a mechanism is too strong for the real margins to be
 jointly feasible, s is scaled down by halves until calibration converges
 (mech_scale < 1 in the meta/summary records how much survived).
 
-Outputs (nested under a density segment, like densify.py: the planted truth
-is density-specific because the mean-r calibration target comes from that
-slice's tables, so multiple densities coexist side by side):
-    data/synth/<density>/truth/<tag>_<cell>_complete.csv      unmasked complete matrix
+Outputs (nested under a density segment, like densify.py). The planted
+truth is SHARED across density slices: the hierarchical descent chains a
+denser slice's completions into sparser ones, so the truth those
+completions are scored against must be one fixed matrix at every
+density. The truth grid is the union of every slice's source table; the
+mean-r calibration target comes from the densest slice; each slice's
+masked tables stay on that slice's own subgrid so they keep mirroring the
+real corpus's shape and margins.
+
+MASK NESTING (default). The real slices nest exactly (densify.py's peel is
+monotone: the 0.5 grid and its observed cells are subsets of 0.3's, which
+are subsets of 0.1's). The synthetic masks reproduce that: for each
+mechanism a single chain is built from the densest slice down to the
+sparsest, each sparser slice carrying the denser slice's observed cells and
+revealing extra cells in prioritized (calibrated-Bernoulli) order until its
+own real row/column margins are met. Therefore
+    mask(0.5) subset of mask(0.3) subset of mask(0.1)
+holds by construction, and every invocation rebuilds the chain from the
+densest slice with fixed seeds, so separate script calls are deterministic
+and byte-identical for a given slice. Verify with
+scripts/ensure_synth_mnar_nests.py. Pass --no-nest for an ablation with
+independent per-slice draws (nested property deliberately violated).
+
+Run once per density slice -- every invocation rewrites
+byte-identical truth files:
+    data/synth/<density>/truth/<tag>_<cell>_complete.csv      unmasked complete matrix (union grid, identical across densities)
     data/synth/<density>/truth/<tag>_<cell>_correlation.csv   planted true correlation
     data/synth/<density>/truth/<tag>_<cell>_factors.npz       g, eta, groups, loadings, psi
     data/synth/<density>/truth/<tag>_<cell>_meta.json         targets, achieved, omega_h
@@ -64,9 +86,9 @@ for src/run/impute.R / factor.R (containing the C and S all_standard tables);
 True quantities for scoring: R, true_nfactors = 1 + F, and
 omega_hierarchical = (sum lam_g)^2 / ((sum lam_g)^2 + sum(lam_f^2 + psi)).
 
-Run:  uv run python scripts/make_mnar.py --density <frac>
-The layout is incompatible with the previous 9-scenario output; remove an
-old tree first (rm -rf data/synth).
+Run:  uv run python scripts/make_mnar.py --density <frac>   (once per slice)
+The truth grid changed relative to older trees; remove the old output
+first (rm -rf data/synth) and re-impute.
 """
 
 import json
@@ -286,6 +308,88 @@ def calibrated_mask(s, row_t, col_t, rng):
     return rng.random((n, p)) < P, lam, ok, sweeps
 
 
+def carry_mask(mask, prev_keys, prev_cols, keys, cols):
+    """Crop a denser slice's mask onto a sparser slice's (superset) grid."""
+    rk = {k: i for i, k in enumerate(prev_keys)}
+    ck = {c: i for i, c in enumerate(prev_cols)}
+    ri = np.array([rk.get(k, -1) for k in keys])
+    ci = np.array([ck.get(c, -1) for c in cols])
+    okr, okc = ri >= 0, ci >= 0
+    out = np.zeros((len(keys), len(cols)), dtype=bool)
+    if okr.any() and okc.any():
+        out[np.ix_(okr, okc)] = mask[np.ix_(ri[okr], ci[okc])]
+    return out
+
+
+def reveal_to_margins(mask, real_mask, s, rng):
+    """Reveal additional cells on the complement of a carried mask until the
+    sparser slice's real row/column observation counts are met (or no
+    feasible cell remains).
+
+    Cells are consumed in increasing order of U / expit(a + b + s), i.e. the
+    same Bernoulli propensity the independent draw uses, but taken as a
+    prefix so the denser slice's already-observed cells stay intact. Targets
+    are floored at the carried counts: a row can never be forced back down,
+    so a carried mask that already exceeds the real margin simply keeps its
+    cells (reported by the margin diagnostics, not silently dropped).
+    """
+    n, p = mask.shape
+    row_t = np.maximum(real_mask.sum(1), mask.sum(1)).astype(np.float64)
+    col_t = np.maximum(real_mask.sum(0), mask.sum(0)).astype(np.float64)
+    a, b, sweeps, ok = fit_offsets(s, row_t, col_t)
+    P = expit(a[:, None] + b[None, :] + s)
+    U = rng.random((n, p))
+    score = np.where(mask, np.inf, U / np.maximum(P, 1e-12))
+    order = np.argsort(score, axis=None)
+    rused = mask.sum(1).astype(np.int64)
+    cused = mask.sum(0).astype(np.int64)
+    out = mask.copy()
+    for idx in order.tolist():
+        i, j = divmod(idx, p)
+        if out[i, j]:
+            continue
+        if rused[i] < row_t[i] and cused[j] < col_t[j]:
+            out[i, j] = True
+            rused[i] += 1
+            cused[j] += 1
+    return out, 1.0, ok, sweeps
+
+
+def nested_mask_slice(per_d, dens_desc, target, kind, truth, rho_std,
+                      u_kidx, u_cidx):
+    """Rebuild the whole densest -> sparsest mask chain for one mechanism and
+    return the mask for `target`.
+
+    The chain always starts at the densest (smallest) slice with fixed seeds,
+    so separate invocations are byte-identical. Each sparser slice carries the
+    denser slice's observed cells and reveals new ones up to its own real
+    margins; hence mask(0.5) is a subset of mask(0.3) is a subset of mask(0.1),
+    mirroring how densify.py's peel makes the real slices nest.
+    """
+    mask = None
+    prev_keys = prev_cols = None
+    for d in dens_desc:
+        keys, cols, M = per_d[d]
+        real = ~np.isnan(M)
+        ri = np.array([u_kidx[k] for k in keys])
+        ci = np.array([u_cidx[c] for c in cols])
+        z = truth["z"][np.ix_(ri, ci)]
+        g = truth["g"][ri]
+        s = mechanism_term(kind, z, g, rho_std[ci])
+        if mask is None:
+            mask, lam, ok, sweeps = calibrated_mask(
+                s, real.sum(1), real.sum(0),
+                np.random.default_rng(MASK_SEED))
+        else:
+            carried = carry_mask(mask, prev_keys, prev_cols, keys, cols)
+            mask, lam, ok, sweeps = reveal_to_margins(
+                carried, real, s, np.random.default_rng(MASK_SEED))
+        if d == target:
+            return mask, lam, ok, sweeps
+        prev_keys, prev_cols = keys, cols
+    raise KeyError(target)
+
+
 def pairwise_obs_corr(z, mask):
     """Pairwise correlations of z on co-observed rows (what the corr-matrix
     imputers see), NaN where a pair is never co-observed or degenerate."""
@@ -385,26 +489,62 @@ def jwrite(path, obj):
 
 # ------------------------------------------------------------------- main --
 
+def _is_num(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+
 def main():
     ap = argparse.ArgumentParser(description="synthetic MNAR stress corpus generator")
     ap.add_argument("--density", required=True, metavar="FRAC",
-                    help="density slice to read, e.g. 0.1 "
-                         "(source root gains a <density> segment)")
+                    help="density slice to generate masks for, e.g. 0.1 "
+                         "(run once per slice; the truth files written are "
+                         "identical across slices)")
+    ap.add_argument("--no-nest", action="store_true",
+                    help="draw each slice's mask independently instead of "
+                         "nested (default). Independent draws do NOT satisfy "
+                         "mask(0.5) subset of mask(0.3) subset of mask(0.1); "
+                         "use only for deliberate ablation")
     a = ap.parse_args()
-    global SOURCE, OUT
-    SOURCE = SOURCE / a.density
+    nest = not a.no_nest
+    global OUT
     OUT = OUT / a.density
 
-    tables = []
-    for dz, sub, st in TABLES:
-        p = SOURCE / sub / st / "model_benchmark_table.csv"
-        if not p.exists():
-            sys.exit(f"make_mnar: missing source table {p}")
-        tables.append((dz, sub, st, p))
-    loaded = {(dz, st): load_table(p) for dz, sub, st, p in tables}
-    print(f"make_mnar: {len(tables)} source tables from {SOURCE}")
+    # Scan EVERY density slice: the shared truth grid is their union, and
+    # the mean-r calibration target comes from the densest slice. "0" is
+    # the un-sliced base corpus (and impute.R's hand-off slot), never a
+    # synth slice.
+    dens = sorted((d.name for d in SOURCE.iterdir()
+                   if d.is_dir() and d.name != "0" and _is_num(d.name)),
+                  key=float)
+    if not dens:
+        sys.exit(f"make_mnar: no density slices under {SOURCE}")
+    if a.density not in dens:
+        sys.exit(f"make_mnar: --density {a.density} is not a slice under {SOURCE} "
+                 f"(found {dens})")
 
-    all_bench = sorted({c for _, cols, _ in loaded.values() for c in cols})
+    loaded = {}   # (dz, st) -> {density: (keys, cols, M)}
+    for dz, sub, st in TABLES:
+        per_d = {}
+        for d in dens:
+            p = SOURCE / d / sub / st / "model_benchmark_table.csv"
+            if p.exists():
+                per_d[d] = load_table(p)
+        if not per_d:
+            sys.exit(f"make_mnar: no source tables for {dz}/{st} under {SOURCE}")
+        loaded[(dz, st)] = per_d
+    dmax = dens[-1]
+    print(f"make_mnar: densities {dens} from {SOURCE} "
+          f"(truth target from {dmax}); generating slice {a.density}")
+
+    # Union of benchmark names across tables and slices: planted_params
+    # draws group assignments/loadings once over this union, so every
+    # table and every density gets consistent truth.
+    all_bench = sorted({c for per_d in loaded.values()
+                        for _, cols, _ in per_d.values() for c in cols})
     truth_dir = OUT / "truth"
     truth_dir.mkdir(parents=True, exist_ok=True)
     summary = []
@@ -414,24 +554,34 @@ def main():
             np.random.default_rng(TRUTH_SEED + 1000 + cell_idx),
             all_bench, nf, lo, hi)
 
-        for t_idx, (dz, sub, st, src_path) in enumerate(tables):
-            keys, cols, M = loaded[(dz, st)]
-            real_mask = ~np.isnan(M)
-            n, p = real_mask.shape
+        for t_idx, (dz, sub, st) in enumerate(TABLES):
+            per_d = loaded[(dz, st)]
             tag = f"{dz}_{st}"
             base = f"{tag}_{cell}"
 
-            # ---- planted truth (shared by every mask) ----
-            target = observed_mean_r(M, real_mask)
+            # ---- shared truth grid: ordered union across slices ----
+            u_keys = list(per_d[dmax][0])
+            u_cols = list(per_d[dmax][1])
+            for d in dens:
+                for k in per_d[d][0]:
+                    if k not in u_keys:
+                        u_keys.append(k)
+                for c in per_d[d][1]:
+                    if c not in u_cols:
+                        u_cols.append(c)
+
+            # ---- planted truth (identical at every density) ----
+            dk, dc, dM = per_d[dmax]
+            target = observed_mean_r(dM, ~np.isnan(dM))
             truth = plant_truth(TRUTH_SEED + cell_idx * 10 + t_idx,
-                                keys, cols, pp, nf, target)
-            pl.DataFrame({KEY: pl.Series(keys),
+                                u_keys, u_cols, pp, nf, target)
+            pl.DataFrame({KEY: pl.Series(u_keys),
                           **{c: pl.Series(np.round(truth["X"][:, j], 4))
-                             for j, c in enumerate(cols)}}
+                             for j, c in enumerate(u_cols)}}
                          ).write_csv(truth_dir / f"{base}_complete.csv")
-            Rdf = pl.DataFrame({KEY: pl.Series(cols),
+            Rdf = pl.DataFrame({KEY: pl.Series(u_cols),
                                 **{c: pl.Series(truth["R"][:, j])
-                                   for j, c in enumerate(cols)}})
+                                   for j, c in enumerate(u_cols)}})
             Rdf.write_csv(truth_dir / f"{base}_correlation.csv")
             np.savez(truth_dir / f"{base}_factors.npz",
                      g=truth["g"], eta=truth["eta"], fcols=truth["fcols"],
@@ -446,49 +596,69 @@ def main():
                 "lam_f_min": float(truth["lam_f"].min()),
                 "lam_f_max": float(truth["lam_f"].max()),
                 "target_mean_r": target,
+                "target_source_density": dmax,
                 "achieved_mean_r": truth["mean_r"],
                 "omega_hierarchical": truth["omega_h"],
                 "max_communality": MAX_COMMUNALITY,
-                "n_models": n, "n_benchmarks": p,
+                "n_models": len(u_keys), "n_benchmarks": len(u_cols),
                 "truth_seed": TRUTH_SEED + cell_idx * 10 + t_idx,
                 "group_sizes": np.bincount(truth["fcols"],
                                            minlength=nf).tolist(),
             })
-            print(f"[truth] {base:26} {n}x{p}"
+            print(f"[truth] {base:26} {len(u_keys)}x{len(u_cols)}"
                   f" mean_r={truth['mean_r']:.3f} (target {target:.3f})"
                   f" omega_h={truth['omega_h']:.3f}")
 
             # expected correlation per benchmark (row mean of planted R),
             # the popularity handle for the mask
-            rho = (truth["R"].sum(1) - 1.0) / (p - 1)
+            rho = (truth["R"].sum(1) - 1.0) / (len(u_cols) - 1)
             rho_std = standardize(rho)
+
+            # ---- masks for the requested slice, on ITS OWN subgrid ----
+            keys, cols, M = per_d[a.density]
+            real_mask = ~np.isnan(M)
+            n, p = real_mask.shape
+            ri = np.array([u_keys.index(k) for k in keys])
+            ci = np.array([u_cols.index(c) for c in cols])
+            z = truth["z"][np.ix_(ri, ci)]
+            g = truth["g"][ri]
+            fcols = truth["fcols"][ci]
+            rho_sub = rho_std[ci]
+
+            # Densest -> sparsest chain for the nested mask construction.
+            dens_desc = sorted(per_d, key=float, reverse=True)
+            u_kidx = {k: i for i, k in enumerate(u_keys)}
+            u_cidx = {c: i for i, c in enumerate(u_cols)}
 
             for mask_name, kind in MASKS:
                 if kind == "real":
                     mask = real_mask.copy()
                     lam, ok, sweeps = 1.0, True, 0
-                else:
-                    s = mechanism_term(kind, truth["z"], truth["g"],
-                                       rho_std)
+                elif not nest:
+                    s = mechanism_term(kind, z, g, rho_sub)
                     # fresh rng with the same seed for every draw: common
                     # random numbers across truth cells and masks (the
                     # table shape fixes the uniform matrix)
                     mask, lam, ok, sweeps = calibrated_mask(
                         s, real_mask.sum(1), real_mask.sum(0),
                         np.random.default_rng(MASK_SEED))
+                else:
+                    mask, lam, ok, sweeps = nested_mask_slice(
+                        per_d, dens_desc, a.density, kind, truth, rho_std,
+                        u_kidx, u_cidx)
 
                 run_dir = OUT / cell / mask_name / f"s{MASK_SEED}"
                 write_masked_table(
                     run_dir / sub / st / "model_benchmark_table.csv",
-                    keys, cols, truth["X"], mask)
+                    keys, cols, truth["X"][np.ix_(ri, ci)], mask)
                 run_truth = run_dir / "truth"
                 run_truth.mkdir(parents=True, exist_ok=True)
                 np.savez_compressed(run_truth / f"{base}_mask.npz",
                                     mask=mask)
 
-                diag = margin_diagnostics(mask, real_mask, truth["z"])
-                diag.update(pair_diagnostics(mask, truth["z"], truth["R"],
-                                             truth["fcols"]))
+                diag = margin_diagnostics(mask, real_mask, z)
+                diag.update(pair_diagnostics(mask, z, truth["R"][np.ix_(ci, ci)],
+                                             fcols))
                 jwrite(run_truth / f"{base}_meta.json", {
                     "truth_cell": cell, "mask": mask_name,
                     "mechanism": kind,
@@ -496,6 +666,8 @@ def main():
                     "pop_kappa": POP_KAPPA if kind == "popularity" else None,
                     "mask_seed": MASK_SEED, "truth_tag": base,
                     "truth_dir": str(truth_dir.relative_to(REPO)),
+                    "nested": nest,
+                    "density_chain": dens_desc if nest else None,
                     "mech_scale": lam, "ipf_converged": ok,
                     "ipf_sweeps": sweeps,
                     "n_models": n, "n_benchmarks": p,
@@ -506,6 +678,8 @@ def main():
                        "true_nfactors": nf + 1,
                        "loading_range": f"{lo:g}-{hi:g}",
                        "mask": mask_name, "dz": dz, "strategy": st,
+                       "density_slice": a.density,
+                       "nested": nest,
                        "n_models": n, "n_benchmarks": p,
                        "real_density": round(float(real_mask.mean()), 4),
                        "target_mean_r": round(target, 4),

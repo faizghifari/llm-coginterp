@@ -369,7 +369,13 @@ gt_r2_score <- function(masked_csv, imputed_csv, truth_csv) {
   rm <- match(keys, mask_df$collapse_key)
   M   <- as.matrix(imp_df[ri, cols, drop = FALSE])
   tru <- as.matrix(tru_df[rt, cols, drop = FALSE])
-  msk <- as.matrix(mask_df[rm, cols, drop = FALSE])
+  # The sparse input table may lack rows (dropped models) or columns
+  # (carried forward from a denser hier step) the completed matrix has:
+  # those cells are missing by construction, so the mask is NA there.
+  mcols <- intersect(cols, names(mask_df)[-1])
+  msk <- matrix(NA_real_, nrow = length(keys), ncol = length(cols),
+                dimnames = list(NULL, cols))
+  msk[, mcols] <- as.matrix(mask_df[rm, mcols, drop = FALSE])
   storage.mode(M) <- storage.mode(tru) <- storage.mode(msk) <- "double"
 
   # Columns whose z-stats are unusable (no observed cells / zero variance)
@@ -754,19 +760,38 @@ run_hier_cell <- function(method, dz, st, densities) {
 }
 
 # Weighted R2 (wr2) for a finished hier descent — cumulative per step. Each
-# step's held-out R2 is weighted by the columns it INTRODUCES (setdiff vs the
-# running matrix P; the seed introduces all of its columns), summed and
-# divided by the running matrix's total column count: wr2 at step d is the
-# introduced-column-weighted mean R2 of the matrix factored at d. Every input
-# is re-derived from artifacts on disk (per-step imputed CSVs + rank sweeps),
-# so the numbers come out identically on --reimpute reuse. Also hands the
-# FINAL step's artifacts to the density-0 slice and writes that slice's
-# imputation row with wr2 — the row (and value) the factoring gate reads at
-# --density 0.
+# step's R2 is weighted by the columns it INTRODUCES (setdiff vs the running
+# matrix P; the seed introduces all of its columns), summed and divided by the
+# running matrix's total column count: wr2 at step d is the
+# introduced-column-weighted mean R2 of the matrix factored at d. The R2
+# itself is mode-dependent: held-out r2 for the real corpus, TRUTH-recovery
+# gt_r2 (scored against the planted truth on the density's missing cells) for
+# the synth corpus. Every input is re-derived from artifacts on disk
+# (per-step imputed CSVs + rank sweeps + input tables + truth), so the numbers
+# come out identically on --reimpute reuse and a cached re-run refreshes
+# wr2/gt_r2 without re-imputing. Also hands the FINAL step's artifacts to the
+# density-0 slice and writes that slice's imputation row with wr2 — the row
+# (and value) the factoring gate reads at --density 0.
 hier_finalize_cell <- function(method, dz, st, densities) {
   dataset <- paste0(dz, "_", st)
   tag     <- sprintf("%s/%s/%s", method, dz, st)
   dlast   <- densities[length(densities)]
+
+  # Synth: the wr2 weight is TRUTH recovery, not held-out r2 — the planted
+  # truth is what this corpus exists for. Per step, gt_r2 scores that step's
+  # completed matrix against the planted truth on exactly the cells the
+  # density's sparse input table is missing (gt_r2_score's column-balanced
+  # definition); the seed step's number matches what the non-hier --synth
+  # pass computes at the densest density.
+  gt_for <- function(d, csv) {
+    if (!SYNTH) return(NA_real_)
+    truth_csv <- file.path(REPO, "data", "synth", d, "truth",
+                           paste0(dataset, "_", SYNTH_CELL, "_complete.csv"))
+    gt <- gt_r2_score(combos_path(dz, st, density = d), csv, truth_csv)
+    cat(sprintf("  gt: %s @ %s gt_r2=%s\n", dataset, d,
+                if (is.na(gt)) "NA" else sprintf("%.4f", gt)))
+    gt
+  }
 
   num <- 0
   prev_cols <- character(0)
@@ -784,7 +809,9 @@ hier_finalize_cell <- function(method, dz, st, densities) {
     sw <- read.csv(sweep)
     i <- which.min(replace(sw$rmse, is.na(sw$rmse), Inf))
     step_r2 <- if ("r2" %in% names(sw)) sw$r2[i] else NA_real_
-    num <- num + length(setdiff(cols, prev_cols)) * step_r2
+    step_gt <- gt_for(d, csv)
+    weight <- if (SYNTH) step_gt else step_r2
+    num <- num + length(setdiff(cols, prev_cols)) * weight
     prev_cols <- cols
     wr2 <- if (length(cols)) num / length(cols) else NA_real_
     desc <- build_desc(sw$param, sw$param_name[1L], sw$param[i])
@@ -792,7 +819,10 @@ hier_finalize_cell <- function(method, dz, st, densities) {
                          hier_db_at(d), overwrite = TRUE, wr2 = wr2,
                          table = if (SYNTH) "imputation_synth" else "imputation",
                          cell = SYNTH_CELL, mask = SYNTH_MASK)
-    best <- list(rmse = sw$rmse[i], r2 = step_r2, wr2 = wr2)
+    if (SYNTH)
+      db_update_gt_r2(SYNTH_CELL, SYNTH_MASK, dataset, method, step_gt,
+                      hier_db_at(d))
+    best <- list(rmse = sw$rmse[i], r2 = step_r2, gt = step_gt, wr2 = wr2)
   }
 
   # Hand-off: the sparsest step's imputation + results, copied into the
@@ -810,13 +840,17 @@ hier_finalize_cell <- function(method, dz, st, densities) {
     if (file.exists(src)) file.copy(src, dst_res, overwrite = TRUE)
   }
   # The row the R2 gate reads at --density 0: wr2 carries the FINAL step's
-  # weighted R2 (db_read_r2 selects COALESCE(wr2, r2)).
+  # weighted R2 (db_read_r2 selects COALESCE(wr2, r2)) — truth-weighted in
+  # synth mode.
   db_insert_imputation(method, dataset, best$rmse, best$r2,
                        sprintf("hier %s", paste(densities, collapse = "->")),
                        file.path(hier0_results_root(), "database.db"),
                        overwrite = TRUE, wr2 = best$wr2,
                        table = if (SYNTH) "imputation_synth" else "imputation",
                        cell = SYNTH_CELL, mask = SYNTH_MASK)
+  if (SYNTH)
+    db_update_gt_r2(SYNTH_CELL, SYNTH_MASK, dataset, method, best$gt,
+                    file.path(hier0_results_root(), "database.db"))
   cat(sprintf("  hier hand-off: %s @ %s -> density 0 (wr2=%.3f)\n",
               tag, dlast, best$wr2))
 }

@@ -418,7 +418,10 @@ seeding from the standard `--synth` run's cached completed matrix at the
 densest density. Per-step imputed CSVs land in
 `data/synth/<density>/<cell>/<mask>/s0/hierarchical/imputed/...`, flat
 results + per-step DB in `results/synth/hierarchical/<cell>/<mask>/<density>/`
-(table `imputation_synth`, rows carry `wr2`), and the final step is handed
+(table `imputation_synth`; each row's `gt_r2` scores that step against the
+planted truth on the density's missing cells, and `wr2` is the
+introduced-column-weighted mean of those gt_r2 values — truth-weighted, unlike
+the real corpus's held-out weighting), and the final step is handed
 off to the density-0 slice (`data/synth/<cell>/<mask>/0/` +
 `results/synth/hierarchical/<cell>/<mask>/0/`).
 
