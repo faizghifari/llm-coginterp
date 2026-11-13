@@ -100,7 +100,7 @@ preproc:
 # `Rscript src/run/impute.R --synth` for all of them at once); planted truth
 # (complete matrices + true correlations) lands in data/synth/truth/.
 mnar-synth:
-	uv run python scripts/make_mnar.py
+	uv run python scripts/make_mnar.py --density $(or $(DENSITY),0.1)
 
 # --- ad hoc jobs ---------------------------------------------------------------
 impute:
