@@ -101,14 +101,17 @@ parse_args <- function(args) {
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
-  if (is.null(density)) stop("--density <fraction> is required (e.g. --density 0.1)")
+  # --density is required for the real corpus only; --synth and --smoke fix
+  # their own layouts (no density dimension) and reject it.
+  if (is.null(density) && !synth && !smoke)
+    stop("--density <fraction> is required (e.g. --density 0.1)")
   if (synth && smoke) stop("--synth and --smoke are mutually exclusive")
   if (synth && raw)   stop("--synth covers only the C/S all_standard cells (no raw level)")
   if (synth && (data_root != "data/text_only" || results_root != "results/text_only"))
     stop("--synth fixes its own data roots and results layout; drop --data-root/--results-root")
-  if (synth)
+  if (synth && !is.null(density))
     stop("--synth fixes its own data roots and results layout; drop --density")
-  if (smoke)
+  if (smoke && !is.null(density))
     stop("--smoke uses the fixed data/smoke fixture (no density dimension); drop --density")
   list(methods = if (method == "all") ALL_METHODS else method,
        smoke = smoke, raw = raw, reimpute = reimpute,
