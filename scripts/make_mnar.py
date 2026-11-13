@@ -311,7 +311,10 @@ def observed_mean_r(M, real_mask):
     """Mean pairwise correlation of a real incomplete table over
     off-diagonal pairs with co-observations: the calibration target for
     the planted general factor."""
-    R = pairwise_obs_corr(M, real_mask)
+    # Zero the holes first: pairwise_obs_corr masks with C * z, and
+    # False * NaN is NaN, so a raw NaN-holed table made EVERY pair NaN and
+    # this silently returned the 0.0 fallback (planted g ~ 0).
+    R = pairwise_obs_corr(np.where(real_mask, M, 0.0), real_mask)
     p = R.shape[0]
     off = ~np.eye(p, dtype=bool)
     vals = R[off & np.isfinite(R)]
