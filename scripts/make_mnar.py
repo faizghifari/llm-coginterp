@@ -1,4 +1,4 @@
-"""Generate synthetic MNAR stress-test datasets under data/synth/.
+"""Generate synthetic MNAR stress-test datasets under data/synth/<density>/.
 
 Design axes (no single planted truth: the truth grid spans weak-to-loud
 factor structure so no imputer's inductive bias is favored by
@@ -48,21 +48,23 @@ of exactly zero. If a mechanism is too strong for the real margins to be
 jointly feasible, s is scaled down by halves until calibration converges
 (mech_scale < 1 in the meta/summary records how much survived).
 
-Outputs:
-    data/synth/truth/<tag>_<cell>_complete.csv      unmasked complete matrix
-    data/synth/truth/<tag>_<cell>_correlation.csv   planted true correlation
-    data/synth/truth/<tag>_<cell>_factors.npz       g, eta, groups, loadings, psi
-    data/synth/truth/<tag>_<cell>_meta.json         targets, achieved, omega_h
-    data/synth/<cell>/<mask>/s0/<sub>/<st>/model_benchmark_table.csv
-    data/synth/<cell>/<mask>/s0/truth/<tag>_<cell>_mask.npz + _meta.json
-    data/synth/summary.csv                          one row per dataset
+Outputs (nested under a density segment, like densify.py: the planted truth
+is density-specific because the mean-r calibration target comes from that
+slice's tables, so multiple densities coexist side by side):
+    data/synth/<density>/truth/<tag>_<cell>_complete.csv      unmasked complete matrix
+    data/synth/<density>/truth/<tag>_<cell>_correlation.csv   planted true correlation
+    data/synth/<density>/truth/<tag>_<cell>_factors.npz       g, eta, groups, loadings, psi
+    data/synth/<density>/truth/<tag>_<cell>_meta.json         targets, achieved, omega_h
+    data/synth/<density>/<cell>/<mask>/s0/<sub>/<st>/model_benchmark_table.csv
+    data/synth/<density>/<cell>/<mask>/s0/truth/<tag>_<cell>_mask.npz + _meta.json
+    data/synth/<density>/summary.csv                          one row per dataset
 
-Each data/synth/<cell>/<mask>/s0 directory is a drop-in --data-root for
-src/run/impute.R / factor.R (containing the C and S all_standard tables);
+Each data/synth/<density>/<cell>/<mask>/s0 directory is a drop-in --data-root
+for src/run/impute.R / factor.R (containing the C and S all_standard tables);
 True quantities for scoring: R, true_nfactors = 1 + F, and
 omega_hierarchical = (sum lam_g)^2 / ((sum lam_g)^2 + sum(lam_f^2 + psi)).
 
-Run:  uv run python scripts/make_mnar.py
+Run:  uv run python scripts/make_mnar.py --density <frac>
 The layout is incompatible with the previous 9-scenario output; remove an
 old tree first (rm -rf data/synth).
 """
@@ -81,7 +83,7 @@ import densify  # KEY convention only
 
 REPO = Path(__file__).resolve().parent.parent
 SOURCE = REPO / "data" / "text_only"   # --density nests a <density> segment into this
-OUT = REPO / "data" / "synth"
+OUT = REPO / "data" / "synth"          # --density nests a <density> segment into this too
 KEY = densify.KEY
 
 TRUTH_SEED = 20261110
@@ -389,8 +391,9 @@ def main():
                     help="density slice to read, e.g. 0.1 "
                          "(source root gains a <density> segment)")
     a = ap.parse_args()
-    global SOURCE
+    global SOURCE, OUT
     SOURCE = SOURCE / a.density
+    OUT = OUT / a.density
 
     tables = []
     for dz, sub, st in TABLES:

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Score factor-level recovery on the synthetic MNAR corpus against planted truth.
 
-Reads results/synth/factor/rows_*.csv + per-run SL loadings written by
-src/run/factor_synth.R, and the planted truth in data/synth/truth/. Per
+Reads results/synth/<density>/factor/rows_*.csv + per-run SL loadings written by
+src/run/factor_synth.R, and the planted truth in data/synth/<density>/truth/. Per
 (method, truth cell, mask, table):
 
   omega_h_true / omega_h_est / omega_bias   -- same estimand both sides:
@@ -11,10 +11,12 @@ src/run/factor_synth.R, and the planted truth in data/synth/truth/. Per
   g_congruence    -- |Tucker phi| between estimated g loadings and planted lam_g
   domain_ari      -- adjusted Rand index between each benchmark's argmax
                      |group loading| and its planted group (domain recovery)
-  imp_r2          -- held-out imputation R² from results/synth/database.db
+  imp_r2          -- held-out imputation R² from
+                     results/synth/<density>/database.db
                      (imputation_synth), so the R² >= 0.45 gate can be applied
 
-Writes results/synth/factor/scored.csv and prints per-method/mask summaries.
+Writes results/synth/<density>/factor/scored.csv and prints per-method/mask
+summaries.
 """
 import argparse
 import json
@@ -27,9 +29,6 @@ import pandas as pd
 from sklearn.metrics import adjusted_rand_score
 
 REPO = Path(__file__).resolve().parent.parent
-SYNTH = REPO / "data" / "synth"
-FDIR = REPO / "results" / "synth" / "factor"
-DB = REPO / "results" / "synth" / "database.db"
 ST = "all_standard"
 
 
@@ -53,9 +52,15 @@ def imputation_r2():
 
 
 def main():
+    global SYNTH, FDIR, DB
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--density", required=True, metavar="FRAC",
+                    help="synth density slice, e.g. 0.1 (data/synth/<density>/)")
     ap.add_argument("--gate", type=float, default=0.45, help="R² gate for the gated summary")
     a = ap.parse_args()
+    SYNTH = REPO / "data" / "synth" / a.density
+    FDIR = REPO / "results" / "synth" / a.density / "factor"
+    DB = REPO / "results" / "synth" / a.density / "database.db"
 
     rows = pd.concat([pd.read_csv(p) for p in sorted(FDIR.glob("rows_*.csv"))], ignore_index=True)
     out = []

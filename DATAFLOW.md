@@ -61,8 +61,9 @@ data/text_only/          DEFAULT analysis corpus (subset of data/, mirror layout
                          and 0/ — the reserved hier final-step hand-off slice, below)
 data/smoke/              tiny synthetic fixture (make_smoke.py), mirror layout,
                          density-free
-data/synth/              synthetic MNAR stress corpus (make_mnar.py): truth/ +
-                         <cell>/<mask>/s0/ drop-in --data-roots (side branch below)
+data/synth/              synthetic MNAR stress corpus (make_mnar.py), density-nested:
+                         <density>/truth/ + <density>/<cell>/<mask>/s0/ drop-in
+                         --data-roots (side branch below)
 
 results/<density>/<method>/<method>_<dz>_<st>_<suffix>   all factoring outputs
 results/<density>/database.db                  SQLite: imputation, factoring, loco
@@ -358,10 +359,10 @@ and punches calibrated holes; each output root is a drop-in `--data-root`.
 |---|---|
 | read | `data/text_only/<density>/combinations_C/all_standard/model_benchmark_table.csv` |
 | read | `data/text_only/<density>/combinations_S/all_standard/model_benchmark_table.csv` |
-| write | `data/synth/truth/<tag>_<cell>_{complete.csv, correlation.csv, factors.npz, meta.json}` |
-| write | `data/synth/<cell>/<mask>/s0/combinations[_<dz>]/<st>/model_benchmark_table.csv` |
-| write | `data/synth/<cell>/<mask>/s0/truth/<tag>_<cell>_{mask.npz, meta.json}` |
-| write | `data/synth/summary.csv` — one row per dataset (diagnostics + truth-cell columns) |
+| write | `data/synth/<density>/truth/<tag>_<cell>_{complete.csv, correlation.csv, factors.npz, meta.json}` |
+| write | `data/synth/<density>/<cell>/<mask>/s0/combinations[_<dz>]/<st>/model_benchmark_table.csv` |
+| write | `data/synth/<density>/<cell>/<mask>/s0/truth/<tag>_<cell>_{mask.npz, meta.json}` |
+| write | `data/synth/<density>/summary.csv` — one row per dataset (diagnostics + truth-cell columns) |
 
 Grid: `{truth cell} × {mask} × {seed} × {table}` = 4 × 4 × 1 × 2 = **32
 datasets**.
@@ -390,23 +391,36 @@ datasets**.
   table, so all imputers see identical masked input and every
   cross-condition comparison is paired.
 
-**Hand-off:** each `data/synth/<cell>/<mask>/s0` directory is a drop-in
-`--data-root` for `impute.R` / `factor.R`, but contains only the C/S
-`all_standard` cells (no raw/R/aggressive). `impute.R --synth` automates the
-sweep over all 16 roots in one invocation: completed CSVs land inside each
-root as usual, flat results go to `results/synth/<cell>/<mask>/`, and DB rows
-go to `results/synth/database.db` table `imputation_synth` (PK
+**Hand-off:** each `data/synth/<density>/<cell>/<mask>/s0` directory is a
+drop-in `--data-root` for `impute.R` / `factor.R`, but contains only the C/S
+`all_standard` cells (no raw/R/aggressive). `impute.R --synth --density <d>`
+automates the sweep over all 16 roots of that density in one invocation:
+completed CSVs land inside each root as usual, flat results go to
+`results/synth/<density>/<cell>/<mask>/`, and DB rows go to
+`results/synth/<density>/database.db` table `imputation_synth` (PK
 `cell, mask, dataset, method` — the extra columns are what keep the roots'
-shared `dataset` names from colliding). After the imputation pass, every
-completed matrix is scored against the planted truth
-(`data/synth/truth/<tag>_<cell>_complete.csv`) on its masked-in cells —
-column-balanced, same aggregation shape as the held-out metric — and the
-result lands in `imputation_synth.gt_r2`. That pass is refreshed on every
+shared `dataset` names from colliding; `wr2` = hierarchical weighted R², NULL
+outside `--hier --synth`). After the imputation pass, every completed matrix
+is scored against the planted truth
+(`data/synth/<density>/truth/<tag>_<cell>_complete.csv`) on its masked-in
+cells — column-balanced, same aggregation shape as the held-out metric — and
+the result lands in `imputation_synth.gt_r2`. That pass is refreshed on every
 `--synth` invocation even when the imputation itself is skipped (no
 `--reimpute`), since it only reads artifacts from disk. Scoring against the
 truth is otherwise external: compare outputs to the truth files (truth R,
 `true_nfactors = 1 + F`, `omega_hierarchical`). Nothing in `main.R` consumes
 the corpus.
+
+**Hier over the synth corpus** (`impute.R --hier --synth`): for each (cell,
+mask), the standard hier descent runs over the synth density slices,
+`data/synth/<d1>/<cell>/<mask>/s0 -> data/synth/<d2>/...` densest-first,
+seeding from the standard `--synth` run's cached completed matrix at the
+densest density. Per-step imputed CSVs land in
+`data/synth/<density>/<cell>/<mask>/s0/hierarchical/imputed/...`, flat
+results + per-step DB in `results/synth/hierarchical/<cell>/<mask>/<density>/`
+(table `imputation_synth`, rows carry `wr2`), and the final step is handed
+off to the density-0 slice (`data/synth/<cell>/<mask>/0/` +
+`results/synth/hierarchical/<cell>/<mask>/0/`).
 
 ## The SQLite database
 

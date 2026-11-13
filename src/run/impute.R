@@ -41,16 +41,21 @@
 #                    (default results/text_only)
 #     --density      REQUIRED. Density slice, e.g. 0.1. Roots gain a density
 #                    segment: <data-root>/<density>/ and <results-root>/<density>/.
-#                    --synth and --smoke fix their own layouts and reject it.
+#                    --synth requires it too (it names the data/synth/<density>
+#                    slice); --smoke rejects it, --hier accepts and ignores it.
 #     --smoke        use data/smoke fixture
 #     --no-balance   revert to cell-weighted holdout scores
 #     --synth        run the synthetic stress corpus instead: loops over every
-#                    data/synth/<cell>/<mask>/s0 drop-in root (C/S all_standard
-#                    only). Completed CSVs land inside each root as usual; flat
-#                    results go to results/synth/<cell>/<mask>/ and DB rows to
-#                    results/synth/database.db, table imputation_synth
-#                    (keyed by cell, mask, dataset, method). Mutually exclusive
-#                    with --smoke/--raw/--data-root-style overrides.
+#                    data/synth/<density>/<cell>/<mask>/s0 drop-in root (C/S
+#                    all_standard only). Completed CSVs land inside each root
+#                    as usual; flat results go to
+#                    results/synth/<density>/<cell>/<mask>/ and DB rows to
+#                    results/synth/<density>/database.db, table
+#                    imputation_synth (keyed by cell, mask, dataset, method).
+#                    Composable with --hier: the hier descent then runs over
+#                    the SYNTH density slices, per (cell, mask) — see the hier
+#                    block below. Mutually exclusive with
+#                    --smoke/--raw/--data-root-style overrides.
 # ─────────────────────────────────────────────────────────────────────────────
 
 .script_path <- sub("^--file=", "",
@@ -77,8 +82,9 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
 RAW_METHODS <- c("default", "zeros")
 
 # Enumerate the synthetic stress corpus (scripts/make_mnar.py output): every
-# data/synth/<cell>/<mask>/s0 drop-in data root. `truth/` and `summary.csv`
-# carry no s0/ combinations tree and are excluded by the check below.
+# data/synth/<density>/<cell>/<mask>/s0 drop-in data root under the given
+# per-density base. `truth/` and `summary.csv` carry no s0/ combinations tree
+# and are excluded by the check below.
 synth_roots <- function(base) {
   roots <- list()
   for (cell in sort(list.files(base))) {
@@ -117,19 +123,17 @@ parse_args <- function(args) {
   }
   if (method != "all" && !(method %in% ALL_METHODS))
     stop("--method must be one of: ", paste(c("all", ALL_METHODS), collapse = ", "))
-  # --density is required for the real corpus only; --synth and --smoke fix
-  # their own layouts (no density dimension) and reject it, and --hier
-  # discovers the densities itself (it accepts and ignores --density).
-  if (is.null(density) && !synth && !smoke && !hier)
+  # --density is required for the real corpus only; --smoke rejects it and
+  # --hier discovers the densities itself (it accepts and ignores --density).
+  # --synth requires it too: it names the data/synth/<density> slice (in
+  # --hier --synth mode the descent discovers the densities and ignores it).
+  if (is.null(density) && !smoke && !hier)
     stop("--density <fraction> is required (e.g. --density 0.1)")
   if (synth && smoke) stop("--synth and --smoke are mutually exclusive")
   if (synth && raw)   stop("--synth covers only the C/S all_standard cells (no raw level)")
   if (synth && (data_root != "data/text_only" || results_root != "results/text_only"))
     stop("--synth fixes its own data roots and results layout; drop --data-root/--results-root")
-  if (hier && synth) stop("--hier and --synth are mutually exclusive")
   if (hier && smoke) stop("--hier descends real density slices; drop --smoke")
-  if (synth && !is.null(density))
-    stop("--synth fixes its own data roots and results layout; drop --density")
   if (smoke && !is.null(density))
     stop("--smoke uses the fixed data/smoke fixture (no density dimension); drop --density")
   list(methods = if (method == "all") ALL_METHODS else method,
@@ -147,8 +151,9 @@ HIER       <- opt$hier
 BALANCE_HOLDOUT <- !opt$no_balance
 MAX_RANK   <- 10L
 SYNTH      <- opt$synth
-# Active synth cell/mask; NULL (and unused) outside --synth mode. --synth
+# Active synth slice/cell/mask; NULL (and unused) outside --synth mode. --synth
 # re-points DATA_ROOT/RESULTS_ROOT per (cell, mask) inside main().
+SYNTH_DENSITY <- NULL
 SYNTH_CELL <- NULL
 SYNTH_MASK <- NULL
 # --density nests a density segment into both roots: inputs read from
@@ -168,7 +173,12 @@ if (SYNTH) {
   # The generator writes only combinations_C/S at all_standard; nothing else
   # exists to skip.
   DENSIFIERS <- c("C", "S")
-  DB_FILE    <- file.path(REPO, "results", "synth", "database.db")
+  if (HIER) {
+    # hier-over-synth re-points DB_FILE per density step (hier_db_at).
+    DB_FILE <- NULL
+  } else {
+    DB_FILE <- file.path(REPO, "results", "synth", opt$density, "database.db")
+  }
 } else {
   dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
   DB_FILE <- file.path(RESULTS_ROOT, "database.db")
@@ -176,24 +186,37 @@ if (SYNTH) {
               paste(METHODS, collapse = ","), DATA_ROOT, RESULTS_ROOT, REIMPUTE,
               HIER))
 }
-if (SYNTH) {
-  .synth_roots <- synth_roots(file.path(REPO, "data", "synth"))
+if (SYNTH && !HIER) {
+  SYNTH_DENSITY <<- opt$density
+  .synth_roots <- synth_roots(file.path(REPO, "data", "synth", opt$density))
   if (!length(.synth_roots))
-    stop("no data/synth/<cell>/<mask>/s0 roots found — run scripts/make_mnar.py first")
-  cat(sprintf("impute --synth: methods=[%s]  roots=%d  results=results/synth  reimpute=%s\n",
-              paste(METHODS, collapse = ","), length(.synth_roots), REIMPUTE))
+    stop("no data/synth/", opt$density, "/<cell>/<mask>/s0 roots found — run ",
+         "scripts/make_mnar.py --density ", opt$density, " first")
+  cat(sprintf("impute --synth: methods=[%s]  density=%s  roots=%d  results=results/synth/%s  reimpute=%s\n",
+              paste(METHODS, collapse = ","), opt$density, length(.synth_roots),
+              opt$density, REIMPUTE))
 }
 
 # density = NULL resolves inside the (density-nested) DATA_ROOT as before;
-# a density string (hier mode) prefixes that density segment explicitly.
+# a density string (hier mode) prefixes that density segment explicitly —
+# except in hier-over-synth mode, where the density selects the s0 root
+# data/synth/<density>/<cell>/<mask>/s0 (which carries no inner density level).
 combos_path <- function(dz, st, density = NULL) {
   sub <- if (dz == "raw") "combinations" else sprintf("combinations_%s", dz)
-  root <- if (is.null(density)) DATA_ROOT else file.path(DATA_ROOT, density)
+  root <- if (is.null(density)) DATA_ROOT
+          else if (SYNTH) synth_s0_root(density)
+          else file.path(DATA_ROOT, density)
   file.path(root, sub, st, "model_benchmark_table.csv")
 }
 
+# density = NULL resolves inside RESULTS_ROOT as before; a density string
+# (hier mode) nests that density segment under the hierarchical results tree —
+# results/synth/hierarchical/<cell>/<mask>/<density>/ in hier-over-synth mode.
 res_path <- function(method, dz, st, suffix, density = NULL) {
-  base <- if (is.null(density)) RESULTS_ROOT else file.path(RESULTS_ROOT, density)
+  base <- if (is.null(density)) RESULTS_ROOT
+          else if (SYNTH) file.path(REPO, "results", "synth", "hierarchical",
+                                    SYNTH_CELL, SYNTH_MASK, density)
+          else file.path(RESULTS_ROOT, density)
   d <- file.path(base, method)
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
   file.path(d, sprintf("%s_%s_%s_%s", method, dz, st, suffix))
@@ -384,7 +407,7 @@ score_gt_r2 <- function(cell) {
   for (method in METHODS) for (st in STRATEGIES) {
     for (dz in DENSIFIERS) {
       dataset   <- paste0(dz, "_", st)
-      truth_csv <- file.path(REPO, "data", "synth", "truth",
+      truth_csv <- file.path(REPO, "data", "synth", SYNTH_DENSITY, "truth",
                              paste0(dataset, "_", cell, "_complete.csv"))
       imp_csv   <- file.path(DATA_ROOT, "imputed", method, dz, st,
                              "imputed_model_benchmark_table.csv")
@@ -488,8 +511,21 @@ run_cell <- function(method, dz, st) {
 # (<data-root>/0/, <results-root>/0/) and its `imputation` row is written with
 # wr2 = the final weighted R2. `factor.R --density 0` then factors the
 # hierarchical matrix through the completely standard path, gated on wr2.
+#
+# Synth variant (--hier --synth): the descent runs over the SYNTH density
+# slices, for each (cell, mask) in turn — data/synth/<d1>/<cell>/<mask>/s0 ->
+# data/synth/<d2>/... densest-first, same union-grid algorithm. The seed is
+# the standard --synth run's cached completed matrix inside the densest s0
+# root. Per-step outputs mirror the real layout per s0 root:
+#   data/synth/<d>/<cell>/<mask>/s0/hierarchical/imputed/...   (the s0 root
+#     already names the density, so no inner density level)
+#   results/synth/hierarchical/<cell>/<mask>/<d>/ + database.db there
+#     (table imputation_synth, rows carry wr2)
+#   hand-off: data/synth/<cell>/<mask>/0/ +
+#     results/synth/hierarchical/<cell>/<mask>/0/
 hier_densities <- function() {
-  d <- list.dirs(DATA_ROOT, full.names = FALSE, recursive = FALSE)
+  base <- if (SYNTH) file.path(REPO, "data", "synth") else DATA_ROOT
+  d <- list.dirs(base, full.names = FALSE, recursive = FALSE)
   d <- d[grepl("^[0-9]+(\\.[0-9]+)?$", d)]
   # Density "0" is reserved for the final-step hand-off slice (below) — never
   # a descent step itself.
@@ -497,25 +533,46 @@ hier_densities <- function() {
   as.character(sort(as.numeric(d), decreasing = TRUE))
 }
 
-# <DATA_ROOT>/hierarchical/<density>/imputed/<method>/<dz>/<st>/
+# The s0 drop-in root of the active (cell, mask) at one synth density step.
+synth_s0_root <- function(density) {
+  file.path(REPO, "data", "synth", density, SYNTH_CELL, SYNTH_MASK, "s0")
+}
+
+# <DATA_ROOT>/hierarchical/<density>/imputed/<method>/<dz>/<st>/  (real corpus)
+# data/synth/<density>/<cell>/<mask>/s0/hierarchical/imputed/...  (synth)
 hier_imputed_dir <- function(density, method, dz, st) {
-  d <- file.path(DATA_ROOT, "hierarchical", density, "imputed",
-                 method, dz, st)
+  d <- if (SYNTH)
+    file.path(synth_s0_root(density), "hierarchical", "imputed",
+              method, dz, st)
+  else
+    file.path(DATA_ROOT, "hierarchical", density, "imputed",
+              method, dz, st)
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
   d
 }
 
-# Standard-run cache the seed step reuses (densest density's own imputation).
+# Standard-run cache the seed step reuses (densest density's own imputation):
+# the real corpus's <DATA_ROOT>/<density>/imputed/..., or the standard --synth
+# run's cache inside the densest s0 root.
 hier_seed_csv <- function(density, method, dz, st) {
-  file.path(DATA_ROOT, density, "imputed", method, dz, st,
-            "imputed_model_benchmark_table.csv")
+  if (SYNTH)
+    file.path(synth_s0_root(density), "imputed", method, dz, st,
+              "imputed_model_benchmark_table.csv")
+  else
+    file.path(DATA_ROOT, density, "imputed", method, dz, st,
+              "imputed_model_benchmark_table.csv")
 }
 
 # Fill-smooth seeds additionally require the standard run's correlation cache,
-# which lives in the standard RESULTS tree (results/<density>/<method>/...).
+# which lives in the standard results tree (results/<density>/<method>/...,
+# results/synth/<density>/<cell>/<mask>/<method>/... for synth).
 hier_seed_cache <- function(density, method, dz, st) {
-  file.path(REPO, opt$results_root, density, method,
-            sprintf("%s_%s_%s_correlation.csv", method, dz, st))
+  if (SYNTH)
+    file.path(REPO, "results", "synth", density, SYNTH_CELL, SYNTH_MASK,
+              method, sprintf("%s_%s_%s_correlation.csv", method, dz, st))
+  else
+    file.path(REPO, opt$results_root, density, method,
+              sprintf("%s_%s_%s_correlation.csv", method, dz, st))
 }
 
 # Union-grid fill: rows = union(P keys, T keys), cols = union(P cols, T cols).
@@ -547,9 +604,14 @@ hier_fill_grid <- function(P, t_csv) {
 
 # Per-density DB for hier mode: the REGULAR impute.R layout, rooted under the
 # hierarchical results tree. DB_FILE is re-pointed per density step (the same
-# global-reassignment pattern --synth uses per synth root).
+# global-reassignment pattern --synth uses per synth root). Synth variant:
+# results/synth/hierarchical/<cell>/<mask>/<density>/database.db.
 hier_db_at <- function(density) {
-  d <- file.path(RESULTS_ROOT, density)
+  d <- if (SYNTH)
+    file.path(REPO, "results", "synth", "hierarchical",
+              SYNTH_CELL, SYNTH_MASK, density)
+  else
+    file.path(RESULTS_ROOT, density)
   dir.create(d, recursive = TRUE, showWarnings = FALSE)
   file.path(d, "database.db")
 }
@@ -559,8 +621,15 @@ hier_db_at <- function(density) {
 # hier cell, so the standard factoring path (`factor.R --density 0`) runs on
 # the hierarchical matrix. Its imputation row carries wr2 (the weighted R2),
 # which is what the R2 gate reads there.
-hier0_data_root    <- function() file.path(REPO, opt$data_root, "0")
-hier0_results_root <- function() file.path(REPO, opt$results_root, "0")
+hier0_data_root <- function() {
+  if (SYNTH) file.path(REPO, "data", "synth", SYNTH_CELL, SYNTH_MASK, "0")
+  else file.path(REPO, opt$data_root, "0")
+}
+hier0_results_root <- function() {
+  if (SYNTH) file.path(REPO, "results", "synth", "hierarchical",
+                       SYNTH_CELL, SYNTH_MASK, "0")
+  else file.path(REPO, opt$results_root, "0")
+}
 
 run_hier_cell <- function(method, dz, st, densities) {
   tag <- sprintf("%s/%s/%s", method, dz, st)
@@ -589,8 +658,12 @@ run_hier_cell <- function(method, dz, st, densities) {
   # Parity: mirror the seed's standard-run sweep + DB row. No imputation runs
   # at the seed — its numbers ARE the standard run's.
   DB_FILE <<- hier_db_at(d1)
-  seed_sweep_src <- file.path(REPO, opt$results_root, d1, method,
-                              sprintf("%s_%s_%s_rank_sweep.csv", method, dz, st))
+  seed_sweep_src <- if (SYNTH)
+    file.path(REPO, "results", "synth", d1, SYNTH_CELL, SYNTH_MASK, method,
+              sprintf("%s_%s_%s_rank_sweep.csv", method, dz, st))
+  else
+    file.path(REPO, opt$results_root, d1, method,
+              sprintf("%s_%s_%s_rank_sweep.csv", method, dz, st))
   if (file.exists(seed_sweep_src)) {
     sw <- read.csv(seed_sweep_src)
     write.csv(sw, res_path(method, dz, st, "rank_sweep.csv", density = d1),
@@ -644,7 +717,11 @@ run_hier_cell <- function(method, dz, st, densities) {
     mask <- grid$mask[, pm$cols, drop = FALSE]
 
     if (method == "onesidedmc") {
-      sweep_dir <- file.path(RESULTS_ROOT, d, "_osmc_sweep", paste0(dz, "_", st))
+      sweep_dir <- if (SYNTH)
+        file.path(REPO, "results", "synth", "hierarchical",
+                  SYNTH_CELL, SYNTH_MASK, d, "_osmc_sweep", paste0(dz, "_", st))
+      else
+        file.path(RESULTS_ROOT, d, "_osmc_sweep", paste0(dz, "_", st))
       run_osmc_step(filled_csv, mask_csv, out_dir, sweep_dir)
       res <- osmc_contract(dz, st, imputed_csv, sweep_dir = sweep_dir)
       if (is.null(res)) { cat("  no OSMC outputs, aborting cell\n"); return() }
@@ -695,7 +772,7 @@ hier_finalize_cell <- function(method, dz, st, densities) {
   prev_cols <- character(0)
   best <- NULL
   for (d in densities) {
-    csv <- file.path(DATA_ROOT, "hierarchical", d, "imputed", method, dz, st,
+    csv <- file.path(hier_imputed_dir(d, method, dz, st),
                      "imputed_model_benchmark_table.csv")
     sweep <- res_path(method, dz, st, "rank_sweep.csv", density = d)
     if (!file.exists(csv) || !file.exists(sweep)) {
@@ -712,14 +789,15 @@ hier_finalize_cell <- function(method, dz, st, densities) {
     wr2 <- if (length(cols)) num / length(cols) else NA_real_
     desc <- build_desc(sw$param, sw$param_name[1L], sw$param[i])
     db_insert_imputation(method, dataset, sw$rmse[i], step_r2, desc,
-                         hier_db_at(d), overwrite = TRUE, wr2 = wr2)
+                         hier_db_at(d), overwrite = TRUE, wr2 = wr2,
+                         table = if (SYNTH) "imputation_synth" else "imputation",
+                         cell = SYNTH_CELL, mask = SYNTH_MASK)
     best <- list(rmse = sw$rmse[i], r2 = step_r2, wr2 = wr2)
   }
 
   # Hand-off: the sparsest step's imputation + results, copied into the
   # density-0 slice (refreshed on every hier run).
-  src_dir <- file.path(DATA_ROOT, "hierarchical", dlast, "imputed",
-                       method, dz, st)
+  src_dir <- hier_imputed_dir(dlast, method, dz, st)
   dst_dir <- file.path(hier0_data_root(), "imputed", method, dz, st)
   dir.create(dst_dir, recursive = TRUE, showWarnings = FALSE)
   file.copy(file.path(src_dir, "imputed_model_benchmark_table.csv"), dst_dir,
@@ -736,7 +814,9 @@ hier_finalize_cell <- function(method, dz, st, densities) {
   db_insert_imputation(method, dataset, best$rmse, best$r2,
                        sprintf("hier %s", paste(densities, collapse = "->")),
                        file.path(hier0_results_root(), "database.db"),
-                       overwrite = TRUE, wr2 = best$wr2)
+                       overwrite = TRUE, wr2 = best$wr2,
+                       table = if (SYNTH) "imputation_synth" else "imputation",
+                       cell = SYNTH_CELL, mask = SYNTH_MASK)
   cat(sprintf("  hier hand-off: %s @ %s -> density 0 (wr2=%.3f)\n",
               tag, dlast, best$wr2))
 }
@@ -744,7 +824,39 @@ hier_finalize_cell <- function(method, dz, st, densities) {
 main_hier <- function() {
   densities <- hier_densities()
   if (!length(densities))
-    stop("no density slices found under ", DATA_ROOT)
+    stop("no density slices found under ",
+         if (SYNTH) file.path(REPO, "data", "synth") else DATA_ROOT)
+  if (SYNTH) {
+    cat(sprintf("impute --hier --synth: methods=[%s]  densities=%s  results=results/synth/hierarchical  reimpute=%s\n",
+                paste(METHODS, collapse = ","),
+                paste(densities, collapse = " -> "), REIMPUTE))
+    # One descent per (cell, mask); the seeds come from the standard --synth
+    # runs at the densest density. Cells/masks are enumerated under the
+    # densest slice; a step whose density lacks that root carries P forward
+    # unchanged (run_hier_cell's missing-input branch).
+    densest <- file.path(REPO, "data", "synth", densities[1])
+    for (cell in sort(list.files(densest))) {
+      cell_dir <- file.path(densest, cell)
+      if (cell == "truth" || !dir.exists(cell_dir)) next
+      for (mask in sort(list.files(cell_dir))) {
+        if (!dir.exists(file.path(cell_dir, mask, "s0"))) next
+        SYNTH_CELL <<- cell
+        SYNTH_MASK <<- mask
+        cat(sprintf("\n#### hier-synth %s/%s ####\n", cell, mask))
+        for (method in METHODS) for (st in STRATEGIES) {
+          for (dz in DENSIFIERS) {
+            run_hier_cell(method, dz, st, densities)
+          }
+        }
+      }
+    }
+    cat("\nDONE.\n  imputed CSVs -> data/synth/<density>/<cell>/<mask>/s0/hierarchical/imputed/<method>/<dz>/<st>/\n",
+        "  results      -> results/synth/hierarchical/<cell>/<mask>/<density>/ (flat)\n",
+        "  db           -> results/synth/hierarchical/<cell>/<mask>/<density>/database.db (imputation_synth.wr2 = weighted R2)\n",
+        "  final step   -> data/synth/<cell>/<mask>/0/ + results/synth/hierarchical/<cell>/<mask>/0/ (density 0)\n",
+        sep = "")
+    return()
+  }
   cat(sprintf("impute --hier: methods=[%s]  densities=%s  data_root=%s  results=%s  reimpute=%s\n",
               paste(METHODS, collapse = ","),
               paste(densities, collapse = " -> "),
@@ -770,9 +882,11 @@ main <- function() {
       SYNTH_CELL   <<- root$cell
       SYNTH_MASK   <<- root$mask
       DATA_ROOT    <<- root$root
-      RESULTS_ROOT <<- file.path(REPO, "results", "synth", root$cell, root$mask)
+      RESULTS_ROOT <<- file.path(REPO, "results", "synth", SYNTH_DENSITY,
+                                 root$cell, root$mask)
       dir.create(RESULTS_ROOT, recursive = TRUE, showWarnings = FALSE)
-      cat(sprintf("\n#### synth root %s/%s ####\n", root$cell, root$mask))
+      cat(sprintf("\n#### synth root %s/%s/%s ####\n", SYNTH_DENSITY,
+                  root$cell, root$mask))
       if ("onesidedmc" %in% METHODS) run_osmc_subprocess()
       for (method in METHODS) for (st in STRATEGIES) {
         for (dz in DENSIFIERS) {
@@ -781,9 +895,9 @@ main <- function() {
       }
       score_gt_r2(root$cell)
     }
-    cat("\nDONE.\n  imputed CSVs -> data/synth/<cell>/<mask>/s0/imputed/<method>/...\n",
-        "  results      -> results/synth/<cell>/<mask>/ (flat)\n",
-        "  db           -> results/synth/database.db (table imputation_synth)\n",
+    cat("\nDONE.\n  imputed CSVs -> data/synth/<density>/<cell>/<mask>/s0/imputed/<method>/...\n",
+        "  results      -> results/synth/<density>/<cell>/<mask>/ (flat)\n",
+        "  db           -> results/synth/<density>/database.db (table imputation_synth)\n",
         sep = "")
     return()
   }

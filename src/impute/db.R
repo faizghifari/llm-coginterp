@@ -5,8 +5,8 @@
 # `imputation`, after the sweep completes.  No-op when the row already exists
 # unless `overwrite = TRUE` (which mirrors the --reimpute flag).
 #
-# table = "imputation_synth" instead targets results/synth/database.db with
-# the cell/mask in the key (impute.R --synth); see db_ensure_table.
+# table = "imputation_synth" instead targets results/synth/<density>/database.db
+# with the cell/mask in the key (impute.R --synth); see db_ensure_table.
 # ─────────────────────────────────────────────────────────────────────────────
 
 suppressMessages({ library(DBI); library(RSQLite) })
@@ -18,7 +18,8 @@ db_ensure_table <- function(db_file, table = "imputation") {
     # Synthetic stress-corpus rows (impute.R --synth). Every data/synth root
     # shares the real corpus's `dataset` names, so cell/mask join the PK.
     # gt_r2 is reserved for scoring against the planted truth
-    # (data/synth/truth/) and is left NA by the imputation stage.
+    # (data/synth/<density>/truth/) and is left NA by the imputation stage.
+    # wr2: hierarchical weighted R2 (--hier --synth); NULL by default.
     dbExecute(con, "
       CREATE TABLE IF NOT EXISTS imputation_synth (
         cell    TEXT NOT NULL,
@@ -29,9 +30,12 @@ db_ensure_table <- function(db_file, table = "imputation") {
         r2      REAL,
         gt_r2   REAL,
         desc    TEXT,
+        wr2     REAL,
         PRIMARY KEY (cell, mask, dataset, method)
       )
     ")
+    if (!"wr2" %in% dbListFields(con, "imputation_synth"))
+      dbExecute(con, "ALTER TABLE imputation_synth ADD COLUMN wr2 REAL")
   } else {
     dbExecute(con, "
       CREATE TABLE IF NOT EXISTS imputation (
@@ -81,11 +85,12 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
   if (synth) {
     res <- dbSendStatement(con, paste0(
       "INSERT OR REPLACE INTO imputation_synth ",
-      "(cell, mask, dataset, method, rmse, r2, gt_r2, desc) ",
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"))
+      "(cell, mask, dataset, method, rmse, r2, gt_r2, desc, wr2) ",
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"))
     vals <- c(key_vals, list(rmse,
                              if (is.na(r2)) NA_real_ else r2,
-                             NA_real_, desc))
+                             NA_real_, desc,
+                             if (is.na(wr2)) NA_real_ else wr2))
   } else {
     res <- dbSendStatement(con, paste0(
       "INSERT OR REPLACE INTO imputation ",

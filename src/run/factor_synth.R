@@ -14,12 +14,12 @@
 # No R² gate here: the gate is applied at scoring time (imputation_synth R²),
 # so the effect of the gate itself can be reported.
 #
-# Run (inside the container, after `impute.R --synth`):
-#   Rscript src/run/factor_synth.R --method softimpute [--method missforest ...]
-#   Rscript src/run/factor_synth.R --oracle
+# Run (inside the container, after `impute.R --synth --density <d>`):
+#   Rscript src/run/factor_synth.R --density 0.1 --method softimpute [--method missforest ...]
+#   Rscript src/run/factor_synth.R --density 0.1 --oracle
 # Outputs:
-#   results/synth/factor/<cell>/<mask>/<method>_<dz>_loadings.csv  (SL: g, F*, h2, u2)
-#   results/synth/factor/rows_<method>.csv   one row per (cell, mask, dz)
+#   results/synth/<density>/factor/<cell>/<mask>/<method>_<dz>_loadings.csv  (SL: g, F*, h2, u2)
+#   results/synth/<density>/factor/rows_<method>.csv   one row per (cell, mask, dz)
 # ─────────────────────────────────────────────────────────────────────────────
 
 .script_path <- sub("^--file=", "", grep("^--file=", commandArgs(FALSE), value = TRUE))
@@ -30,18 +30,20 @@ source(file.path(SRC, "factor", "factoring.R"))
 source(file.path(SRC, "impute", "common.R"))
 
 args <- commandArgs(trailingOnly = TRUE)
-methods <- character(0); oracle <- FALSE
+methods <- character(0); oracle <- FALSE; density <- NULL
 i <- 1L
 while (i <= length(args)) {
   if (args[[i]] == "--method") { methods <- c(methods, args[[i + 1L]]); i <- i + 2L }
+  else if (args[[i]] == "--density") { density <- args[[i + 1L]]; i <- i + 2L }
   else if (args[[i]] == "--oracle") { oracle <- TRUE; i <- i + 1L }
   else stop("unknown arg: ", args[[i]])
 }
 if (!oracle && !length(methods)) stop("give --method <name> (repeatable) and/or --oracle")
+if (is.null(density)) stop("--density <fraction> is required (the synth corpus is density-nested)")
 
 RAW_METHODS <- c("default", "zeros")   # cached fill+smooth correlation, as in factor.R
-SYNTH  <- file.path(REPO, "data", "synth")
-OUTDIR <- file.path(REPO, "results", "synth", "factor")
+SYNTH  <- file.path(REPO, "data", "synth", density)
+OUTDIR <- file.path(REPO, "results", "synth", density, "factor")
 dir.create(OUTDIR, recursive = TRUE, showWarnings = FALSE)
 DZS <- c("C", "S"); ST <- "all_standard"
 
@@ -113,7 +115,7 @@ for (method in methods) {
       if (!file.exists(p)) { cat("  missing", p, "\n"); next }
       M <- read_completed(p)
       r <- if (method %in% RAW_METHODS) {
-        cp <- file.path(REPO, "results", "synth", cell, mask, method,
+        cp <- file.path(REPO, "results", "synth", density, cell, mask, method,
                         sprintf("%s_%s_%s_correlation.csv", method, dz, ST))
         if (!file.exists(cp)) { cat("  missing", cp, "\n"); NULL }
         else run_and_write(method, cell, mask, dz, R = read_correlation_csv(cp), n = nrow(M))

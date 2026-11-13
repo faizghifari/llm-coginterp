@@ -9,9 +9,11 @@ JULIA_PROJECT := src/impute/OneSidedMC
 #   make runall  DATA_ROOT=data RESULTS_ROOT=results DENSITY=0.1
 DATA_ROOT    ?= data/text_only
 RESULTS_ROOT ?= results/text_only
-# Setup and synthetic-corpus targets have no density dimension (the Docker
-# build runs `make env-*` with no DENSITY), so they are exempt from the check.
-NO_DENSITY_GOALS := deps env env-py env-r env-jl clean mnar-synth impute-synth
+# Setup targets have no density dimension (the Docker build runs `make env-*`
+# with no DENSITY), so they are exempt from the check. The synth corpus goals
+# REQUIRE DENSITY: make_mnar.py and impute.R --synth nest a density segment
+# into data/synth/<DENSITY>/ and results/synth/<DENSITY>/.
+NO_DENSITY_GOALS := deps env env-py env-r env-jl clean
 ifeq ($(filter $(NO_DENSITY_GOALS),$(MAKECMDGOALS)),)
 ifeq ($(strip $(DENSITY)),)
 $(error DENSITY is required, e.g. make runall DENSITY=0.1)
@@ -30,8 +32,10 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT) --densit
 #   make loco   softimpute knn              # factor with --loco
 #   make factor-timed [methods]             # year-separated EFA (skips
 #                                           # fill-smooth default/zeros)
-#   make impute-synth [methods]             # --synth: all data/synth roots
-#                                           # (default: missforest softimpute)
+#   make impute-synth [methods]             # --synth: all data/synth/<DENSITY>
+#                                           # roots (default: missforest softimpute)
+#   make impute-synth-hier [methods]        # --hier --synth: density descent
+#                                           # per (cell, mask)
 #
 # Aggregates run the whole default set:
 #
@@ -56,17 +60,17 @@ LOCO_PLAIN     := default zeros softimpute onesidedmc knn   # plain missforest l
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
 
 # The synth corpus's flat results + database.db live under results/synth/
-# regardless of $(RESULTS_ROOT), so its logs live there too.
-SYNTH_LOGS  := results/synth/logs
+# regardless of $(RESULTS_ROOT), so its logs live there too (density-nested).
+SYNTH_LOGS  := results/synth/$(DENSITY)/logs
 CLEAR_SYNTH := @mkdir -p $(SYNTH_LOGS) && : > $(SYNTH_LOGS)/summary.txt
 
 # The method words typed after the target (e.g. "make factor knn missforest").
 # "factor-timed" is itself a target, so keep it out of the method-word list.
 # Same for "impute-synth".
-EXTRA := $(filter-out impute impute-hier runall-impute-hier factor factor-timed impute-synth loco,$(MAKECMDGOALS))
+EXTRA := $(filter-out impute impute-hier runall-impute-hier factor factor-timed impute-synth impute-synth-hier loco,$(MAKECMDGOALS))
 
 .PHONY: deps env env-py env-r env-jl preproc clean \
-        impute impute-hier impute-synth factor factor-timed loco release-date release-date-report \
+        impute impute-hier impute-synth impute-synth-hier factor factor-timed loco release-date release-date-report \
         runall runall-impute runall-impute-hier runall-factor runall-loco
 
 SUDO := $(shell if [ "$$(id -u)" -eq 0 ]; then echo ""; else echo "sudo"; fi)
@@ -95,13 +99,15 @@ preproc:
 	uv run python scripts/collapse_results.py --data-root $(DATA_ROOT)
 	uv run python scripts/densify.py --data-root $(DATA_ROOT) --density $(DENSITY)
 
-# Synthetic MNAR stress-test data (scripts/make_mnar.py). Takes no arguments:
-# writes the 4 truth cells x 4 masks grid (s0 seed) into data/synth/. Each
-# data/synth/<cell>/<mask>/s0 is a drop-in --data-root (or use
-# `Rscript src/run/impute.R --synth` for all of them at once); planted truth
-# (complete matrices + true correlations) lands in data/synth/truth/.
+# Synthetic MNAR stress-test data (scripts/make_mnar.py). Reads
+# data/text_only/$(DENSITY) and writes the 4 truth cells x 4 masks grid (s0
+# seed) into data/synth/$(DENSITY)/. Each
+# data/synth/<density>/<cell>/<mask>/s0 is a drop-in --data-root (or use
+# `Rscript src/run/impute.R --synth --density <d>` for all of them at once);
+# planted truth (complete matrices + true correlations) lands in
+# data/synth/<density>/truth/.
 mnar-synth:
-	uv run python scripts/make_mnar.py --density $(or $(DENSITY),0.1)
+	uv run python scripts/make_mnar.py --density $(DENSITY)
 
 # --- ad hoc jobs ---------------------------------------------------------------
 impute:
@@ -124,15 +130,26 @@ impute-hier:
 	./scripts/runmulti.sh $(LOGS) impute hier -- $(if $(EXTRA),$(EXTRA),$(IMPUTE_METHODS)) -- $(ROOTS)
 
 # Synthetic-corpus imputation (impute.R --synth): one job per method, each
-# sweeping all 16 data/synth/<cell>/<mask>/s0 roots. No $(ROOTS): --synth
-# fixes its own roots and results layout (flat results + database.db under
-# results/synth/, table imputation_synth). Default methods missforest +
-# softimpute; method words after the target override, e.g.
+# sweeping all 16 data/synth/$(DENSITY)/<cell>/<mask>/s0 roots. --synth fixes
+# its own roots and results layout (flat results + database.db under
+# results/synth/$(DENSITY)/, table imputation_synth). Default methods
+# missforest + softimpute; method words after the target override, e.g.
 #   make impute-synth knn
 # Note: runmulti.sh adds --reimpute to impute jobs (same as `make impute`).
 impute-synth:
 	$(CLEAR_SYNTH)
-	./scripts/runmulti.sh $(SYNTH_LOGS) impute synth -- $(if $(EXTRA),$(EXTRA),missforest softimpute) --
+	./scripts/runmulti.sh $(SYNTH_LOGS) impute synth -- $(if $(EXTRA),$(EXTRA),missforest softimpute) -- --density $(DENSITY)
+
+# Hierarchical imputation over the synth corpus (impute.R --hier --synth): for
+# each (cell, mask), descends the data/synth/<density>/.../s0 slices
+# densest-first, seeding from the standard --synth run's cached imputed CSV at
+# the densest density. Same calling convention as `impute-synth`; --density is
+# passed but ignored by the descent (it discovers the densities itself).
+# Results + DB: results/synth/hierarchical/<cell>/<mask>/<density>/; the final
+# step is handed off to the density-0 slice (data/synth/<cell>/<mask>/0/).
+impute-synth-hier:
+	$(CLEAR_SYNTH)
+	./scripts/runmulti.sh $(SYNTH_LOGS) impute synth hier -- $(if $(EXTRA),$(EXTRA),missforest softimpute) -- --density $(DENSITY)
 
 factor:
 	$(CLEAR_SUMMARY)
