@@ -9,8 +9,13 @@ JULIA_PROJECT := src/impute/OneSidedMC
 #   make runall  DATA_ROOT=data RESULTS_ROOT=results DENSITY=0.1
 DATA_ROOT    ?= data/text_only
 RESULTS_ROOT ?= results/text_only
+# Setup and synthetic-corpus targets have no density dimension (the Docker
+# build runs `make env-*` with no DENSITY), so they are exempt from the check.
+NO_DENSITY_GOALS := deps env env-py env-r env-jl clean mnar-synth impute-synth
+ifeq ($(filter $(NO_DENSITY_GOALS),$(MAKECMDGOALS)),)
 ifeq ($(strip $(DENSITY)),)
 $(error DENSITY is required, e.g. make runall DENSITY=0.1)
+endif
 endif
 DENSITY_DATA    := $(DATA_ROOT)/$(DENSITY)
 DENSITY_RESULTS := $(RESULTS_ROOT)/$(DENSITY)
