@@ -23,6 +23,24 @@ const REPO = abspath(joinpath(@__DIR__, "..", "..", ".."))
 getlist(env, default) = haskey(ENV, env) ? split(ENV[env], ',') : default
 
 function main()
+    # Single-input mode (impute.R --hier): process exactly one filled table
+    # with an optional holdout-mask sidecar (0/1 grid of that density's real
+    # observations), then return. The dz/st loop below is the normal mode.
+    single = get(ENV, "OSMC_SINGLE_INPUT", "")
+    if !isempty(single)
+        in_path = abspath(single)
+        out_dir = get(ENV, "OSMC_OUT_DIR", dirname(in_path))
+        sweep_dir = get(ENV, "OSMC_SWEEP_DIR",
+                        joinpath(dirname(out_dir), "_osmc_sweep"))
+        mask_path = get(ENV, "OSMC_HOLDOUT_MASK", "")
+        @info "===== onesidedmc (single input) =====" in_path = in_path
+        res = run_onesided(in_path, out_dir, sweep_dir; r_grid = 1:10, seed = 1,
+                           holdout_mask_path = isempty(mask_path) ? nothing :
+                                               abspath(mask_path))
+        @info "done" best_r=res.best_r out=res.out_csv sweep=res.sweep_dir
+        return
+    end
+
     densifiers = getlist("OSMC_DENSIFIERS", ["raw", "C", "S", "R"])
     strategies = getlist("OSMC_STRATEGIES", ["all_standard", "all_aggressive"])
     # DATA_ROOT lets the smoke fixture reuse this driver (absolute or repo-rel).

@@ -36,6 +36,7 @@ ROOTS        := --data-root $(DATA_ROOT) --results-root $(RESULTS_ROOT) --densit
 # Aggregates run the whole default set:
 #
 #   make runall-impute     all imputations (plain + --raw)
+#   make runall-impute-hier  all imputations through the --hier density descent
 #   make runall-factor     all methods (plain + --raw)
 #   make runall-loco       leave-one-column-out factor runs (plain + --raw)
 #   make runall            everything above, then the loadings comparison
@@ -48,8 +49,8 @@ TAIL ?= 50
 export JOBS TAIL
 LOGS := $(DENSITY_RESULTS)/logs
 
-IMPUTE_METHODS := softimpute softimpute_corr onesidedmc missforest knn default zeros
-FACTOR_METHODS := softimpute softimpute_corr onesidedmc missforest default zeros
+IMPUTE_METHODS := softimpute onesidedmc missforest knn default zeros
+FACTOR_METHODS := softimpute onesidedmc missforest knn default zeros
 LOCO_PLAIN     := default zeros softimpute onesidedmc knn   # plain missforest loco skipped
 
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
@@ -62,11 +63,11 @@ CLEAR_SYNTH := @mkdir -p $(SYNTH_LOGS) && : > $(SYNTH_LOGS)/summary.txt
 # The method words typed after the target (e.g. "make factor knn missforest").
 # "factor-timed" is itself a target, so keep it out of the method-word list.
 # Same for "impute-synth".
-EXTRA := $(filter-out impute factor factor-timed impute-synth loco,$(MAKECMDGOALS))
+EXTRA := $(filter-out impute impute-hier runall-impute-hier factor factor-timed impute-synth loco,$(MAKECMDGOALS))
 
 .PHONY: deps env env-py env-r env-jl preproc clean \
-        impute impute-synth factor factor-timed loco release-date release-date-report \
-        runall runall-impute runall-factor runall-loco
+        impute impute-hier impute-synth factor factor-timed loco release-date release-date-report \
+        runall runall-impute runall-impute-hier runall-factor runall-loco
 
 SUDO := $(shell if [ "$$(id -u)" -eq 0 ]; then echo ""; else echo "sudo"; fi)
 
@@ -107,6 +108,20 @@ impute:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) impute -- $(EXTRA) -- $(ROOTS)
 	# ./scripts/runmulti.sh $(LOGS) impute raw -- $(EXTRA) -- $(ROOTS)
+
+# Hierarchical imputation (impute.R --hier): descends the density slices under
+# $(DATA_ROOT) DENSEST-FIRST; each step trains on the union grid with the
+# previous step's completed columns filled in, and holdouts come only from the
+# step's real observations. Same calling convention as `impute` (method words
+# after the target, one parallel Rscript per method, --reimpute injected).
+# $(ROOTS) is passed verbatim; impute.R parses --density but IGNORES it — hier
+# discovers and sorts the densities itself. Outputs land under
+# $(DATA_ROOT)/hierarchical/ and $(RESULTS_ROOT)/hierarchical/.
+# Default methods: the full IMPUTE_METHODS set (as with `impute`); method
+# words after the target override, e.g. "make impute-hier knn".
+impute-hier:
+	$(CLEAR_SUMMARY)
+	./scripts/runmulti.sh $(LOGS) impute hier -- $(if $(EXTRA),$(EXTRA),$(IMPUTE_METHODS)) -- $(ROOTS)
 
 # Synthetic-corpus imputation (impute.R --synth): one job per method, each
 # sweeping all 16 data/synth/<cell>/<mask>/s0 roots. No $(ROOTS): --synth
@@ -169,6 +184,12 @@ runall-impute:
 	$(CLEAR_SUMMARY)
 	./scripts/runmulti.sh $(LOGS) impute -- $(IMPUTE_METHODS) -- $(ROOTS)
 	# ./scripts/runmulti.sh $(LOGS) impute raw -- $(IMPUTE_METHODS) -- $(ROOTS)
+
+# All imputations through the hierarchical density descent (impute.R --hier):
+# seeds from the densest density's standard-run caches, then fills downward.
+runall-impute-hier:
+	$(CLEAR_SUMMARY)
+	./scripts/runmulti.sh $(LOGS) impute hier -- $(IMPUTE_METHODS) -- $(ROOTS)
 
 runall-factor:
 	$(CLEAR_SUMMARY)

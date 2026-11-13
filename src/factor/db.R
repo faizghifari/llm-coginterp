@@ -36,8 +36,13 @@ db_ensure_factoring_table <- function(con) {
 db_read_r2 <- function(method, dataset, db_file) {
   con <- dbConnect(SQLite(), db_file)
   on.exit(dbDisconnect(con))
+  # Old DBs may predate the wr2 column (hier weighted R2); migrate in place.
+  if (!"wr2" %in% dbListFields(con, "imputation"))
+    dbExecute(con, "ALTER TABLE imputation ADD COLUMN wr2 REAL")
+  # wr2 (hierarchical weighted R2) takes precedence when present; standard
+  # runs leave it NULL and keep gating on the plain held-out r2.
   row <- dbGetQuery(con,
-    "SELECT r2 FROM imputation WHERE dataset = ? AND method = ?",
+    "SELECT COALESCE(wr2, r2) AS r2 FROM imputation WHERE dataset = ? AND method = ?",
     params = list(dataset, method))
   if (nrow(row) == 0 || is.na(row$r2[1])) return(NA_real_)
   row$r2[1]

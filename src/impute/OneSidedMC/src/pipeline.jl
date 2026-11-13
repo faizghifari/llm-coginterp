@@ -77,6 +77,38 @@ function read_table(path::AbstractString)
     return drop_degenerate_cols(X, keys, bench)
 end
 
+# Read a 0/1 holdout-mask sidecar (written by impute.R --hier next to the
+# filled input it describes) and align it to the INPUT table's post-drop
+# keys/bench by NAME — never position. TRUE = real observation of this
+# density's table; FALSE = missing or seeded from the previous (denser) run.
+function read_mask(path::AbstractString, keys::Vector{String},
+                   bench::Vector{String})
+    lines = readlines(path)
+    header = split_csv_line(strip(lines[1]))
+    mbench = String.(header[2:end])
+    mkeys = String[]
+    vals = Vector{Vector{Float64}}()
+    for ln in lines[2:end]
+        isempty(strip(ln)) && continue
+        f = split_csv_line(ln)
+        push!(mkeys, String(f[1]))
+        push!(vals, Float64[isempty(strip(s)) ? 0.0 : parse(Float64, strip(s))
+                             for s in f[2:end]])
+    end
+    mcol = indexin(bench, mbench)
+    M = falses(length(keys), length(bench))
+    for i in eachindex(keys)
+        ri = findfirst(==(keys[i]), mkeys)
+        ri === nothing && continue
+        for j in eachindex(bench)
+            cj = mcol[j]
+            cj === nothing && continue
+            M[i, j] = vals[ri][cj] != 0.0
+        end
+    end
+    return M
+end
+
 # Drop columns useless for covariance/factoring (parity with R's prep_matrix):
 # fewer than `min_obs` observed values, or zero variance among observed values
 # (constant column -> no correlational signal, and would standardize to 0).
@@ -226,10 +258,15 @@ end
 # Column-stratified holdout (matching R's make_holdout), but with an ADDITIONAL
 # row constraint: a cell is only held out if its row would still have >= 2 cells
 # remaining in training (OSMC needs them to condition the prediction).
+# `mask` (hierarchical mode) restricts holdout CANDIDATES to real observations
+# of the current density's table — seeded/filled cells stay in training and are
+# never held out or graded. The per-column holdout counts derive from the
+# mask-TRUE population. Nothing changes when mask is nothing (the default).
 # Returns (train_obs, test_cells) where each test cell is
 #   (kept_cols::Vector{Int}, kept_vals::Vector{Float64}, held_col::Int, held_val).
 function holdout_cells(obs::RaggedObs; frac::Float64 = 0.2,
-                       rng::AbstractRNG = Random.default_rng())
+                       rng::AbstractRNG = Random.default_rng(),
+                       mask::Union{Nothing, AbstractMatrix{Bool}} = nothing)
     n_rows = length(obs)
 
     # column -> [(row_idx, pos_in_row, value), ...]
@@ -248,8 +285,12 @@ function holdout_cells(obs::RaggedObs; frac::Float64 = 0.2,
     col_order = shuffle(rng, collect(keys(col_map)))
     for col in col_order
         entries = col_map[col]
-        total_col_obs = length(entries)
-        eligible = [(r, p, v) for (r, p, v) in entries if row_left[r] > 2]
+        # Hierarchical mode: grade only on real observations of this density's
+        # table — seeded cells can enter training but never the holdout set.
+        real = mask === nothing ? entries :
+               [(r, p, v) for (r, p, v) in entries if mask[r, col]]
+        total_col_obs = length(real)
+        eligible = [(r, p, v) for (r, p, v) in real if row_left[r] > 2]
         n_eligible = length(eligible)
 
         n_hold = min(floor(Int, frac * total_col_obs), total_col_obs - 2)
@@ -512,22 +553,34 @@ function surrogate_at(obs::RaggedObs, p::Int, r::Int, n::Int, μ, σ;
 end
 
 """
-    run_onesided(in_path, out_dir, sweep_dir; r_grid, seed, ...)
+    run_onesided(in_path, out_dir, sweep_dir; r_grid, seed, ..., holdout_mask_path)
 
 Full pipeline for one densified table. Selects rank, then synthesizes a surrogate
 at EVERY r in the grid (so the orchestrator can factor each for the dashboard's
 per-r panels) plus the best-r surrogate. The best-r surrogate is the imputed
 output (out_dir); per-r surrogates + the rank curve go to sweep_dir. The
 orchestrator owns all factoring; this module only emits matrices.
+
+`holdout_mask_path` (hierarchical mode): path to a 0/1 sidecar aligned with
+`in_path`. Holdout cells are drawn only from mask-TRUE cells — seeded/filled
+cells train but are never graded. Nothing changes when it is nothing.
 """
 function run_onesided(in_path::AbstractString, out_dir::AbstractString,
                       sweep_dir::AbstractString;
                       r_grid = 1:10, seed::Int = 1,
-                      iters::Int = 2000, lr::Float64 = 0.05)
+                      iters::Int = 2000, lr::Float64 = 0.05,
+                      holdout_mask_path::Union{Nothing, AbstractString} = nothing)
     X, keys, bench = read_table(in_path)
     n, p = size(X)
     nobs = count(!ismissing, X)
     @info "onesided input" in_path n p density=round(100nobs/(n*p), digits=2)
+
+    # Hierarchical mode: align the mask with the post-drop keys/bench by name.
+    holdout_mask = nothing
+    if holdout_mask_path !== nothing
+        holdout_mask = read_mask(holdout_mask_path, keys, bench)
+        @info "holdout mask" path=holdout_mask_path real_cells=count(holdout_mask)
+    end
 
     # Build raw ragged obs, create holdout FIRST, then compute train-only
     # column moments — avoids leaking held-out cell values into the
@@ -535,7 +588,8 @@ function run_onesided(in_path::AbstractString, out_dir::AbstractString,
     # matrix that the imputer sees).
     raw_obs = build_ragged_raw(X)
     rng_holdout = MersenneTwister(seed)
-    raw_train, raw_test = holdout_cells(raw_obs; frac = 0.2, rng = rng_holdout)
+    raw_train, raw_test = holdout_cells(raw_obs; frac = 0.2, rng = rng_holdout,
+                                        mask = holdout_mask)
     μ, σ = train_column_moments(raw_train, p)
     obs_train = standardize_ragged(raw_train, μ, σ)
     obs_full  = standardize_ragged(raw_obs, μ, σ)

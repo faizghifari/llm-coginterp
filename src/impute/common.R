@@ -30,8 +30,17 @@ prep_matrix <- function(path, min_obs = 2L) {
         paste(names(which(drop_cols)), collapse = ", "), "\n")
     x <- x[, !drop_cols, drop = FALSE]
   }
-  list(x = x, keys = df[["collapse_key"]])
+  # cols = surviving benchmark names, in order. The hierarchical orchestrator
+  # needs them to align its holdout mask with the prepped matrix.
+  list(x = x, keys = df[["collapse_key"]], cols = colnames(x))
 }
+
+# When non-NULL, a logical matrix with the same shape as x marking the cells
+# that are REAL observations of the current density's table. Holdout sampling
+# is restricted to mask-TRUE cells; filled-in (seeded from a denser slice)
+# cells stay in training but are never held out or scored. Set per descent
+# step by the hierarchical orchestrator (impute.R --hier), NULL otherwise.
+HOLDOUT_MASK <- NULL
 
 # Column-stratified holdout, SHARED by every method so all use the same masking.
 # Samples ~frac of observed cells, but never masks so many in a column that fewer
@@ -44,6 +53,9 @@ make_holdout <- function(x, frac = 0.2, min_keep = 2L) {
   holdout <- integer(0)
   for (j in seq_len(ncol(x))) {
     rows_obs <- which(!is.na(x[, j]))
+    # Hierarchical mode: grade only on real observations of this density's
+    # table — never on cells seeded from the previous (denser) run.
+    if (!is.null(HOLDOUT_MASK)) rows_obs <- rows_obs[HOLDOUT_MASK[rows_obs, j]]
     n_obs <- length(rows_obs)
     if (n_obs == 0L) next
     n_hold <- min(floor(frac * n_obs), n_obs - min_keep)
