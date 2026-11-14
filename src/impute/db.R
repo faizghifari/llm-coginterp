@@ -11,8 +11,19 @@
 
 suppressMessages({ library(DBI); library(RSQLite) })
 
+# SQLite on a shared/WSL-mounted results root sees concurrent writers (one
+# process per method). Without a busy timeout a writer that finds the file
+# locked fails at once ("database is locked"), losing the row or halting the
+# run; wait for the lock instead. synchronous = NULL skips the connect-time
+# PRAGMA write, which can itself fail under contention.
+db_connect <- function(db_file) {
+  con <- dbConnect(SQLite(), db_file, synchronous = NULL)
+  dbExecute(con, "PRAGMA busy_timeout = 120000")
+  con
+}
+
 db_ensure_table <- function(db_file, table = "imputation") {
-  con <- dbConnect(SQLite(), db_file)
+  con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
   if (identical(table, "imputation_synth")) {
     # Synthetic stress-corpus rows (impute.R --synth). Every data/synth root
@@ -63,7 +74,7 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
                                  wr2 = NA_real_) {
   synth <- identical(table, "imputation_synth")
   db_ensure_table(db_file, table)
-  con <- dbConnect(SQLite(), db_file)
+  con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
 
   if (synth) {
@@ -116,7 +127,7 @@ db_insert_imputation <- function(method, dataset, rmse, r2, desc,
 # independent of --reimpute. No-op when the row doesn't exist.
 db_update_gt_r2 <- function(cell, mask, dataset, method, gt_r2, db_file) {
   db_ensure_table(db_file, "imputation_synth")
-  con <- dbConnect(SQLite(), db_file)
+  con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
   res <- dbSendStatement(con, paste0(
     "UPDATE imputation_synth SET gt_r2 = ? ",

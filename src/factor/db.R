@@ -8,6 +8,17 @@
 
 suppressMessages({ library(DBI); library(RSQLite); library(jsonlite) })
 
+# SQLite on a shared/WSL-mounted results root sees concurrent writers (one
+# process per method). Without a busy timeout a writer that finds the file
+# locked fails at once ("database is locked"), losing the row or halting the
+# run; wait for the lock instead. synchronous = NULL skips the connect-time
+# PRAGMA write, which can itself fail under contention.
+db_connect <- function(db_file) {
+  con <- dbConnect(SQLite(), db_file, synchronous = NULL)
+  dbExecute(con, "PRAGMA busy_timeout = 120000")
+  con
+}
+
 db_ensure_factoring_table <- function(con) {
   dbExecute(con, "
     CREATE TABLE IF NOT EXISTS factoring (
@@ -34,7 +45,7 @@ db_ensure_factoring_table <- function(con) {
 }
 
 db_read_r2 <- function(method, dataset, db_file) {
-  con <- dbConnect(SQLite(), db_file)
+  con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
   # Old DBs may predate the wr2 column (hier weighted R2); migrate in place.
   if (!"wr2" %in% dbListFields(con, "imputation"))
@@ -52,7 +63,7 @@ db_insert_factoring <- function(method, dataset, run, nf, var_explained,
                                 var_factors, var_avg,
                                 omega_t, omega_h, omega_hs,
                                 phi_avg, phi, db_file) {
-  con <- dbConnect(SQLite(), db_file)
+  con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
   db_ensure_factoring_table(con)
 
@@ -87,7 +98,7 @@ db_ensure_loco_table <- function(con) {
 }
 
 db_insert_loco <- function(method, dataset, run, nf, delta_omega_h, db_file) {
-  con <- dbConnect(SQLite(), db_file)
+  con <- db_connect(db_file)
   on.exit(dbDisconnect(con))
   db_ensure_loco_table(con)
 
