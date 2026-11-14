@@ -30,6 +30,22 @@ from sklearn.metrics import adjusted_rand_score
 
 REPO = Path(__file__).resolve().parent.parent
 ST = "all_standard"
+HIER = False   # --density 0: score the hierarchical (impute.R --hier --synth) end result
+
+
+def resolve_density_0():
+    """density 0 aliases the SPARSEST density slice (final step of the hier descent)."""
+    slices = []
+    for p in (REPO / "data" / "synth").iterdir():
+        if not p.is_dir():
+            continue
+        try:
+            slices.append(float(p.name))
+        except ValueError:
+            continue
+    if not slices:
+        sys.exit("density 0: no numeric density slices under data/synth/")
+    return f"{min(slices):g}"
 
 
 def truth_for(dz, cell):
@@ -45,22 +61,33 @@ def imputation_r2():
         return None
     with sqlite3.connect(DB) as con:
         tabs = {r[0] for r in con.execute("select name from sqlite_master where type='table'")}
-        if "imputation_synth" not in tabs:
+        table = "imputation_synth_hier" if HIER else "imputation_synth"
+        if table not in tabs:
             return None
-        df = pd.read_sql("select * from imputation_synth", con)
+        df = pd.read_sql(f"select * from {table}", con)
+    if HIER:
+        # keep only the final hand-off row of the descent (density "0") and use
+        # wr2 (the cumulative weighted R2 the factoring gate reads) — no fallback
+        # to the per-step r2
+        df = df[df["density"] == "0"]
+        df = df.assign(r2=df["wr2"])
     return df
 
 
 def main():
-    global SYNTH, FDIR, DB
+    global SYNTH, FDIR, DB, HIER
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--density", required=True, metavar="FRAC",
-                    help="synth density slice, e.g. 0.1 (data/synth/<density>/)")
+                    help="synth density slice, e.g. 0.1 (data/synth/<density>/); "
+                         "0 aliases the sparsest slice's hierarchical end result")
     ap.add_argument("--gate", type=float, default=0.45, help="R² gate for the gated summary")
     a = ap.parse_args()
-    SYNTH = REPO / "data" / "synth" / a.density
-    FDIR = REPO / "results" / "synth" / a.density / "factor"
-    DB = REPO / "results" / "synth" / a.density / "database.db"
+    HIER = a.density == "0"
+    density = resolve_density_0() if HIER else a.density
+    SYNTH = REPO / "data" / "synth" / density
+    FDIR = REPO / "results" / "synth" / ("0" if HIER else a.density) / "factor"
+    DB = (REPO / "results" / "synth" / "hierarchical" / "database.db" if HIER
+          else REPO / "results" / "synth" / a.density / "database.db")
 
     rows = pd.concat([pd.read_csv(p) for p in sorted(FDIR.glob("rows_*.csv"))], ignore_index=True)
     out = []
@@ -97,18 +124,40 @@ def main():
         df = df.rename(columns={"r2": "imp_r2"})
     df.to_csv(FDIR / "scored.csv", index=False)
 
-    pd.set_option("display.width", 220)
-    cols = ["omega_h_true", "omega_h_est", "omega_bias", "nf_true", "nf_est",
-            "g_congruence", "domain_ari"] + (["imp_r2"] if "imp_r2" in df else [])
-    print("\n== by method x mask (mean over 4 truth cells x 2 tables) ==")
-    print(df.groupby(["method", "mask"])[cols].mean().round(3).to_string())
-    print("\n== by method x truth cell (mean over masks/tables) ==")
-    print(df.groupby(["method", "cell"])[cols].mean().round(3).to_string())
+    def md(d):
+        """Markdown-render a frame, no tabulate needed; floats at 4 decimals."""
+        head = "| " + " | ".join(map(str, d.columns)) + " |"
+        sep = "|" + "---|" * len(d.columns)
+        def cell(v):
+            if pd.isna(v):
+                return ""
+            if isinstance(v, float):
+                return f"{v:.4f}"
+            return str(v)
+        rows = ["| " + " | ".join(cell(v) for v in row) + " |"
+                for row in d.itertuples(index=False, name=None)]
+        return "\n".join([head, sep, *rows])
+
+    cols = ["method", "ds", "mask", "cell", "ωh_true", "ωh_est", "Δωh",
+            "g_cong", "ari"]
+    ren = {"dataset": "ds", "omega_h_true": "ωh_true", "omega_h_est": "ωh_est",
+           "omega_bias": "Δωh", "g_congruence": "g_cong", "domain_ari": "ari"}
+    if "imp_r2" in df:
+        ren["imp_r2"] = "wr2"
+        cols.append("wr2")
+    df["dataset"] = df["dz"] + "_" + ST
+    raw = ["method", "mask", "cell", "dataset", "omega_h_true", "omega_h_est",
+           "omega_bias", "g_congruence", "domain_ari"]
+    if "imp_r2" in df:
+        raw.append("imp_r2")
     if "imp_r2" in df:
         g = df[(df.method == "oracle") | (df.imp_r2 >= a.gate)]
-        print(f"\n== gated (imputation R² >= {a.gate}) by method x mask ==")
-        print(g.groupby(["method", "mask"])[cols].agg("mean").round(3).to_string())
-        print(g.groupby(["method", "mask"]).size().rename("n").to_string())
+        print(f"== gated (imputation R² >= {a.gate}) — one row per run, no averaging ==")
+    else:
+        g = df
+        print("== no imputation DB — UNGATED, one row per run ==")
+    print(md(g.sort_values(["method", "dataset", "mask", "cell"])[raw]
+             .rename(columns=ren)[cols]))
     print(f"\nwrote {FDIR / 'scored.csv'}")
 
 

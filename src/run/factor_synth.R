@@ -42,8 +42,22 @@ if (!oracle && !length(methods)) stop("give --method <name> (repeatable) and/or 
 if (is.null(density)) stop("--density <fraction> is required (the synth corpus is density-nested)")
 
 RAW_METHODS <- c("default", "zeros")   # cached fill+smooth correlation, as in factor.R
+# --density 0 is the "factor the hierarchical matrix" slice: it aliases the
+# SPARSEST density (the final step of the impute.R --hier --synth descent) and
+# reads that density's s0/hierarchical/imputed/... matrices. Outputs still land
+# in results/synth/0/factor/ so score_synth_factors.py --density 0 keeps working.
+HIER <- identical(density, "0")
+if (HIER) {
+  dens <- suppressWarnings(as.numeric(list.dirs(file.path(REPO, "data", "synth"),
+                                                recursive = FALSE, full.names = FALSE)))
+  dens <- dens[is.finite(dens)]
+  if (!length(dens)) stop("density 0: no numeric density slices under data/synth/")
+  density <- sprintf("%g", min(dens))
+  cat(sprintf("density 0 -> hierarchical end result: data/synth/%s/ (sparsest descent step)\n",
+              density))
+}
 SYNTH  <- file.path(REPO, "data", "synth", density)
-OUTDIR <- file.path(REPO, "results", "synth", density, "factor")
+OUTDIR <- file.path(REPO, "results", "synth", "0", "factor")
 dir.create(OUTDIR, recursive = TRUE, showWarnings = FALSE)
 DZS <- c("C", "S"); ST <- "all_standard"
 
@@ -111,12 +125,18 @@ for (method in methods) {
     masks <- sort(list.dirs(file.path(SYNTH, cell), recursive = FALSE, full.names = FALSE))
     for (mask in masks) for (dz in DZS) {
       root <- file.path(SYNTH, cell, mask, "s0")
-      p <- file.path(root, "imputed", method, dz, ST, "imputed_model_benchmark_table.csv")
+      p <- if (HIER) file.path(root, "hierarchical", "imputed", method, dz, ST,
+                               "imputed_model_benchmark_table.csv")
+            else file.path(root, "imputed", method, dz, ST,
+                           "imputed_model_benchmark_table.csv")
       if (!file.exists(p)) { cat("  missing", p, "\n"); next }
       M <- read_completed(p)
       r <- if (method %in% RAW_METHODS) {
-        cp <- file.path(REPO, "results", "synth", density, cell, mask, method,
-                        sprintf("%s_%s_%s_correlation.csv", method, dz, ST))
+        cp <- if (HIER)
+          file.path(REPO, "results", "synth", "hierarchical", cell, mask, density, method,
+                    sprintf("%s_%s_%s_correlation.csv", method, dz, ST))
+        else file.path(REPO, "results", "synth", density, cell, mask, method,
+                       sprintf("%s_%s_%s_correlation.csv", method, dz, ST))
         if (!file.exists(cp)) { cat("  missing", cp, "\n"); NULL }
         else run_and_write(method, cell, mask, dz, R = read_correlation_csv(cp), n = nrow(M))
       } else run_and_write(method, cell, mask, dz, M = M)

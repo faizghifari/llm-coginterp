@@ -71,6 +71,7 @@ results/*
 
 *.zip
 *.zst
+*tar.gz
 
 10perc*
 20perc*

@@ -83,6 +83,13 @@ ALL_METHODS <- c("softimpute", "softimpute_corr", "iterativepca",
 # persisted as ..._correlation.csv next to the flat results (the completed CSV
 # alone cannot recover it).
 RAW_METHODS <- c("default", "zeros")
+# Correlation-level / surrogate-emitting methods (same list as factor.R): their
+# product is a recovered correlation/covariance matrix, not cell values, so
+# gt_r2 must score their conditional-Gaussian cell predictions from that matrix
+# (exactly how held-out r2 treats them) rather than their surrogate's raw cells.
+SURROGATE_METHODS <- c("onesidedmc", "softimpute_corr", "cvxr", "ggm", "optspace",
+                       "usvt", "knn_corr", "missforest_corr")
+CORR_METHODS <- c(SURROGATE_METHODS, RAW_METHODS)
 
 # Enumerate the synthetic stress corpus (scripts/make_mnar.py output): every
 # data/synth/<density>/<cell>/<mask>/s0 drop-in data root under the given
@@ -365,6 +372,50 @@ db_record <- function(method, dataset, rmse, r2, desc, density = NULL) {
                        cell = SYNTH_CELL, mask = SYNTH_MASK, density = density)
 }
 
+# Locate the persisted recovered matrix for a correlation-level imputer, aligned
+# to the completed CSV it belongs to. NULL when the method has none (caller then
+# falls back to cor(completed matrix), which by construction has covariance =
+# the method's recovered matrix).
+#   default/zeros  -> correlation.csv (the exact fill+smooth artifact, the same
+#                     matrix factoring runs on)
+#   onesidedmc     -> theta_hat.csv, written by the Julia run next to the
+#                     surrogate: Theta-hat = V V' at the CV-best rank
+# `density` selects the per-density results tree (hier steps); NULL = the
+# standard results tree (non-hier).
+corr_matrix_for <- function(method, dz, st, imp_csv, density = NULL) {
+  path <- if (method == "onesidedmc")
+    file.path(dirname(imp_csv), "theta_hat.csv")
+  else if (method %in% RAW_METHODS)
+    res_path(method, dz, st, "correlation.csv", density = density)
+  else
+    NULL
+  if (is.null(path) || !file.exists(path)) return(NULL)
+  df <- read.csv(path, check.names = FALSE)
+  Rm <- as.matrix(df[, setdiff(names(df), "collapse_key")])
+  storage.mode(Rm) <- "double"
+  dimnames(Rm) <- list(df[["collapse_key"]], setdiff(names(df), "collapse_key"))
+  Rm
+}
+
+# Recovered matrix used by corr-level gt scoring: the persisted artifact when it
+# exists (theta_hat.csv / correlation.csv), else the completed matrix's own
+# correlation — for surrogate emitters cov(draws) = the recovered matrix by
+# construction, so its sample correlation IS the recovered matrix up to draw
+# noise. NULL for cell-level methods (they score their own cell values; gt_r2
+# never receives a matrix from this helper for them).
+recovered_matrix_for <- function(method, dz, st, imp_csv, density = NULL) {
+  if (!(method %in% CORR_METHODS)) return(NULL)
+  Rm <- corr_matrix_for(method, dz, st, imp_csv, density = density)
+  if (!is.null(Rm)) return(Rm)
+  df <- read.csv(imp_csv, check.names = FALSE)
+  M <- as.matrix(df[, setdiff(names(df), "collapse_key")])
+  storage.mode(M) <- "double"
+  Rm <- cor(M)
+  Rm[!is.finite(Rm)] <- 0   # zero-association, the "zeros" fill convention
+  dimnames(Rm) <- list(colnames(M), colnames(M))
+  Rm
+}
+
 # Ground-truth recovery R^2 for one --synth cell: score the completed matrix
 # against the planted truth (data/synth/truth/<tag>_<cell>_complete.csv) on
 # exactly the cells the masked input was MISSING — the imputation target.
@@ -375,7 +426,17 @@ db_record <- function(method, dataset, rmse, r2, desc, density = NULL) {
 # matching score_holdout's shape: missing-cell counts differ wildly per
 # column (that IS the MNAR mechanism), and cell-weighting would let the
 # dense columns dominate the score. Returns NA when nothing can be scored.
-gt_r2_score <- function(masked_csv, imputed_csv, truth_csv) {
+#
+# Cell-level imputers (default): the prediction of a missing cell IS the
+# completed matrix's value there. Correlation-level imputers (R_mat supplied —
+# their recovered correlation/covariance matrix) cannot emit cells: like the
+# held-out metric's corr path (predict_cells_from_corr), the prediction is the
+# conditional-Gaussian best-linear predictor from the row's REAL observed
+# cells,  z_j = R[j,S] R[S,S]^+ z_S,  with S = the masked input's observed
+# columns of the row. For Theta-hat = V V' (onesidedmc) this is algebraically
+# identical to the Julia predictor  Vj' pinv(Vs) z_S  (pinv(VsVv')Vs = pinv(Vs)),
+# so the OSMC gt formula matches its own held-out scoring exactly.
+gt_r2_score <- function(masked_csv, imputed_csv, truth_csv, R_mat = NULL) {
   mask_df <- read.csv(masked_csv, check.names = FALSE)
   imp_df  <- read.csv(imputed_csv,  check.names = FALSE)
   tru_df  <- read.csv(truth_csv,    check.names = FALSE)
@@ -410,8 +471,36 @@ gt_r2_score <- function(masked_csv, imputed_csv, truth_csv) {
   if (!any(miss)) return(NA_real_)
 
   zt <- sweep(sweep(tru, 2L, mu, "-"), 2L, sds, "/")
-  zi <- sweep(sweep(M,   2L, mu, "-"), 2L, sds, "/")
-  resid2 <- (zi - zt)^2
+  if (is.null(R_mat)) {
+    # Cell-level: the imputer's own cell values are the predictions.
+    zi <- sweep(sweep(M, 2L, mu, "-"), 2L, sds, "/")
+    resid2 <- (zi - zt)^2
+  } else {
+    # Correlation-level: predict each missing cell from its row's real
+    # observed cells via the conditional-Gaussian predictor on R_mat.
+    if (!all(colnames(msk) %in% colnames(R_mat))) {
+      cat("  gt: recovered matrix lacks columns:",
+          paste(setdiff(colnames(msk), colnames(R_mat)), collapse = ", "), "\n")
+      return(NA_real_)
+    }
+    Rm <- R_mat[colnames(msk), colnames(msk), drop = FALSE]
+    zo <- sweep(sweep(msk, 2L, mu, "-"), 2L, sds, "/")  # observed real z-values
+    resid2 <- matrix(NA_real_, nrow = nrow(msk), ncol = ncol(msk),
+                     dimnames = dimnames(msk))
+    for (i in seq_len(nrow(msk))) {
+      S   <- which(!is.na(zo[i, ]))
+      js  <- which(miss[i, ])
+      if (!length(js)) next
+      # Shared per-row solve: c = ginv(R[S,S]) R[S,] (|S| x p), so that
+      # pred_j = c[,j]' z_S = R[j,S] ginv(R[S,S]) z_S for every column j at
+      # once (ginv of a symmetric matrix is symmetric). Empty S degenerates to
+      # the z-mean (0), as in the held-out path.
+      coef <- if (length(S) == 0L) matrix(0, nrow = ncol(msk), ncol = 1L) else
+        t(MASS::ginv(Rm[S, S, drop = FALSE]) %*% Rm[S, , drop = FALSE]) %*%
+          zo[i, S]
+      resid2[i, js] <- (coef[js] - zt[i, js])^2
+    }
+  }
   base2  <- zt^2
   resid2[!miss] <- NA_real_
   base2[!miss]  <- NA_real_
@@ -439,7 +528,8 @@ score_gt_r2 <- function(cell) {
       if (!file.exists(truth_csv)) {
         cat("  gt: missing truth file:", truth_csv, "\n"); next
       }
-      gt <- gt_r2_score(combos_path(dz, st), imp_csv, truth_csv)
+      gt <- gt_r2_score(combos_path(dz, st), imp_csv, truth_csv,
+                        R_mat = recovered_matrix_for(method, dz, st, imp_csv))
       db_update_gt_r2(cell, SYNTH_MASK, dataset, method, gt, DB_FILE)
       cat(sprintf("  gt: %s/%s gt_r2=%s\n", dataset, method,
                   if (is.na(gt)) "NA" else sprintf("%.4f", gt)))
@@ -691,6 +781,17 @@ run_hier_cell <- function(method, dz, st, densities) {
     file.copy(hier_seed_cache(d1, method, dz, st),
               res_path(method, dz, st, "correlation.csv", density = d1),
               overwrite = TRUE)
+  # onesidedmc's recovered Theta-hat travels with the seed the same way the
+  # fill-smooth correlation cache does — gt_r2 scores predictions from it.
+  if (method == "onesidedmc") {
+    seed_theta <- file.path(dirname(seed_csv), "theta_hat.csv")
+    if (file.exists(seed_theta))
+      file.copy(seed_theta, file.path(seed_dir, "theta_hat.csv"),
+                overwrite = TRUE)
+    else
+      cat("  note: no theta_hat.csv next to the seed — gt_r2 falls back to ",
+          "cor(surrogate)\n", sep = "")
+  }
   # Parity: mirror the seed's standard-run sweep + DB row. No imputation runs
   # at the seed — its numbers ARE the standard run's.
   DB_FILE <<- hier_db_at(d1)
@@ -819,42 +920,68 @@ hier_finalize_cell <- function(method, dz, st, densities) {
     if (!SYNTH) return(NA_real_)
     truth_csv <- file.path(REPO, "data", "synth", d, "truth",
                            paste0(dataset, "_", SYNTH_CELL, "_complete.csv"))
-    gt <- gt_r2_score(combos_path(dz, st, density = d), csv, truth_csv)
+    if (!file.exists(truth_csv)) {
+      cat("  gt: missing truth file:", truth_csv, "\n")
+      return(NA_real_)
+    }
+    gt <- gt_r2_score(combos_path(dz, st, density = d), csv, truth_csv,
+                      R_mat = recovered_matrix_for(method, dz, st, csv, density = d))
     cat(sprintf("  gt: %s @ %s gt_r2=%s\n", dataset, d,
                 if (is.na(gt)) "NA" else sprintf("%.4f", gt)))
     gt
   }
 
+  # gt_r2 (and therefore wr2, which it weights in synth mode) depends ONLY on
+  # the completed matrix, not on the rank sweep. The sweep is needed only for
+  # the rmse/r2/desc columns of the `imputation` row. Keying the whole hand-off
+  # on the sweep made onesidedmc lose gt_r2/wr2 entirely: its seed step has no
+  # sweep of its own (the seed is copied verbatim from the standard --synth run
+  # and that run may not have written one), and the old early-return skipped
+  # every remaining step. So: a missing CSV skips that step; a missing sweep
+  # only skips that step's rmse/r2 row, while gt/wr2 keep accumulating.
   num <- 0
   prev_cols <- character(0)
   best <- NULL
+  last_gt <- NA_real_
+  last_wr2 <- NA_real_
   for (d in densities) {
     csv <- file.path(hier_imputed_dir(d, method, dz, st),
                      "imputed_model_benchmark_table.csv")
     sweep <- res_path(method, dz, st, "rank_sweep.csv", density = d)
-    if (!file.exists(csv) || !file.exists(sweep)) {
-      cat("  wr2: missing step artifacts at ", d, " — skipping hand-off\n")
-      return(invisible())
+    if (!file.exists(csv)) {
+      cat("  wr2: missing completed matrix at ", d, " — skipping step\n")
+      next
     }
     cols <- setdiff(names(read.csv(csv, nrow = 0, check.names = FALSE)),
                     "collapse_key")
-    sw <- read.csv(sweep)
-    i <- which.min(replace(sw$rmse, is.na(sw$rmse), Inf))
-    step_r2 <- if ("r2" %in% names(sw)) sw$r2[i] else NA_real_
     step_gt <- gt_for(d, csv)
+    step_r2 <- NA_real_; step_rmse <- NA_real_; step_desc <- NA_character_
+    has_sweep <- file.exists(sweep)
+    if (has_sweep) {
+      sw <- read.csv(sweep)
+      i <- which.min(replace(sw$rmse, is.na(sw$rmse), Inf))
+      step_r2   <- if ("r2" %in% names(sw)) sw$r2[i] else NA_real_
+      step_rmse <- sw$rmse[i]
+      step_desc <- build_desc(sw$param, sw$param_name[1L], sw$param[i])
+      best <- list(rmse = step_rmse, r2 = step_r2, desc = step_desc)
+    } else {
+      cat("  wr2: no rank sweep at ", d,
+          " — gt_r2/wr2 kept, rmse/r2 row not written\n", sep = "")
+    }
     weight <- if (SYNTH) step_gt else step_r2
     num <- num + length(setdiff(cols, prev_cols)) * weight
     prev_cols <- cols
     wr2 <- if (length(cols)) num / length(cols) else NA_real_
-    desc <- build_desc(sw$param, sw$param_name[1L], sw$param[i])
-    db_insert_imputation(method, dataset, sw$rmse[i], step_r2, desc,
-                         hier_db_at(d), overwrite = TRUE, wr2 = wr2,
-                         table = hier_table(),
-                         cell = SYNTH_CELL, mask = SYNTH_MASK, density = d)
+    last_gt <- step_gt
+    last_wr2 <- wr2
+    if (has_sweep)
+      db_insert_imputation(method, dataset, step_rmse, step_r2, step_desc,
+                           hier_db_at(d), overwrite = TRUE, wr2 = wr2,
+                           table = hier_table(),
+                           cell = SYNTH_CELL, mask = SYNTH_MASK, density = d)
     if (SYNTH)
       db_update_gt_r2(SYNTH_CELL, SYNTH_MASK, dataset, method, step_gt,
                       hier_db_at(d), table = hier_table(), density = d)
-    best <- list(rmse = sw$rmse[i], r2 = step_r2, gt = step_gt, wr2 = wr2)
   }
 
   # Hand-off: the sparsest step's imputation + results, copied into the
@@ -878,18 +1005,22 @@ hier_finalize_cell <- function(method, dz, st, densities) {
   handoff_db <- if (SYNTH) hier_db_at("0")
                 else file.path(hier0_results_root(), "database.db")
   handoff_density <- if (SYNTH) "0" else NULL
+  if (is.null(best)) {
+    cat("  hier hand-off: no rank sweep for any step — CSV copy done, DB row skipped\n")
+    return(invisible())
+  }
   db_insert_imputation(method, dataset, best$rmse, best$r2,
                        sprintf("hier %s", paste(densities, collapse = "->")),
                        handoff_db,
-                       overwrite = TRUE, wr2 = best$wr2,
+                       overwrite = TRUE, wr2 = last_wr2,
                        table = hier_table(),
                        cell = SYNTH_CELL, mask = SYNTH_MASK,
                        density = handoff_density)
   if (SYNTH)
-    db_update_gt_r2(SYNTH_CELL, SYNTH_MASK, dataset, method, best$gt,
+    db_update_gt_r2(SYNTH_CELL, SYNTH_MASK, dataset, method, last_gt,
                     handoff_db, table = hier_table(), density = handoff_density)
   cat(sprintf("  hier hand-off: %s @ %s -> density 0 (wr2=%.3f)\n",
-              tag, dlast, best$wr2))
+              tag, dlast, last_wr2))
 }
 
 # One hier chain: a single (method, dz, st) descent at a given (cell, mask) in

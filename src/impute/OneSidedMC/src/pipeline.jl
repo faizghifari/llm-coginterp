@@ -544,12 +544,31 @@ function write_surrogate(path, keys, bench, X)
 end
 
 # Fit Theta-hat at rank r and synthesize a surrogate (n rows). Helper so the
-# rank sweep and the best-r run share one code path.
+# rank sweep and the best-r run share one code path. Also returns V so the
+# best-r caller can persist Theta-hat = V V' for R's gt_r2 scorer (the
+# corr-level analogue of the fill-smooth methods' correlation.csv).
 function surrogate_at(obs::RaggedObs, p::Int, r::Int, n::Int, μ, σ;
                       seed::Int = 1, iters::Int = 2000, lr::Float64 = 0.05)
     V, _ = fit_onesided_ragged(obs, p, r; iters = iters, lr = lr,
                                rng = MersenneTwister(seed))
-    synthesize_surrogate(theta_hat(V), n, μ, σ; rng = MersenneTwister(seed + 999))
+    synthesize_surrogate(theta_hat(V), n, μ, σ; rng = MersenneTwister(seed + 999)), V
+end
+
+# Write the recovered Theta-hat (p x p, benchmarks x benchmarks) in the same
+# keyed CSV format as the surrogate, so R's gt_r2 scorer can align it by name.
+# This is OSMC's corr-level analogue of the fill-smooth methods' correlation.csv:
+# gt_r2 must predict missing truth cells from Theta-hat (conditional-Gaussian,
+# the same predictor as the held-out scoring above), never from the surrogate's
+# raw draws — the surrogate is synthetic noise matched to Theta-hat's covariance
+# and carries no cell-level information.
+function write_theta_hat(path, bench, Θ)
+    open(path, "w") do io
+        println(io, "collapse_key," * join(csv_escape.(bench), ","))
+        for i in eachindex(bench)
+            println(io, csv_escape(bench[i]) * "," * join(string.(@view Θ[i, :]), ","))
+        end
+    end
+    @info "wrote theta-hat" path
 end
 
 """
@@ -558,8 +577,10 @@ end
 Full pipeline for one densified table. Selects rank, then synthesizes a surrogate
 at EVERY r in the grid (so the orchestrator can factor each for the dashboard's
 per-r panels) plus the best-r surrogate. The best-r surrogate is the imputed
-output (out_dir); per-r surrogates + the rank curve go to sweep_dir. The
-orchestrator owns all factoring; this module only emits matrices.
+output (out_dir) and Theta-hat at the best rank is written next to it
+(theta_hat.csv) for the orchestrator's corr-level gt_r2 scoring; per-r
+surrogates + the rank curve go to sweep_dir. The orchestrator owns all
+factoring; this module only emits matrices.
 
 `holdout_mask_path` (hierarchical mode): path to a 0/1 sidecar aligned with
 `in_path`. Holdout cells are drawn only from mask-TRUE cells — seeded/filled
@@ -603,7 +624,7 @@ function run_onesided(in_path::AbstractString, out_dir::AbstractString,
     mkpath(sweep_dir)
     # per-r surrogates for the dashboard's per-param factoring panels.
     for r in rgrid
-        Xr = surrogate_at(obs_full, p, r, n, μ, σ; seed = seed, iters = iters, lr = lr)
+        Xr, _ = surrogate_at(obs_full, p, r, n, μ, σ; seed = seed, iters = iters, lr = lr)
         write_surrogate(joinpath(sweep_dir, "surrogate_r$(r).csv"), keys, bench, Xr)
     end
     # rank-selection curve (cell-level held-out RMSE + R^2 by default).
@@ -612,11 +633,13 @@ function run_onesided(in_path::AbstractString, out_dir::AbstractString,
         for (r, e, q) in zip(rgrid, rmse, r2); println(io, "$(r),$(e),$(q)"); end
     end
 
-    # best-r surrogate = the imputed output.
+    # best-r surrogate = the imputed output; Theta-hat at the best rank goes
+    # next to it for R's corr-level gt_r2 scoring.
     mkpath(out_dir)
     out_csv = joinpath(out_dir, "imputed_model_benchmark_table.csv")
-    Xbest = surrogate_at(obs_full, p, best_r, n, μ, σ; seed = seed, iters = iters, lr = lr)
+    Xbest, Vbest = surrogate_at(obs_full, p, best_r, n, μ, σ; seed = seed, iters = iters, lr = lr)
     write_surrogate(out_csv, keys, bench, Xbest)
+    write_theta_hat(joinpath(out_dir, "theta_hat.csv"), bench, theta_hat(Vbest))
 
     return (; best_r, rgrid, rmse, out_csv, sweep_dir, n, p)
 end
