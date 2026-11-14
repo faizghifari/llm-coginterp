@@ -7,20 +7,26 @@ construction; rankings are only reported per truth cell):
   truth cells : F group factors x group-loading range
                 F in {5, 10}, loadings ~ U(0.1, 0.5) "weak" or
                 U(0.5, 0.9) "loud" -> 4 planted truths per table
+  omega_h     : planted general-factor saturation, a NEW axis crossed with
+                the truth cells: WH_TARGETS = [0.3, 0.6]. lam_g is solved in
+                closed form so the planted omega_h EQUALS the target (the
+                real table's mean pairwise r is recorded as a diagnostic,
+                no longer targeted). Cell names carry the suffix:
+                f5_weak_wh03, f5_weak_wh06, ... f10_loud_wh06.
   masks       : mcar        calibrated control (s = 0)
                 cell        good cells observed (s = gam * z_ij)
                 popularity  observability tied to a benchmark's expected
                             correlation, interacting with model ability so
                             the effect survives offset absorption
                             (s = kap * rho_std_j * g_i)
-                real_mask   the real table's own mask over planted truth
+                (real_mask  the real table's own mask -- DISABLED)
   seed        : one mask seed; common random numbers (the uniform behind
                 the Bernoulli mask draw is identical across truth cells
                 and masks for a fixed table), so every cross-condition
                 comparison is paired
   tables      : C_all_standard (671x78), S_all_standard (669x124)
 
-Total: 4 truths x 4 masks x 1 seed x 2 tables = 32 masked datasets.
+Total: 8 truths x 3 masks x 1 seed x 2 tables = 48 masked datasets.
 All imputers see identical masked input per dataset, so imputer
 comparisons are paired by construction.
 
@@ -28,10 +34,15 @@ Truth model per (table, truth cell) -- bifactor, all loadings positive so
 R has only positive entries, matching the real tables:
     z_ij = lam_g_j g_i + lam_f_j eta_i,f(j) + sqrt(psi_j) eps_ij
     R    = lam_g lam_g' + F F'   (unit diagonal)
-lam_g is solved per table so the planted mean off-diagonal R matches the
-real table's observed mean pairwise correlation (co-observed rows);
+lam_g is a constant solved in closed form so the planted omega_h equals
+WH_TARGETS (omega_h = (p*lam_g)^2 / (p + p*(p-1)*(lam_g^2 + c_group)),
+solved for lam_g^2, with c_group the group factors' contribution to the
+mean off-diagonal correlation of the realized lam_f);
 lam_f ~ U(lo, hi) is drawn once per cell over the union of benchmark
-names, so benchmarks in both tables get consistent truth. Communalities
+names, so benchmarks in both tables get consistent truth; per-group
+weights GROUP_DECAY**rank make the group communalities (and the group
+eigenvalues) DECREASE with group rank -- group 0 carries the most
+specific variance, group F-1 the least. Communalities
 are capped at 0.95 (both loadings scaled jointly); the ACHIEVED mean r,
 loading ranges and omega are always recorded, never silently distorted.
 If the loud cell's group contribution alone exceeds the observed target,
@@ -117,10 +128,16 @@ TRUTH_CELLS = [  # (n_group_factors, loading_lo, loading_hi, cell_name)
     (10, 0.10, 0.50, "f10_weak"),
     (10, 0.50, 0.90, "f10_loud"),
 ]
+WH_TARGETS = [0.3, 0.6]  # planted omega_h per truth cell (NEW axis; the cell
+                         # name gets a _wh03/_wh06 suffix)
+GROUP_DECAY = 0.85       # per-rank geometric decay of group loadings: group 0
+                         # carries the most specific variance, group F-1 the
+                         # least (decreasing communalities / eigenvalues)
 TABLES = [("C", "combinations_C", "all_standard"),
           ("S", "combinations_S", "all_standard")]
-MASKS = [("mcar", None), ("cell", "cell"), ("popularity", "popularity"),
-         ("real_mask", "real")]
+MASKS = [("mcar", None), ("cell", "cell"), ("popularity", "popularity")]
+         # ("real_mask", "real")   # disabled: the real table's own mask;
+         # the synthetic mechanisms are the objects of study
 CELL_GAMMA = 1.0               # cell mask strength
 POP_KAPPA = 1.0                # popularity mask strength
 MAX_COMMUNALITY = 0.95         # cap lam_g^2 + lam_f^2
@@ -154,25 +171,33 @@ def standardize(v):
 def planted_params(rng, names, nf, lo, hi):
     """Group assignments and group-factor loadings for one truth cell,
     drawn once over the union of benchmark names so shared benchmarks get
-    consistent truth across tables."""
+    consistent truth across tables. Group communalities DECREASE with
+    group rank: each group's loadings are scaled by GROUP_DECAY**rank, so
+    group 0 carries the most specific variance, group nf-1 the least."""
     n = len(names)
     perm = rng.permutation(n)
     group = np.zeros(n, dtype=np.int64)
     for gi, chunk in enumerate(np.array_split(perm, nf)):
         group[chunk] = gi
-    lam_f = rng.uniform(lo, hi, size=n)
+    lam_f = rng.uniform(lo, hi, size=n) * GROUP_DECAY ** group
     return {"names": list(names), "group": group, "lam_f": lam_f}
 
 
-def plant_truth(seed, keys, cols, pp, nf, target_mean_r):
+def plant_truth(seed, keys, cols, pp, nf, wh_target):
     """Complete surrogate matrix + planted correlation for one (table,
     truth cell).
 
-    lam_g is a constant solved so the planted mean off-diagonal R hits
-    target_mean_r with the group-factor contribution included, then
-    communalities are capped at MAX_COMMUNALITY (both loadings scaled
-    jointly). Achieved values are computed from the final R and returned;
-    nothing is assumed.
+    lam_g is a constant solved in closed form so the planted omega_h equals
+    wh_target. With constant lam_g the mean off-diagonal correlation is
+    lam_g^2 + c_group, and
+
+        omega_h = (p*lam_g)^2 / (p + p*(p-1)*(lam_g^2 + c_group))
+
+    so lam_g^2 = wh_target*(1 + (p-1)*c_group) / (p - wh_target*(p-1)).
+    Communalities are then capped at MAX_COMMUNALITY (both loadings scaled
+    jointly); the ACHIEVED mean r and omega are computed from the final R
+    and returned; nothing is assumed. If the cap binds, achieved omega_h
+    drifts slightly from the target and is reported as-is.
     """
     rng = np.random.default_rng(seed)
     n, p = len(keys), len(cols)
@@ -186,7 +211,9 @@ def plant_truth(seed, keys, cols, pp, nf, target_mean_r):
     off = ~np.eye(p, dtype=bool)
     c_group = float((lam_f[:, None] * lam_f[None, :] * (same & off)).sum()
                     / max(off.sum(), 1))
-    lam_g = np.full(p, np.sqrt(max(target_mean_r - c_group, 1e-4)))
+    # closed form: constant lam_g so the planted omega_h equals wh_target
+    denom = p - wh_target * (p - 1)   # = p*(1-wh_target) + wh_target > 0
+    lam_g = np.full(p, np.sqrt(wh_target * (1 + (p - 1) * c_group) / denom))
 
     communal = lam_g**2 + lam_f**2
     over = communal > MAX_COMMUNALITY
@@ -220,7 +247,7 @@ def plant_truth(seed, keys, cols, pp, nf, target_mean_r):
     X = 50.0 + 15.0 * z  # cosmetic 0-100-ish scale; correlations unchanged
     return {"X": X, "z": z, "R": R, "g": g, "eta": eta, "fcols": fcols,
             "lam_g": lam_g, "lam_f": lam_f, "psi": psi,
-            "target_mean_r": target_mean_r, "mean_r": mean_r,
+            "mean_r": mean_r,
             "omega_h": omega_h, "omega_h_itemwise": omega_h_itemwise}
 
 
@@ -251,12 +278,22 @@ def fit_offsets(s, row_t, col_t):
     (columns): a fully-missing real row gets a small positive target
     instead of 0, so the bisection stays well-posed; such rows gain ~0.05
     expected observations.
+
+    Convergence: the strict 0.1-observation tolerance, OR a structural
+    floor -- the damped alternation stops improving while margins are still
+    within 1.0 observations. A logit main-effects model cannot always
+    realize the real margins exactly (e.g. the 0.5 C table floors at
+    max_dev ~0.113 no matter the sweeps); halving the mechanism over that
+    floor would only collapse it to MCAR. Genuine divergence (dev >= 1.0
+    or still improving/oscillating) returns False so the caller scales
+    the mechanism down.
     """
     n, p = s.shape
     row_t = np.clip(row_t, 0.05, p - 0.05)
     col_t = np.clip(col_t, 0.05, n - 0.05)
     a = np.zeros(n)
     b = np.zeros(p)
+    prev_dev = np.inf
     for sweep in range(1, IPF_SWEEPS + 1):
         base = b[None, :] + s
         lo = np.full(n, -IPF_BOUND)
@@ -283,9 +320,16 @@ def fit_offsets(s, row_t, col_t):
         np.clip(b, -IPF_BOUND, IPF_BOUND, out=b)
 
         E = expit(a[:, None] + b[None, :] + s)
-        if (np.abs(E.sum(1) - row_t).max() < 0.1
-                and np.abs(E.sum(0) - col_t).max() < 0.1):
+        dev = max(np.abs(E.sum(1) - row_t).max(),
+                  np.abs(E.sum(0) - col_t).max())
+        if dev < 0.1:
             return a, b, sweep, True
+        if dev < 1.0 and prev_dev - dev < 1e-4:
+            # structural floor: the alternation cannot get closer (verified:
+            # extra sweeps reproduce the same deviation). Accept rather than
+            # halve the mechanism over a ~0.01-observation shortfall.
+            return a, b, sweep, True
+        prev_dev = dev
     return a, b, IPF_SWEEPS, False
 
 
@@ -554,145 +598,154 @@ def main():
             np.random.default_rng(TRUTH_SEED + 1000 + cell_idx),
             all_bench, nf, lo, hi)
 
-        for t_idx, (dz, sub, st) in enumerate(TABLES):
-            per_d = loaded[(dz, st)]
-            tag = f"{dz}_{st}"
-            base = f"{tag}_{cell}"
+        for w_idx, wh_target in enumerate(WH_TARGETS):
+            cell_name = f"{cell}_wh{int(round(wh_target * 100)):02d}"
 
-            # ---- shared truth grid: ordered union across slices ----
-            u_keys = list(per_d[dmax][0])
-            u_cols = list(per_d[dmax][1])
-            for d in dens:
-                for k in per_d[d][0]:
-                    if k not in u_keys:
-                        u_keys.append(k)
-                for c in per_d[d][1]:
-                    if c not in u_cols:
-                        u_cols.append(c)
+            for t_idx, (dz, sub, st) in enumerate(TABLES):
+                per_d = loaded[(dz, st)]
+                tag = f"{dz}_{st}"
+                base = f"{tag}_{cell_name}"
 
-            # ---- planted truth (identical at every density) ----
-            dk, dc, dM = per_d[dmax]
-            target = observed_mean_r(dM, ~np.isnan(dM))
-            truth = plant_truth(TRUTH_SEED + cell_idx * 10 + t_idx,
-                                u_keys, u_cols, pp, nf, target)
-            pl.DataFrame({KEY: pl.Series(u_keys),
-                          **{c: pl.Series(np.round(truth["X"][:, j], 4))
-                             for j, c in enumerate(u_cols)}}
-                         ).write_csv(truth_dir / f"{base}_complete.csv")
-            Rdf = pl.DataFrame({KEY: pl.Series(u_cols),
-                                **{c: pl.Series(truth["R"][:, j])
-                                   for j, c in enumerate(u_cols)}})
-            Rdf.write_csv(truth_dir / f"{base}_correlation.csv")
-            np.savez(truth_dir / f"{base}_factors.npz",
-                     g=truth["g"], eta=truth["eta"], fcols=truth["fcols"],
-                     lam_g=truth["lam_g"], lam_f=truth["lam_f"],
-                     psi=truth["psi"])
-            jwrite(truth_dir / f"{base}_meta.json", {
-                "table": tag, "truth_cell": cell,
-                "n_group_factors": nf, "true_nfactors": nf + 1,
-                "loading_range": [lo, hi],
-                "lam_g_min": float(truth["lam_g"].min()),
-                "lam_g_max": float(truth["lam_g"].max()),
-                "lam_f_min": float(truth["lam_f"].min()),
-                "lam_f_max": float(truth["lam_f"].max()),
-                "target_mean_r": target,
-                "target_source_density": dmax,
-                "achieved_mean_r": truth["mean_r"],
-                "omega_hierarchical": truth["omega_h"],
-                "max_communality": MAX_COMMUNALITY,
-                "n_models": len(u_keys), "n_benchmarks": len(u_cols),
-                "truth_seed": TRUTH_SEED + cell_idx * 10 + t_idx,
-                "group_sizes": np.bincount(truth["fcols"],
-                                           minlength=nf).tolist(),
-            })
-            print(f"[truth] {base:26} {len(u_keys)}x{len(u_cols)}"
-                  f" mean_r={truth['mean_r']:.3f} (target {target:.3f})"
-                  f" omega_h={truth['omega_h']:.3f}")
+                # ---- shared truth grid: ordered union across slices ----
+                u_keys = list(per_d[dmax][0])
+                u_cols = list(per_d[dmax][1])
+                for d in dens:
+                    for k in per_d[d][0]:
+                        if k not in u_keys:
+                            u_keys.append(k)
+                    for c in per_d[d][1]:
+                        if c not in u_cols:
+                            u_cols.append(c)
 
-            # expected correlation per benchmark (row mean of planted R),
-            # the popularity handle for the mask
-            rho = (truth["R"].sum(1) - 1.0) / (len(u_cols) - 1)
-            rho_std = standardize(rho)
-
-            # ---- masks for the requested slice, on ITS OWN subgrid ----
-            keys, cols, M = per_d[a.density]
-            real_mask = ~np.isnan(M)
-            n, p = real_mask.shape
-            ri = np.array([u_keys.index(k) for k in keys])
-            ci = np.array([u_cols.index(c) for c in cols])
-            z = truth["z"][np.ix_(ri, ci)]
-            g = truth["g"][ri]
-            fcols = truth["fcols"][ci]
-            rho_sub = rho_std[ci]
-
-            # Densest -> sparsest chain for the nested mask construction.
-            dens_desc = sorted(per_d, key=float, reverse=True)
-            u_kidx = {k: i for i, k in enumerate(u_keys)}
-            u_cidx = {c: i for i, c in enumerate(u_cols)}
-
-            for mask_name, kind in MASKS:
-                if kind == "real":
-                    mask = real_mask.copy()
-                    lam, ok, sweeps = 1.0, True, 0
-                elif not nest:
-                    s = mechanism_term(kind, z, g, rho_sub)
-                    # fresh rng with the same seed for every draw: common
-                    # random numbers across truth cells and masks (the
-                    # table shape fixes the uniform matrix)
-                    mask, lam, ok, sweeps = calibrated_mask(
-                        s, real_mask.sum(1), real_mask.sum(0),
-                        np.random.default_rng(MASK_SEED))
-                else:
-                    mask, lam, ok, sweeps = nested_mask_slice(
-                        per_d, dens_desc, a.density, kind, truth, rho_std,
-                        u_kidx, u_cidx)
-
-                run_dir = OUT / cell / mask_name / f"s{MASK_SEED}"
-                write_masked_table(
-                    run_dir / sub / st / "model_benchmark_table.csv",
-                    keys, cols, truth["X"][np.ix_(ri, ci)], mask)
-                run_truth = run_dir / "truth"
-                run_truth.mkdir(parents=True, exist_ok=True)
-                np.savez_compressed(run_truth / f"{base}_mask.npz",
-                                    mask=mask)
-
-                diag = margin_diagnostics(mask, real_mask, z)
-                diag.update(pair_diagnostics(mask, z, truth["R"][np.ix_(ci, ci)],
-                                             fcols))
-                jwrite(run_truth / f"{base}_meta.json", {
-                    "truth_cell": cell, "mask": mask_name,
-                    "mechanism": kind,
-                    "cell_gamma": CELL_GAMMA if kind == "cell" else None,
-                    "pop_kappa": POP_KAPPA if kind == "popularity" else None,
-                    "mask_seed": MASK_SEED, "truth_tag": base,
-                    "truth_dir": str(truth_dir.relative_to(REPO)),
-                    "nested": nest,
-                    "density_chain": dens_desc if nest else None,
-                    "mech_scale": lam, "ipf_converged": ok,
-                    "ipf_sweeps": sweeps,
-                    "n_models": n, "n_benchmarks": p,
-                    "real_density": float(real_mask.mean()),
-                    **diag,
+                # ---- planted truth (identical at every density) ----
+                dk, dc, dM = per_d[dmax]
+                real_mean_r = observed_mean_r(dM, ~np.isnan(dM))
+                truth = plant_truth(TRUTH_SEED + 100 * w_idx
+                                    + cell_idx * 10 + t_idx,
+                                    u_keys, u_cols, pp, nf, wh_target)
+                pl.DataFrame({KEY: pl.Series(u_keys),
+                              **{c: pl.Series(np.round(truth["X"][:, j], 4))
+                                 for j, c in enumerate(u_cols)}}
+                             ).write_csv(truth_dir / f"{base}_complete.csv")
+                Rdf = pl.DataFrame({KEY: pl.Series(u_cols),
+                                    **{c: pl.Series(truth["R"][:, j])
+                                       for j, c in enumerate(u_cols)}})
+                Rdf.write_csv(truth_dir / f"{base}_correlation.csv")
+                np.savez(truth_dir / f"{base}_factors.npz",
+                         g=truth["g"], eta=truth["eta"], fcols=truth["fcols"],
+                         lam_g=truth["lam_g"], lam_f=truth["lam_f"],
+                         psi=truth["psi"])
+                jwrite(truth_dir / f"{base}_meta.json", {
+                    "table": tag, "truth_cell": cell_name,
+                    "n_group_factors": nf, "true_nfactors": nf + 1,
+                    "loading_range": [lo, hi],
+                    "wh_target": wh_target,
+                    "lam_g_min": float(truth["lam_g"].min()),
+                    "lam_g_max": float(truth["lam_g"].max()),
+                    "lam_f_min": float(truth["lam_f"].min()),
+                    "lam_f_max": float(truth["lam_f"].max()),
+                    "real_table_mean_r": real_mean_r,
+                    "real_table_source_density": dmax,
+                    "achieved_mean_r": truth["mean_r"],
+                    "omega_hierarchical": truth["omega_h"],
+                    "max_communality": MAX_COMMUNALITY,
+                    "n_models": len(u_keys), "n_benchmarks": len(u_cols),
+                    "truth_seed": TRUTH_SEED + 100 * w_idx
+                                  + cell_idx * 10 + t_idx,
+                    "group_sizes": np.bincount(truth["fcols"],
+                                               minlength=nf).tolist(),
                 })
-                row = {"truth_cell": cell, "n_group_factors": nf,
-                       "true_nfactors": nf + 1,
-                       "loading_range": f"{lo:g}-{hi:g}",
-                       "mask": mask_name, "dz": dz, "strategy": st,
-                       "density_slice": a.density,
-                       "nested": nest,
-                       "n_models": n, "n_benchmarks": p,
-                       "real_density": round(float(real_mask.mean()), 4),
-                       "target_mean_r": round(target, 4),
-                       "achieved_mean_r": round(truth["mean_r"], 4),
-                       "omega_h": round(truth["omega_h"], 4),
-                       "mech_scale": lam, "ipf_converged": ok,
-                       **{k: (round(v, 4) if isinstance(v, float) else v)
-                          for k, v in diag.items()}}
-                summary.append(row)
-                scale = "" if lam == 1.0 else f" scale={lam}"
-                print(f"[mask] {cell:9} {mask_name:11} {tag:16}"
-                      f" density={row['density']}{scale}"
-                      f" row_mae={row['row_mae']} col_mae={row['col_mae']}")
+                print(f"[truth] {base:26} {len(u_keys)}x{len(u_cols)}"
+                      f" mean_r={truth['mean_r']:.3f}"
+                      f" omega_h={truth['omega_h']:.3f}"
+                      f" (target {wh_target:.2f})")
+
+                # expected correlation per benchmark (row mean of planted R),
+                # the popularity handle for the mask
+                rho = (truth["R"].sum(1) - 1.0) / (len(u_cols) - 1)
+                rho_std = standardize(rho)
+
+                # ---- masks for the requested slice, on ITS OWN subgrid ----
+                keys, cols, M = per_d[a.density]
+                real_mask = ~np.isnan(M)
+                n, p = real_mask.shape
+                ri = np.array([u_keys.index(k) for k in keys])
+                ci = np.array([u_cols.index(c) for c in cols])
+                z = truth["z"][np.ix_(ri, ci)]
+                g = truth["g"][ri]
+                fcols = truth["fcols"][ci]
+                rho_sub = rho_std[ci]
+
+                # Densest -> sparsest chain for the nested mask construction.
+                dens_desc = sorted(per_d, key=float, reverse=True)
+                u_kidx = {k: i for i, k in enumerate(u_keys)}
+                u_cidx = {c: i for i, c in enumerate(u_cols)}
+
+                for mask_name, kind in MASKS:
+                    if kind == "real":
+                        mask = real_mask.copy()
+                        lam, ok, sweeps = 1.0, True, 0
+                    elif not nest:
+                        s = mechanism_term(kind, z, g, rho_sub)
+                        # fresh rng with the same seed for every draw: common
+                        # random numbers across truth cells and masks (the
+                        # table shape fixes the uniform matrix)
+                        mask, lam, ok, sweeps = calibrated_mask(
+                            s, real_mask.sum(1), real_mask.sum(0),
+                            np.random.default_rng(MASK_SEED))
+                    else:
+                        mask, lam, ok, sweeps = nested_mask_slice(
+                            per_d, dens_desc, a.density, kind, truth, rho_std,
+                            u_kidx, u_cidx)
+
+                    run_dir = OUT / cell_name / mask_name / f"s{MASK_SEED}"
+                    write_masked_table(
+                        run_dir / sub / st / "model_benchmark_table.csv",
+                        keys, cols, truth["X"][np.ix_(ri, ci)], mask)
+                    run_truth = run_dir / "truth"
+                    run_truth.mkdir(parents=True, exist_ok=True)
+                    np.savez_compressed(run_truth / f"{base}_mask.npz",
+                                        mask=mask)
+
+                    diag = margin_diagnostics(mask, real_mask, z)
+                    diag.update(pair_diagnostics(mask, z,
+                                                 truth["R"][np.ix_(ci, ci)],
+                                                 fcols))
+                    jwrite(run_truth / f"{base}_meta.json", {
+                        "truth_cell": cell_name, "mask": mask_name,
+                        "mechanism": kind,
+                        "cell_gamma": CELL_GAMMA if kind == "cell" else None,
+                        "pop_kappa": POP_KAPPA if kind == "popularity" else None,
+                        "mask_seed": MASK_SEED, "truth_tag": base,
+                        "truth_dir": str(truth_dir.relative_to(REPO)),
+                        "nested": nest,
+                        "density_chain": dens_desc if nest else None,
+                        "mech_scale": lam, "ipf_converged": ok,
+                        "ipf_sweeps": sweeps,
+                        "n_models": n, "n_benchmarks": p,
+                        "real_density": float(real_mask.mean()),
+                        **diag,
+                    })
+                    row = {"truth_cell": cell_name, "n_group_factors": nf,
+                           "true_nfactors": nf + 1,
+                           "loading_range": f"{lo:g}-{hi:g}",
+                           "wh_target": wh_target,
+                           "mask": mask_name, "dz": dz, "strategy": st,
+                           "density_slice": a.density,
+                           "nested": nest,
+                           "n_models": n, "n_benchmarks": p,
+                           "real_density": round(float(real_mask.mean()), 4),
+                           "real_mean_r": round(real_mean_r, 4),
+                           "achieved_mean_r": round(truth["mean_r"], 4),
+                           "omega_h": round(truth["omega_h"], 4),
+                           "mech_scale": lam, "ipf_converged": ok,
+                           **{k: (round(v, 4) if isinstance(v, float) else v)
+                              for k, v in diag.items()}}
+                    summary.append(row)
+                    scale = "" if lam == 1.0 else f" scale={lam}"
+                    print(f"[mask] {cell_name:14} {mask_name:11} {tag:16}"
+                          f" density={row['density']}{scale}"
+                          f" row_mae={row['row_mae']} col_mae={row['col_mae']}")
 
     pl.DataFrame(summary).write_csv(OUT / "summary.csv")
     print(f"make_mnar: wrote {len(summary)} datasets to {OUT} "

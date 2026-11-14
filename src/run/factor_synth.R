@@ -57,7 +57,10 @@ if (HIER) {
               density))
 }
 SYNTH  <- file.path(REPO, "data", "synth", density)
-OUTDIR <- file.path(REPO, "results", "synth", "0", "factor")
+# Hier runs hand off to the reserved density-"0" results slice; non-hier runs
+# write to their own density's slice so per-density rows never collide.
+OUTDIR <- file.path(REPO, "results", "synth", if (HIER) "0" else density,
+                    "factor")
 dir.create(OUTDIR, recursive = TRUE, showWarnings = FALSE)
 DZS <- c("C", "S"); ST <- "all_standard"
 
