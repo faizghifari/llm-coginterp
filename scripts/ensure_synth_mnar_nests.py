@@ -156,13 +156,20 @@ def check_truth(root, problems):
             off = ~np.eye(len(cols), dtype=bool)
             r_emp = float(np.corrcoef(M, rowvar=False)[off].mean())
             r_planted = float(R[off].mean())
-            if abs(r_emp - r_planted) > 0.02:
+            # 0.05, not 0.02: the empirical mean r of the complete matrix
+            # carries sampling noise ~ (1-r^2)/n across correlated pairs --
+            # at the r ~ 0.5 real-corpus level that is several hundredths
+            # (the old flat-truth regime sat near r ~ 0.1, where 0.02 held)
+            if abs(r_emp - r_planted) > 0.05:
                 problems.append(
                     f"{rel}: complete matrix mean r {r_emp:.4f} != planted "
                     f"{r_planted:.4f}")
                 continue
+            wh = meta.get("wh_target")
             print(f"OK   truth {rel}: PSD, decreasing spectrum, "
-                  f"omega_h={meta['omega_hierarchical']:.3f}")
+                  f"omega_h={meta['omega_hierarchical']:.3f}"
+                  f" (target {wh:.2f}), "
+                  f"pair_r=[{R[off].min():.3f}, {R[off].max():.3f}]")
 
 
 def main():

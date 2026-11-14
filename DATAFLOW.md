@@ -365,28 +365,37 @@ drop-in `--data-root`.
 | write | `data/synth/<density>/<cell>/<mask>/s0/truth/<tag>_<cell>_{mask.npz, meta.json}` |
 | write | `data/synth/<density>/summary.csv` — one row per dataset (diagnostics + truth-cell columns) |
 
-Grid: `{truth cell} × {mask} × {seed} × {table}` = 4 × 4 × 1 × 2 = **32
-datasets**.
+Grid: `{truth cell} × {ω_h target} × {mask} × {seed} × {table}` = 4 × 2 × 3 ×
+1 × 2 = **48 datasets**.
 
-- **Truth cells** `f5_weak / f5_loud / f10_weak / f10_loud`: F ∈ {5, 10}
-  group factors, group loadings ~ U(0.1, 0.5) or U(0.5, 0.9). One general
-  factor per table with λ_g solved so the planted mean off-diagonal R
-  equals that table's observed mean pairwise r. All loadings positive (R
-  has only positive entries, matching the real tables); communalities
-  capped at 0.95; the *achieved* mean r, loading ranges and ω_h are always
-  recorded in the meta JSON — nothing silently distorted. The grid spans
-  weak→detectable structure deliberately, so no single planted truth
-  favors one imputer's inductive bias; rankings are per truth cell.
+- **Truth cells** `f5_weak / f5_loud / f10_weak / f10_loud`, each crossed with
+  an **ω_h target** `wh03 / wh06` (planted general-factor saturation 0.3 /
+  0.6; cell dirs named e.g. `f5_weak_wh03`): F ∈ {5, 10} group factors, group
+  loadings ~ U(0.1, 0.5) or U(0.5, 0.9), scaled by `GROUP_DECAY**rank` so the
+  group communalities (and eigenvalues) DECREASE with group rank. One general
+  factor per table with λ_g a constant solved in closed form so the planted
+  ω_h EQUALS the target (ω_h = (p·λ_g)²/(p + p(p−1)(λ_g² + c_group)), solved
+  for λ_g²; the real table's observed mean pairwise r is recorded as a
+  diagnostic, no longer targeted — the achieved mean r falls out ~0.01–0.15).
+  All loadings positive (R has only positive entries, matching the real
+  tables); communalities capped at 0.95; the *achieved* mean r, loading
+  ranges and ω_h are always recorded in the meta JSON — nothing silently
+  distorted. Rankings are per truth cell.
 - **Masks**: `mcar` (calibrated control, s = 0), `cell` (s = γ·z_ij, good
   cells observed), `popularity` (s = κ·ρ̂_j·g_i — observability tied to a
   benchmark's expected correlation, interacting with model ability so the
-  effect survives offset absorption), `real_mask` (the real mask verbatim;
-  row/col MAE are 0 by construction — the sanity control).
+  effect survives offset absorption). (`real_mask` — the real mask verbatim —
+  is disabled in MASKS.)
 - **Mask calibration**: logit P(obs_ij) = a_i + b_j + s_ij, with (a_i, b_j)
   fit by damped iterated bisection to the real table's row/column
-  observation counts; margin targets clipped to [0.05, p−0.05]; an
-  infeasible mechanism is halved until convergence (`mech_scale` < 1 in
-  meta/summary records how much survived).
+  observation counts; margin targets clipped to [0.05, p−0.05]. Convergence
+  is the strict 0.1-observation tolerance OR a structural floor — when the
+  alternation stalls (deviation stops improving) with margins within 1.0
+  observations, the fit is accepted: a logit main-effects model cannot always
+  realize the real margins exactly (the 0.5 C table floors at max_dev
+  ≈ 0.113), and halving the mechanism over that floor would only collapse it
+  to MCAR. A genuinely infeasible mechanism is still halved until convergence
+  (`mech_scale` < 1 in meta/summary records how much survived).
 - **Mask nesting (default).** The real `text_only` slices nest exactly:
   densify's greedy peel only drops whole rows/columns, so the 0.5 grid and
   its observed cells are subsets of 0.3's, which are subsets of 0.1's. The
@@ -409,13 +418,19 @@ datasets**.
   table, so all imputers see identical masked input and every
   cross-condition comparison is paired.
 
-**Nesting check** (`scripts/ensure_synth_mnar_nests.py`): walks every
+**Nesting + truth check** (`scripts/ensure_synth_mnar_nests.py`): walks every
 `(mask, tag)` group densest → sparsest and verifies both that the denser
 grid (models × benchmarks) is a subset of the sparser one and that every
-cell observed in the denser slice is observed in the sparser slice. It also
-cross-checks each `_mask.npz` against the CSV's non-null pattern. Exit code
-1 on any violation, so it must pass before any hier-over-synth run is
-trustworthy:
+cell observed in the denser slice is observed in the sparser slice; the OK
+line prints the full verified chain (`0.5 -> 0.4 -> 0.3 -> 0.2 -> 0.1`), so
+sequential nesting is checked pair by pair and reported per chain. It also
+cross-checks each `_mask.npz` against the CSV's non-null pattern, and
+validates every planted truth: the planted correlation is symmetric,
+unit-diagonal and PSD, its spectrum is decreasing over the planted factors
+(general first, then group factors in decreasing-communalities order), the
+achieved ω_h matches its `wh_target`, and the written complete matrix
+reproduces the planted mean off-diagonal correlation. Exit code 1 on any
+violation, so it must pass before any hier-over-synth run is trustworthy:
 
 ```bash
 uv run python scripts/ensure_synth_mnar_nests.py            # default root data/synth
@@ -424,7 +439,7 @@ uv run python scripts/ensure_synth_mnar_nests.py            # default root data/
 **Hand-off:** each `data/synth/<density>/<cell>/<mask>/s0` directory is a
 drop-in `--data-root` for `impute.R` / `factor.R`, but contains only the C/S
 `all_standard` cells (no raw/R/aggressive). `impute.R --synth --density <d>`
-automates the sweep over all 16 roots of that density in one invocation:
+automates the sweep over all 48 roots of that density in one invocation:
 completed CSVs land inside each root as usual, flat results go to
 `results/synth/<density>/<cell>/<mask>/`, and DB rows go to
 `results/synth/<density>/database.db` table `imputation_synth` (PK
@@ -441,6 +456,20 @@ truth is otherwise external: compare outputs to the truth files (truth R,
 `true_nfactors = 1 + F`, `omega_hierarchical`). Nothing in `main.R` consumes
 the corpus.
 
+**Factor-level scoring on the synth corpus** (`src/run/factor_synth.R`): runs
+the exact `factor.R` recipe (Horn PA → minres/promax → Schmid-Leiman via
+`psych::omega`) on each completed synthetic matrix, plus an ORACLE arm that
+factors the complete, unmasked truth (separates estimator bias from
+missingness damage; no R² gate — the gate is applied at scoring time).
+Outputs: `results/synth/<density>/factor/<cell>/<mask>/<method>_<dz>_loadings.csv`
++ `rows_<method>.csv`. `factor_synth.R --density 0` factors the HIERARCHICAL
+end result: density 0 aliases the SPARSEST slice, reads its
+`s0/hierarchical/imputed/...` matrices and the hier correlation caches from
+`results/synth/hierarchical/<cell>/<mask>/<density>/`, and writes to
+`results/synth/0/factor/`. `scripts/score_synth_factors.py` then scores
+against the planted truth (ω_h, factor count, g-loading congruence, domain
+ARI), gated on the imputation R².
+
 **Hier over the synth corpus** (`impute.R --hier --synth`): for each (cell,
 mask), the standard hier descent runs over the synth density slices,
 `data/synth/<d1>/<cell>/<mask>/s0 -> data/synth/<d2>/...` densest-first,
@@ -451,12 +480,15 @@ sparser one (which `ensure_synth_mnar_nests.py` verifies). Per-step imputed
 CSVs land in
 `data/synth/<density>/<cell>/<mask>/s0/hierarchical/imputed/...`, flat
 results + per-step DB in `results/synth/hierarchical/<cell>/<mask>/<density>/`
-(table `imputation_synth`; each row's `gt_r2` scores that step against the
-planted truth on the density's missing cells, and `wr2` is the
-introduced-column-weighted mean of those gt_r2 values — truth-weighted, unlike
-the real corpus's held-out weighting), and the final step is handed
-off to the density-0 slice (`data/synth/<cell>/<mask>/0/` +
-`results/synth/hierarchical/<cell>/<mask>/0/`).
+(ONE unified DB for the whole run: `results/synth/hierarchical/database.db`,
+table `imputation_synth_hier`, keyed `cell, mask, density, dataset, method`;
+each row's `gt_r2` scores that step against the planted truth on the
+density's missing cells, and `wr2` is the introduced-column-weighted mean of
+those gt_r2 values — truth-weighted, unlike the real corpus's held-out
+weighting), and the final step is handed off to the density-0 slice
+(`data/synth/<cell>/<mask>/0/` + the density-"0" rows of the unified DB,
+which `factor_synth.R --density 0` and `score_synth_factors.py --density 0`
+consume).
 
 ## The SQLite database
 
