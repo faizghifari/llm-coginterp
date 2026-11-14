@@ -11,13 +11,17 @@ construction; rankings are only reported per truth cell):
                 factor strongly (N_SUITES clusters, loud range) -- so the
                 structure is wide cross-loadings PLUS suite clusters,
                 matching the real corpus on both counts
-  omega_h     : planted general-factor saturation, a NEW axis crossed with
-                the truth cells: WH_TARGETS = [0.3, 0.6]. lam_g and the
-                two block scales are solved in closed form so the planted
-                omega_h EQUALS the target AND the planted mean pairwise r
-                EQUALS MEAN_R_TARGET (0.5, the real-corpus level). Cell
-                names carry the suffix:
-                f5_weak_wh03, f5_weak_wh06, ... f10_loud_wh06.
+  mean_r      : planted mean off-diagonal correlation, a NEW axis crossed
+                with the truth cells: MEAN_R_TARGETS = [0.3, 0.5]. The two
+                block scales are solved in closed form so the planted mean
+                pairwise r EQUALS the target (the suite share stays fixed
+                at SUITE_C; the dense background absorbs the rest). There
+                is NO general-factor block and NO omega target: the
+                dominant direction is emergent and omega_h is a recorded
+                diagnostic only (the PA/SL estimator cannot identify a
+                planted omega split -- it tracks the correlation level).
+                Cell names carry the suffix:
+                f5_weak_r03, f5_weak_r05, ... f10_loud_r05.
   masks       : mcar        calibrated control (s = 0)
                 cell        good cells observed (s = gam * z_ij)
                 popularity  observability tied to a benchmark's expected
@@ -41,41 +45,47 @@ entries, matching the real tables (the real benchmarks cross-load widely
 with no standout factor AND cluster into ~2-3 broad blocks whose within-
 suite correlations pile up near +1):
 
-    z_ij = lam_g_j g_i + sum_f lam_f[j, f] eta_i,f + lam_s_j zeta_i,suite(j)
+    z_ij = sum_f lam_f[j, f] eta_i,f + lam_s_j zeta_i,suite(j)
            + sqrt(psi_j) eps_ij
-    R    = lam_g lam_g' + L L' + S S'
+    R    = L L' + S S'
 
 L is the dense p x F background: each benchmark draws its F loadings
 ~ U(lo, hi) independently and scales them by GROUP_DECAY**rank under its
 own random rank permutation. S is the suite block: benchmarks split into
 N_SUITES clusters, each benchmark loading its own suite factor strongly
-(~ SUITE_RANGE, the loud profile). The suite membership is the planted
-dominant factor -- what fcols records for ARI scoring -- and it makes
-rho_j (per-benchmark mean correlation) heterogeneous, so the popularity
-mask selects on real structure instead of draw noise. lam_g is a constant
-solved in closed form so that BOTH targets hold exactly:
+(~ SUITE_RANGE, the loud profile), with a deterministic per-suite decay
+SUITE_DECAY**suite so the planted factors' eigenvalues are strictly
+decreasing BY CONSTRUCTION (the checker asserts strict decrease; suites
+equal by draw would make that assert luck). The suite membership is the
+planted dominant factor -- what fcols records for ARI scoring -- and it
+makes rho_j (per-benchmark mean correlation) heterogeneous, so the
+popularity mask selects on real structure instead of draw noise. The
+ONLY global target is the mean off-diagonal correlation:
 
-    mean off-diagonal r = MEAN_R_TARGET (0.5, the real-corpus level)
-    omega_h             = wh_target
+    mean_r = c_dense + SUITE_C
+      -> c_dense = mean_r_target - SUITE_C; the suite and dense blocks
+         are each globally scaled (per table, on the table's own column
+         subset) to hit the split exactly.
 
-    omega_h = (p*lam_g)^2 / (p + p*(p-1)*mean_r)   (exact for constant lam_g)
-      -> lam_g^2 = wh_target * (1 + (p-1) * MEAN_R_TARGET) / p
-      -> the loadings' contribution MEAN_R_TARGET - lam_g^2 splits into a
-         FIXED suite share SUITE_C (the within-suite pile at r ~ 0.8) and
-         the dense remainder; each block is globally scaled (per table, on
-         the table's own column subset) to hit its share exactly.
+There is NO general-factor block: no lam_g, no planted g. The dominant
+common direction is emergent (a blend of the suite pile and the dense
+background's common part), and the resulting omega_h is a recorded
+diagnostic, never a target -- the PA/SL estimator cannot identify a
+planted omega split (it tracks the overall correlation level), so a
+planted omega axis carried no information. The g in the npz is the
+complete matrix's first principal component, kept ONLY as the
+popularity-mask ability handle, not as scoring truth.
 
-Because the dense loadings are dense, their scale is < 1 for the loud
-cells: the PLANTED loadings are smaller than the U(lo, hi) draw range
-(both are recorded in meta as lam_f_min/lam_f_max). The draw range shapes
-the pairwise-r SPREAD and the communality split, not the correlation
-level. Communalities are capped at MAX_COMMUNALITY (per-benchmark row
-rescale, both blocks jointly, with the scales re-solved to a fixed
-point); the ACHIEVED mean r, pairwise-r min/max, loading ranges and omega
-are always recorded, never silently distorted. The extractable planted
-factor count is 1 + N_SUITES (general + suites); the dense background
-sits below the uniqueness bulk by construction -- it is what makes the
-imputation task hard, not a factor count PA could recover.
+Because the dense loadings are dense, the block scale that realizes
+c_dense need not be 1: weak cells at high mean_r are UPscaled past
+their nominal draw range, loud cells can sit near the communality cap
+(per-benchmark row rescale, both blocks jointly, with the scales
+re-solved to a fixed point). lam_f_min/lam_f_max in meta record the
+achieved range; the ACHIEVED mean r and pairwise-r min/max are always
+computed from the final R, never silently distorted. The dense
+background sits below the suite eigenvalues by construction -- it is
+what makes the imputation task hard, not a factor count PA could
+recover.
 
 Mask model per entry (i, j):
     logit P(obs_ij) = a_i + b_j + s_ij
@@ -115,17 +125,19 @@ Run once per density slice -- every invocation rewrites
 byte-identical truth files:
     data/synth/<density>/truth/<tag>_<cell>_complete.csv      unmasked complete matrix (union grid, identical across densities)
     data/synth/<density>/truth/<tag>_<cell>_correlation.csv   planted true correlation
-    data/synth/<density>/truth/<tag>_<cell>_factors.npz       g, eta, zeta, suite/fcols, loadings (p x F + suite), psi
-    data/synth/<density>/truth/<tag>_<cell>_meta.json         targets, achieved, omega_h
+    data/synth/<density>/truth/<tag>_<cell>_factors.npz      eta, zeta, suite/fcols, loadings (p x F + suite), psi, g (emergent PC1, mask handle only)
+    data/synth/<density>/truth/<tag>_<cell>_meta.json         targets, achieved (mean_r, scales, loading ranges)
     data/synth/<density>/<cell>/<mask>/s0/<sub>/<st>/model_benchmark_table.csv
     data/synth/<density>/<cell>/<mask>/s0/truth/<tag>_<cell>_mask.npz + _meta.json
     data/synth/<density>/summary.csv                          one row per dataset
 
 Each data/synth/<density>/<cell>/<mask>/s0 directory is a drop-in --data-root
 for src/run/impute.R / factor.R (containing the C and S all_standard tables);
-True quantities for scoring: R, true_nfactors = 1 + N_SUITES (general +
-suites; the dense background is below the uniqueness bulk), and
-omega_hierarchical = (sum lam_g)^2 / 1'R1 (the psych::omega estimand).
+True quantities for scoring: R and true_nfactors = 1 + N_SUITES (suites;
+the dense background sits below the suite eigenvalues). There is NO
+planted general factor: omega bias and g congruence are scored against
+the ORACLE arm (the full-data run of the same factoring recipe), not
+against planted loadings.
 
 Run:  uv run python scripts/make_mnar.py --density <frac>   (once per slice)
 The truth grid changed relative to older trees; remove the old output
@@ -160,21 +172,26 @@ TRUTH_CELLS = [  # (n_group_factors, loading_lo, loading_hi, cell_name);
     (10, 0.10, 0.50, "f10_weak"),
     (10, 0.50, 0.90, "f10_loud"),
 ]
-WH_TARGETS = [0.3, 0.6]  # planted omega_h per truth cell (NEW axis; the cell
-                         # name gets a _wh03/_wh06 suffix)
-MEAN_R_TARGET = 0.5      # planted mean off-diagonal correlation: the real-
-                         # corpus level (text_only @0.1 measures ~0.48).
-                         # Solved EXACTLY together with the omega_h target
+MEAN_R_TARGETS = [0.3, 0.5]  # planted mean off-diagonal correlation per
+                             # truth cell (the axis that replaced omega_h;
+                             # cell names get an _r03/_r05 suffix). 0.5 is
+                             # the real-corpus level (text_only @0.1
+                             # measures ~0.48). Solved EXACTLY.
 N_SUITES = 3             # suite clusters the benchmarks split into; the real
                          # corpus behaves like ~2-3 broad blocks (back-solved
                          # within-pair fraction ~0.47). Suites are what makes
                          # rho_j (per-benchmark mean correlation) heterogeneous,
                          # so the popularity mask selects on real structure
 SUITE_C = 0.10           # the suite block's FIXED contribution to the mean
-                         # pairwise r: with ~1/3 of pairs within-suite this
-                         # puts the within-suite pile at r ~ 0.8 (the real
-                         # distribution's ceiling mass); the dense background
-                         # gets MEAN_R_TARGET - lam_g^2 - SUITE_C
+                         # pairwise r (identical across mean-R levels: the
+                         # axis varies only the dense background); the dense
+                         # background gets mean_r_target - SUITE_C
+SUITE_DECAY = 0.9        # per-suite geometric decay: suite factor s's
+                         # loadings carry SUITE_DECAY**s, so the planted
+                         # factors' eigenvalues are strictly decreasing BY
+                         # CONSTRUCTION (the checker asserts strict
+                         # decrease; suites equal by draw would make it
+                         # luck)
 SUITE_RANGE = (0.50, 0.90)  # per-benchmark suite loading draw (the loud
                              # profile: the realistic one)
 GROUP_DECAY = 0.85       # per-rank geometric decay applied within each
@@ -190,7 +207,7 @@ MASKS = [("mcar", None), ("cell", "cell"), ("popularity", "popularity")]
          # the synthetic mechanisms are the objects of study
 CELL_GAMMA = 1.0               # cell mask strength
 POP_KAPPA = 1.0                # popularity mask strength
-MAX_COMMUNALITY = 0.95         # cap lam_g^2 + lam_f^2
+MAX_COMMUNALITY = 0.95         # cap lam_f^2 + lam_s^2
 MIN_COOBS = 10                 # min co-observations for a pair diagnostic
 IPF_SWEEPS = 10
 IPF_BISECT = 40
@@ -243,38 +260,34 @@ def planted_params(rng, names, nf, lo, hi):
             "suite": suite, "lam_s": lam_s}
 
 
-def plant_truth(seed, keys, cols, pp, nf, wh_target):
+def plant_truth(seed, keys, cols, pp, nf, mean_r_target):
     """Complete surrogate matrix + planted correlation for one (table,
-    truth cell). HYBRID architecture: R = lam_g lam_g' + L L' + S S' + Psi
-    with L the DENSE p x nf background loading matrix (every benchmark on
-    all nf background factors -- wide cross-loadings, no standout) and S
-    the SUITE block: one strong loading per benchmark on its suite factor
-    (benchmarks split into N_SUITES clusters). This reproduces the real
-    pairwise-r SHAPE: within-suite pairs pile up near r ~ 0.8 while
-    cross-suite pairs sit lower and spread.
+    truth cell). HYBRID architecture: R = L L' + S S' + Psi with L the
+    DENSE p x nf background loading matrix (every benchmark on all nf
+    background factors -- wide cross-loadings, no standout) and S the
+    SUITE block: one strong loading per benchmark on its suite factor
+    (benchmarks split into N_SUITES clusters, per-suite decay
+    SUITE_DECAY**suite). This reproduces the real pairwise-r SHAPE:
+    within-suite pairs pile up while cross-suite pairs sit lower and
+    spread.
 
-    lam_g is a constant solved in closed form so that BOTH targets hold
-    exactly: the planted omega_h equals wh_target and the planted mean
-    off-diagonal correlation equals MEAN_R_TARGET. With constant lam_g,
+    The ONLY global target is the mean off-diagonal correlation:
 
-        omega_h = (p*lam_g)^2 / (p + p*(p-1)*mean_r),  mean_r = lam_g^2 + c
+        mean_r = c_dense + SUITE_C
+          -> c_dense = mean_r_target - SUITE_C
 
-    where c is the group factors' contribution to the mean off-diagonal
-    correlation. Setting omega_h = wh_target and mean_r = MEAN_R_TARGET:
-
-        lam_g^2 = wh_target * (1 + (p-1) * MEAN_R_TARGET) / p
-        c       = MEAN_R_TARGET - lam_g^2
-
-    The loadings' contribution c to the mean off-diagonal correlation
-    splits into a FIXED suite share (SUITE_C) and the dense remainder;
-    the suite and dense blocks are each globally scaled (on this table's
-    own column subset) so their mean pairwise products hit the split
-    exactly. The communality cap rescales individual rows (both blocks
-    jointly, preserving the split), which lowers the contributions -- the
-    two scales are re-solved to a fixed point (deterministic; the cap
-    binds only in weak cells, where the sparse draw must be UPscaled).
-    The ACHIEVED mean r, pairwise-r min/max and omega are computed from
-    the final R and returned; nothing is assumed.
+    There is NO general-factor block: no lam_g, no planted g. The
+    dominant common direction is emergent, and the resulting omega_h
+    (computable from R) is a diagnostic, never a target -- the PA/SL
+    estimator cannot identify a planted omega split (it tracks the
+    overall correlation level). The suite and dense blocks are each
+    globally scaled (on this table's own column subset) so their mean
+    pairwise products hit the split; the communality cap rescales
+    individual rows (both blocks jointly, preserving the split), which
+    lowers the contributions -- the two scales are re-solved to a fixed
+    point (deterministic). The ACHIEVED mean r, pairwise-r min/max and
+    loading ranges are computed from the final R and returned; nothing
+    is assumed.
     """
     rng = np.random.default_rng(seed)
     n, p = len(keys), len(cols)
@@ -284,23 +297,23 @@ def plant_truth(seed, keys, cols, pp, nf, wh_target):
     suite = pp["suite"][ci]       # suite id per benchmark (the ARI target)
     S0 = np.zeros((p, N_SUITES))
     S0[np.arange(p), suite] = pp["lam_s"][ci]   # unscaled suite loadings
+    for s in range(N_SUITES):     # deterministic suite ordering: the
+        S0[:, s] *= SUITE_DECAY ** s   # spectrum assert must not be luck
 
     off = ~np.eye(p, dtype=bool)
-    lam_g2 = wh_target * (1 + (p - 1) * MEAN_R_TARGET) / p
-    lam_g = np.full(p, np.sqrt(lam_g2))
-    c_target = MEAN_R_TARGET - lam_g2
-    if c_target <= SUITE_C:
-        raise ValueError(f"c_target {c_target:.3f} <= SUITE_C {SUITE_C}: "
-                         "the omega_h/mean_r targets leave no room for "
-                         "the suite block")
-    c_dense = c_target - SUITE_C
+    c_dense = mean_r_target - SUITE_C
+    if c_dense <= 0:
+        raise ValueError(f"c_dense {c_dense:.3f} <= 0: mean_r_target "
+                         f"{mean_r_target} leaves no room for the dense "
+                         "background at SUITE_C "
+                         f"{SUITE_C}")
 
     def cap_rows(L, S):
         # rescale an over-communal benchmark's two blocks JOINTLY, so the
         # dense/suite split of its loading mass is preserved
-        over = lam_g2 + (L**2).sum(1) + (S**2).sum(1) > MAX_COMMUNALITY
+        over = (L**2).sum(1) + (S**2).sum(1) > MAX_COMMUNALITY
         if over.any():
-            f = np.sqrt((MAX_COMMUNALITY - lam_g2)
+            f = np.sqrt(MAX_COMMUNALITY
                         / ((L[over]**2).sum(1) + (S[over]**2).sum(1)))
             L[over] *= f[:, None]
             S[over] *= f[:, None]
@@ -324,40 +337,34 @@ def plant_truth(seed, keys, cols, pp, nf, wh_target):
         if done:
             break
     L, S = cap_rows(sd * L0, ss * S0)
-    psi = np.maximum(1.0 - lam_g2 - (L**2).sum(1) - (S**2).sum(1), 1e-6)
+    psi = np.maximum(1.0 - (L**2).sum(1) - (S**2).sum(1), 1e-6)
 
-    g = standardize(rng.normal(size=n))
     eta = rng.normal(size=(n, nf))
     for f in range(nf):
         eta[:, f] = standardize(eta[:, f])
     zeta = rng.normal(size=(n, N_SUITES))
     for f in range(N_SUITES):
         zeta[:, f] = standardize(zeta[:, f])
-    z = (g[:, None] * lam_g[None, :] + eta @ L.T + zeta @ S.T
+    z = (eta @ L.T + zeta @ S.T
          + rng.normal(scale=np.sqrt(psi)[None, :], size=(n, p)))
 
-    R = np.outer(lam_g, lam_g) + L @ L.T + S @ S.T
+    R = L @ L.T + S @ S.T
     np.fill_diagonal(R, 1.0)
 
     mean_r = float(R[off].mean())
-    # Same estimand as psych::omega (what factor.R reports): general-factor
-    # share of the unit-weighted sum score, (sum lam_g)^2 / 1'R1. 1'R1 also
-    # carries the suite/dense factors' shared variance, which the per-item
-    # form (sum lam_g)^2 / ((sum lam_g)^2 + sum(lam_f^2 + lam_s^2 + psi))
-    # omitted -- kept as omega_h_itemwise for reference only.
-    omega_h = float(lam_g.sum()**2 / R.sum())
-    omega_h_itemwise = float(lam_g.sum()**2
-                             / (lam_g.sum()**2
-                                + ((L**2).sum(1) + (S**2).sum(1)
-                                   + psi).sum()))
+    # Emergent dominant direction: the complete matrix's first principal
+    # component. NOT planted truth -- it exists so the popularity mask's
+    # ability term interacts with real structure, as before.
+    _, _, Vt = np.linalg.svd(z - z.mean(0), full_matrices=False)
+    g = standardize(z @ Vt[0])
+
     X = 50.0 + 15.0 * z  # cosmetic 0-100-ish scale; correlations unchanged
     return {"X": X, "z": z, "R": R, "g": g, "eta": eta, "zeta": zeta,
-            "fcols": suite, "lam_g": lam_g, "lam_f": L, "lam_s": S, "psi": psi,
+            "fcols": suite, "lam_f": L, "lam_s": S, "psi": psi,
             "dense_scale": float(sd), "suite_scale": float(ss),
             "mean_r": mean_r,
             "pair_r_min": float(R[off].min()),
-            "pair_r_max": float(R[off].max()),
-            "omega_h": omega_h, "omega_h_itemwise": omega_h_itemwise}
+            "pair_r_max": float(R[off].max())}
 
 
 def mechanism_term(kind, z, g, rho_std):
@@ -707,8 +714,8 @@ def main():
             np.random.default_rng(TRUTH_SEED + 1000 + cell_idx),
             all_bench, nf, lo, hi)
 
-        for w_idx, wh_target in enumerate(WH_TARGETS):
-            cell_name = f"{cell}_wh{int(round(wh_target * 100)):02d}"
+        for w_idx, mean_r_target in enumerate(MEAN_R_TARGETS):
+            cell_name = f"{cell}_r{int(round(mean_r_target * 100)):02d}"
 
             for t_idx, (dz, sub, st) in enumerate(TABLES):
                 per_d = loaded[(dz, st)]
@@ -731,7 +738,7 @@ def main():
                 real_mean_r = observed_mean_r(dM, ~np.isnan(dM))
                 truth = plant_truth(TRUTH_SEED + 100 * w_idx
                                     + cell_idx * 10 + t_idx,
-                                    u_keys, u_cols, pp, nf, wh_target)
+                                    u_keys, u_cols, pp, nf, mean_r_target)
                 pl.DataFrame({KEY: pl.Series(u_keys),
                               **{c: pl.Series(np.round(truth["X"][:, j], 4))
                                  for j, c in enumerate(u_cols)}}
@@ -743,19 +750,18 @@ def main():
                 np.savez(truth_dir / f"{base}_factors.npz",
                          g=truth["g"], eta=truth["eta"], zeta=truth["zeta"],
                          fcols=truth["fcols"], suite=truth["fcols"],
-                         lam_g=truth["lam_g"], lam_f=truth["lam_f"],
-                         lam_s=truth["lam_s"], psi=truth["psi"])
+                         lam_f=truth["lam_f"], lam_s=truth["lam_s"],
+                         psi=truth["psi"])
                 jwrite(truth_dir / f"{base}_meta.json", {
                     "table": tag, "truth_cell": cell_name,
                     "n_group_factors": nf, "n_suites": N_SUITES,
                     "true_nfactors": 1 + N_SUITES,
                     "loading_range": [lo, hi],
-                    "wh_target": wh_target,
-                    "mean_r_target": MEAN_R_TARGET,
+                    "mean_r_target": mean_r_target,
+                    "suite_share": SUITE_C,
+                    "suite_decay": SUITE_DECAY,
                     "dense_scale": truth["dense_scale"],
                     "suite_scale": truth["suite_scale"],
-                    "lam_g_min": float(truth["lam_g"].min()),
-                    "lam_g_max": float(truth["lam_g"].max()),
                     "lam_f_min": float(truth["lam_f"].min()),
                     "lam_f_max": float(truth["lam_f"].max()),
                     "real_table_mean_r": real_mean_r,
@@ -763,22 +769,22 @@ def main():
                     "achieved_mean_r": truth["mean_r"],
                     "pair_r_min": truth["pair_r_min"],
                     "pair_r_max": truth["pair_r_max"],
-                    "omega_hierarchical": truth["omega_h"],
                     "max_communality": MAX_COMMUNALITY,
                     "n_models": len(u_keys), "n_benchmarks": len(u_cols),
                     "truth_seed": TRUTH_SEED + 100 * w_idx
                                   + cell_idx * 10 + t_idx,
+                    "g_source": "first PC of the complete matrix "
+                                "(popularity-mask handle; NOT planted truth)",
                     "suite_sizes": np.bincount(truth["fcols"],
                                                minlength=N_SUITES).tolist(),
                 })
                 print(f"[truth] {base:26} {len(u_keys)}x{len(u_cols)}"
                       f" mean_r={truth['mean_r']:.3f}"
+                      f" (target {mean_r_target:.2f})"
                       f" pair_r=[{truth['pair_r_min']:.2f},"
                       f"{truth['pair_r_max']:.2f}]"
                       f" scale={truth['dense_scale']:.2f}/"
-                      f"{truth['suite_scale']:.2f}"
-                      f" omega_h={truth['omega_h']:.3f}"
-                      f" (target {wh_target:.2f})")
+                      f"{truth['suite_scale']:.2f}")
 
                 # expected correlation per benchmark (row mean of planted R),
                 # the popularity handle for the mask
@@ -850,7 +856,7 @@ def main():
                            "n_suites": N_SUITES,
                            "true_nfactors": 1 + N_SUITES,
                            "loading_range": f"{lo:g}-{hi:g}",
-                           "wh_target": wh_target,
+                           "mean_r_target": mean_r_target,
                            "mask": mask_name, "dz": dz, "strategy": st,
                            "density_slice": a.density,
                            "nested": nest,
@@ -862,7 +868,6 @@ def main():
                            "pair_r_max": round(truth["pair_r_max"], 4),
                            "dense_scale": round(truth["dense_scale"], 4),
                            "suite_scale": round(truth["suite_scale"], 4),
-                           "omega_h": round(truth["omega_h"], 4),
                            "mech_scale": lam, "ipf_converged": ok,
                            **{k: (round(v, 4) if isinstance(v, float) else v)
                               for k, v in diag.items()}}

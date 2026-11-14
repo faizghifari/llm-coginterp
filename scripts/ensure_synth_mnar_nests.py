@@ -13,10 +13,10 @@ makes the synthetic corpus a faithful stand-in for densify.py's real slices.
 
 It also validates every planted truth (per density slice's truth/ dir): the
 planted correlation is symmetric, unit-diagonal and PSD, its spectrum is
-decreasing over the planted factors (general first, then group factors in
-decreasing-communalities order), the achieved omega_h matches its wh_target,
-and the written complete matrix reproduces the planted mean off-diagonal
-correlation.
+decreasing over the planted factors (the 1 + N_SUITES top eigenvalues,
+strictly decreasing by construction), the planted mean off-diagonal
+correlation hits its mean_r_target, and the written complete matrix
+reproduces the planted mean off-diagonal correlation.
 
 Reads:
     data/synth/<density>/<cell>/<mask>/s0/truth/<tag>_mask.npz
@@ -98,10 +98,12 @@ def collect(root):
 def check_truth(root, problems):
     """Truth-file validity per <tag>_<cell>: the planted correlation is
     symmetric, unit-diagonal and PSD (all eigenvalues >= 0), its spectrum is
-    DECREASING over the planted factors (general factor first, then group
-    factors in decreasing-communalities order), the achieved omega_h matches
-    its wh_target, and the written complete matrix reproduces the planted
-    mean off-diagonal correlation (rounding-safe)."""
+    DECREASING over the first true_nfactors eigenvalues (strict by
+    construction via SUITE_DECAY), the planted mean off-diagonal
+    correlation hits its mean_r_target, and the written complete matrix
+    reproduces the planted mean off-diagonal correlation
+    (rounding-safe). There is no omega check: the generator plants NO
+    general factor and targets NO omega_h (it is a derived diagnostic)."""
     for dens_dir in sorted((p for p in root.iterdir()
                             if p.is_dir() and _is_num(p.name)),
                            key=lambda p: float(p.name)):
@@ -140,12 +142,13 @@ def check_truth(root, problems):
                     f"{rel}: spectrum not decreasing over the first "
                     f"{nfac} factors: {np.round(top, 4).tolist()}")
                 continue
-            if "wh_target" in meta and abs(
-                    meta["omega_hierarchical"] - meta["wh_target"]) > 0.02:
+            off = ~np.eye(len(cols), dtype=bool)
+            r_planted = float(R[off].mean())
+            if "mean_r_target" in meta and abs(
+                    r_planted - meta["mean_r_target"]) > 0.02:
                 problems.append(
-                    f"{rel}: achieved omega_h "
-                    f"{meta['omega_hierarchical']:.4f} misses target "
-                    f"{meta['wh_target']:.2f}")
+                    f"{rel}: planted mean r {r_planted:.4f} misses target "
+                    f"{meta['mean_r_target']:.2f}")
                 continue
             df = pl.read_csv(complete_path)
             M = df.select(cols).to_numpy().astype(np.float64)
@@ -153,9 +156,7 @@ def check_truth(root, problems):
                 problems.append(f"{rel}: complete {M.shape} != correlation "
                                 f"{R.shape} (columns must match)")
                 continue
-            off = ~np.eye(len(cols), dtype=bool)
             r_emp = float(np.corrcoef(M, rowvar=False)[off].mean())
-            r_planted = float(R[off].mean())
             # 0.05, not 0.02: the empirical mean r of the complete matrix
             # carries sampling noise ~ (1-r^2)/n across correlated pairs --
             # at the r ~ 0.5 real-corpus level that is several hundredths
@@ -165,10 +166,10 @@ def check_truth(root, problems):
                     f"{rel}: complete matrix mean r {r_emp:.4f} != planted "
                     f"{r_planted:.4f}")
                 continue
-            wh = meta.get("wh_target")
+            tgt = meta.get("mean_r_target")
             print(f"OK   truth {rel}: PSD, decreasing spectrum, "
-                  f"omega_h={meta['omega_hierarchical']:.3f}"
-                  f" (target {wh:.2f}), "
+                  f"mean_r={r_planted:.3f}"
+                  f" (target {tgt:.2f}), "
                   f"pair_r=[{R[off].min():.3f}, {R[off].max():.3f}]")
 
 

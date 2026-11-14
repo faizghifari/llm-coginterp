@@ -365,21 +365,24 @@ drop-in `--data-root`.
 | write | `data/synth/<density>/<cell>/<mask>/s0/truth/<tag>_<cell>_{mask.npz, meta.json}` |
 | write | `data/synth/<density>/summary.csv` — one row per dataset (diagnostics + truth-cell columns) |
 
-Grid: `{truth cell} × {ω_h target} × {mask} × {seed} × {table}` = 4 × 2 × 3 ×
+Grid: `{truth cell} × {mean-R target} × {mask} × {seed} × {table}` = 4 × 2 × 3 ×
 1 × 2 = **48 datasets**.
 
-- **Truth cells** `f5_weak / f5_loud / f10_weak / f10_loud`, each crossed with
-  an **ω_h target** `wh03 / wh06` (planted general-factor saturation 0.3 /
-  0.6; cell dirs named e.g. `f5_weak_wh03`): F ∈ {5, 10} group factors, group
+- **Truth cells** `f5_weak / f5_loud / f10_weak / f10_loud`, each crossed with a
+  **mean-R target** `r03 / r05` (planted mean off-diagonal correlation 0.3 /
+  0.5; cell dirs named e.g. `f5_weak_r03`): F ∈ {5, 10} group factors, group
   loadings ~ U(0.1, 0.5) or U(0.5, 0.9), scaled by `GROUP_DECAY**rank` so the
-  group communalities (and eigenvalues) DECREASE with group rank. One general
-  factor per table with λ_g a constant solved in closed form so the planted
-  ω_h EQUALS the target (ω_h = (p·λ_g)²/(p + p(p−1)(λ_g² + c_group)), solved
-  for λ_g²; the real table's observed mean pairwise r is recorded as a
-  diagnostic, no longer targeted — the achieved mean r falls out ~0.01–0.15).
+  group communalities (and eigenvalues) DECREASE with group rank. There is NO
+  general-factor block and NO omega target: the dominant direction is
+  emergent and omega_h is a recorded diagnostic only (the PA/SL estimator
+  tracks the overall correlation level, so a planted omega axis carried no
+  information). Suites carry a deterministic per-suite decay
+  (`SUITE_DECAY**suite`) so the top `1 + N_SUITES` eigenvalues are strictly
+  decreasing by construction (the checker asserts it). The ONLY global target
+  is the planted mean pairwise r, solved exactly by the two block scales.
   All loadings positive (R has only positive entries, matching the real
-  tables); communalities capped at 0.95; the *achieved* mean r, loading
-  ranges and ω_h are always recorded in the meta JSON — nothing silently
+  tables); communalities capped at 0.95; the achieved mean r, loading
+  ranges are always recorded in the meta JSON — nothing silently
   distorted. Rankings are per truth cell.
 - **Masks**: `mcar` (calibrated control, s = 0), `cell` (s = γ·z_ij, good
   cells observed), `popularity` (s = κ·ρ̂_j·g_i — observability tied to a
@@ -428,7 +431,7 @@ cross-checks each `_mask.npz` against the CSV's non-null pattern, and
 validates every planted truth: the planted correlation is symmetric,
 unit-diagonal and PSD, its spectrum is decreasing over the planted factors
 (general first, then group factors in decreasing-communalities order), the
-achieved ω_h matches its `wh_target`, and the written complete matrix
+planted mean r hits its `mean_r_target`, and the written complete matrix
 reproduces the planted mean off-diagonal correlation. Exit code 1 on any
 violation, so it must pass before any hier-over-synth run is trustworthy:
 
@@ -453,7 +456,7 @@ the result lands in `imputation_synth.gt_r2`. That pass is refreshed on every
 `--synth` invocation even when the imputation itself is skipped (no
 `--reimpute`), since it only reads artifacts from disk. Scoring against the
 truth is otherwise external: compare outputs to the truth files (truth R,
-`true_nfactors = 1 + F`, `omega_hierarchical`). Nothing in `main.R` consumes
+`true_nfactors = 1 + N_SUITES`). Nothing in `main.R` consumes
 the corpus.
 
 **Factor-level scoring on the synth corpus** (`src/run/factor_synth.R`): runs
@@ -467,7 +470,8 @@ end result: density 0 aliases the SPARSEST slice, reads its
 `s0/hierarchical/imputed/...` matrices and the hier correlation caches from
 `results/synth/hierarchical/<cell>/<mask>/<density>/`, and writes to
 `results/synth/0/factor/`. `scripts/score_synth_factors.py` then scores
-against the planted truth (ω_h, factor count, g-loading congruence, domain
+against the truth (ω bias and g congruence vs the ORACLE arm, factor count,
+domain
 ARI), gated on the imputation R².
 
 **Hier over the synth corpus** (`impute.R --hier --synth`): for each (cell,

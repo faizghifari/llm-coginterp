@@ -7,9 +7,10 @@
 # factor count -> minres/promax -> Schmid-Leiman via psych::omega, flip=FALSE)
 # on each completed synthetic matrix, plus an ORACLE arm that factors the
 # complete, unmasked truth matrix (separates EFA/SL estimator bias from
-# missingness damage). Scoring against the planted truth (omega_h, factor
-# count, g-loading congruence, domain recovery) is done in Python by
-# scripts/score_synth_factors.py.
+# missingness damage). Scoring against the truth (omega bias and g
+# congruence vs the ORACLE arm, factor count, domain recovery) is done in
+# Python by scripts/score_synth_factors.py. The generator plants no general
+# factor and no omega target (mean_r is the only calibrated quantity).
 #
 # No R² gate here: the gate is applied at scoring time (imputation_synth R²),
 # so the effect of the gate itself can be reported.
