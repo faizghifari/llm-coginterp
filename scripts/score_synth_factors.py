@@ -33,6 +33,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import scipy.stats
 from sklearn.metrics import adjusted_rand_score
 
 REPO = Path(__file__).resolve().parent.parent
@@ -139,7 +140,7 @@ def main():
     orc = df[(df["method"] == "oracle") & (df["mask"] == "complete")][
         ["dz", "cell", "omega_h_est"]].rename(columns={"omega_h_est": "omega_h_oracle"})
     df = df.merge(orc.drop_duplicates(["dz", "cell"]), on=["dz", "cell"], how="left")
-    df["omega_bias"] = df.omega_h_est - df.omega_h_oracle
+    df["omega_bias"] = (df.omega_h_est - df.omega_h_oracle).abs()
 
     r2 = imputation_r2()
     if r2 is not None:
@@ -186,6 +187,13 @@ def main():
     print(md(g.sort_values("imp_r2", ascending=False, na_position="last")
              [raw].rename(columns=ren)[cols]))
     print(f"\nwrote {FDIR / 'scored.csv'}")
+
+    sub = df[["imp_r2", "omega_h_est"]].dropna()
+    if len(sub) >= 3:
+        r, p = scipy.stats.pearsonr(sub["imp_r2"], sub["omega_h_est"])
+        print(f"\nPearson r (wr2 vs omega_h_est): r={r:.4f}, p={p:.4g}, n={len(sub)}")
+    else:
+        print("\nPearson r (wr2 vs omega_h_est): not enough overlapping rows")
 
 
 if __name__ == "__main__":
