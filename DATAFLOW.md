@@ -206,10 +206,20 @@ the full `IMPUTE_METHODS` set.
   same treatment via the `holdout_mask.csv` sidecar: `run.jl`'s single-input
   mode (`OSMC_SINGLE_INPUT`) processes one filled table per descent step with
   `OSMC_HOLDOUT_MASK`, and `holdout_cells` (`pipeline.jl`) draws holdouts only
-  from mask-TRUE cells. So each step's sweep/R² measures recovery of that
-  density's REAL observations and is comparable to the standard run at the
-  same density — training data differs (it has the seeded columns), which is
-  exactly the effect under test, so some gain is expected by construction.
+  from mask-TRUE cells. Grading is additionally COLUMN-RESTRICTED: each step's
+  holdouts come only from the columns that step INTRODUCES (`setdiff` vs the
+  running matrix `P`, zeroed out of the eligibility mask; prior columns' real
+  observations stay in training). The peel's keep-sets nest — densify.py never
+  drops cells, only whole rows/columns — so an introduced column was kept at
+  no denser slice and its graded cells were never observed, trained on, or
+  completed before. This closes the cross-step channel where an early step
+  trains on a cell that a later step grades: no graded value ever entered any
+  earlier training set, so no earlier completion can encode it. Each step's
+  sweep/R² therefore measures recovery of that step's NEW columns only (per
+  column graded exactly once), which is no longer directly comparable to the
+  standard run at the same density (that run grades all columns) — training
+  data also differs (it has the seeded columns), which is exactly the effect
+  under test, so some gain is expected by construction.
 - **Reuse.** Same `--reimpute` semantics as the standard loop: an existing
   step CSV is loaded from disk and the chain continues from it (fill-smooth
   steps also require their per-step correlation cache).
@@ -226,11 +236,15 @@ accidentally — but they are no longer terminal:
 **Weighted R² (`wr2`) and the density-0 hand-off.** After the descent,
 `hier_finalize_cell` computes a cumulative weighted R² per step (re-derived
 from the per-step imputed CSVs + rank sweeps, so it comes out identically on
-`--reimpute` reuse): each step's held-out R² is weighted by the columns it
+`--reimpute` reuse): each step's held-out R² — graded ONLY on the columns
+that step introduces — is weighted by the columns it
 INTRODUCES (`setdiff` vs the running matrix `P`; the seed introduces all of
 its columns), summed and divided by the running matrix's total column count —
 so wr2 at step d is the introduced-column-weighted mean R² of the matrix as
-of d. Every per-density `imputation` row gets its `wr2` (standard runs leave
+of d. Because each column is introduced at exactly one step and graded only
+there, every column is graded exactly once and wr2 is the exact
+column-balanced mean R² of the final matrix, decomposed by introduction step.
+Every per-density `imputation` row gets its `wr2` (standard runs leave
 the column NULL). The FINAL (sparsest) step's imputed CSV + rank sweep (+
 correlation cache for fill-smooth) are then copied into the reserved
 density-`0` slice (`<data-root>/0/`, `<results-root>/0/`) — refreshed on
@@ -487,7 +501,8 @@ results + per-step DB in `results/synth/hierarchical/<cell>/<mask>/<density>/`
 (ONE unified DB for the whole run: `results/synth/hierarchical/database.db`,
 table `imputation_synth_hier`, keyed `cell, mask, density, dataset, method`;
 each row's `gt_r2` scores that step against the planted truth on the
-density's missing cells, and `wr2` is the introduced-column-weighted mean of
+introduced columns' missing cells (column-restricted, like the held-out
+side), and `wr2` is the introduced-column-weighted mean of
 those gt_r2 values — truth-weighted, unlike the real corpus's held-out
 weighting), and the final step is handed off to the density-0 slice
 (`data/synth/<cell>/<mask>/0/` + the density-"0" rows of the unified DB,

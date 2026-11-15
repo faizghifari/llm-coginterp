@@ -27,8 +27,10 @@
 #                    standard run's cached completed matrix at the densest
 #                    density (abort if absent), then each sparser density is
 #                    imputed on the union grid with the previous step's columns
-#                    filled in. Holdouts are drawn only from each density's real
-#                    observations. Outputs: <data-root>/hierarchical/<density>/
+#                    filled in. Holdouts are drawn only from each density's
+#                    real observations in the columns that step INTRODUCES
+#                    (column-restricted grading — no column is ever re-graded
+#                    after its introduction). Outputs: <data-root>/hierarchical/<density>/
 #                    imputed/... and <results-root>/hierarchical/. --density is
 #                    accepted (the Makefile always passes it) but IGNORED here —
 #                    densities are discovered and sorted descending. The FINAL
@@ -427,6 +429,11 @@ recovered_matrix_for <- function(method, dz, st, imp_csv, density = NULL) {
 # column (that IS the MNAR mechanism), and cell-weighting would let the
 # dense columns dominate the score. Returns NA when nothing can be scored.
 #
+# cols_keep (hier): restrict scoring to the step's INTRODUCED columns —
+# cells of every other column are excluded from the evaluation set, so each
+# column is graded exactly once, at the step it enters (wr2's weighting
+# then pools those per-step scores into an exact column-balanced mean).
+#
 # Cell-level imputers (default): the prediction of a missing cell IS the
 # completed matrix's value there. Correlation-level imputers (R_mat supplied —
 # their recovered correlation/covariance matrix) cannot emit cells: like the
@@ -436,7 +443,8 @@ recovered_matrix_for <- function(method, dz, st, imp_csv, density = NULL) {
 # columns of the row. For Theta-hat = V V' (onesidedmc) this is algebraically
 # identical to the Julia predictor  Vj' pinv(Vs) z_S  (pinv(VsVv')Vs = pinv(Vs)),
 # so the OSMC gt formula matches its own held-out scoring exactly.
-gt_r2_score <- function(masked_csv, imputed_csv, truth_csv, R_mat = NULL) {
+gt_r2_score <- function(masked_csv, imputed_csv, truth_csv, R_mat = NULL,
+                        cols_keep = NULL) {
   mask_df <- read.csv(masked_csv, check.names = FALSE)
   imp_df  <- read.csv(imputed_csv,  check.names = FALSE)
   tru_df  <- read.csv(truth_csv,    check.names = FALSE)
@@ -468,6 +476,8 @@ gt_r2_score <- function(masked_csv, imputed_csv, truth_csv, R_mat = NULL) {
   msk <- msk[, ok, drop = FALSE]
   mu  <- mu[ok]; sds <- sds[ok]
   miss <- is.na(msk)
+  if (!is.null(cols_keep))
+    miss[, !colnames(msk) %in% cols_keep] <- FALSE
   if (!any(miss)) return(NA_real_)
 
   zt <- sweep(sweep(tru, 2L, mu, "-"), 2L, sds, "/")
@@ -601,8 +611,11 @@ run_cell <- function(method, dz, st) {
 #   step d  = impute on the UNION grid of the chain (P) and this density's
 #             sparse table T: T's observed cells win, P's completed values fill
 #             the rest, NAs elsewhere. Holdouts come ONLY from T's real
-#             observations (HOLDOUT_MASK in R, OSMC_HOLDOUT_MASK in Julia), so
-#             sweeps stay comparable to the standard run at density d
+#             observations in the columns this step INTRODUCES (HOLDOUT_MASK
+#             in R, OSMC_HOLDOUT_MASK in Julia — prior columns are masked out
+#             of eligibility): a column introduced at d was kept at no denser
+#             slice, so graded cells were never seen before and no earlier
+#             step's completions can encode them (no cross-step leakage)
 #   ...     = repeat until the densities are exhausted; each step's completed
 #             matrix becomes P for the next
 #
@@ -617,8 +630,9 @@ run_cell <- function(method, dz, st) {
 #            layout: table `imputation`, dataset = "<dz>_<st>" (DB_FILE is
 #            re-pointed per density, as --synth re-points it per root). Every
 #            row also carries wr2 — the cumulative weighted R2 (each step's
-#            held-out R2 weighted by the columns it introduces, divided by the
-#            running matrix's column count).
+#            held-out R2 on its INTRODUCED columns, weighted by their count,
+#            divided by the running matrix's column count; each column is
+#            graded exactly once, at its introduction).
 #
 # Hand-off: after the descent, the FINAL (sparsest) step's imputed CSV + sweep
 # (+ correlation cache) are copied into the density-"0" slice
@@ -839,14 +853,29 @@ run_hier_cell <- function(method, dz, st, densities) {
     grid <- hier_fill_grid(P, src)
     filled_csv <- file.path(out_dir, "filled_model_benchmark_table.csv")
     mask_csv   <- file.path(out_dir, "holdout_mask.csv")
+    # COLUMN-RESTRICTED grading: holdout candidates come ONLY from columns
+    # this step INTRODUCES (setdiff vs the running matrix P). Zeroing the
+    # mask on prior columns removes them from holdout eligibility
+    # (make_holdout / OSMC's holdout_cells skip columns with no eligible
+    # cells) while their real observations stay in training. The peel's
+    # keep-sets nest (densify.py never drops cells, only whole rows/cols),
+    # so a column introduced here was kept at no denser slice: graded cells
+    # were never observed, trained on, or completed before this step, and no
+    # earlier step's completions can encode them — no cross-step leakage.
+    new_cols <- setdiff(colnames(grid$M), P$cols)
+    n_real <- sum(grid$mask)
+    grid$mask[, setdiff(colnames(grid$M), new_cols)] <- FALSE
     write.csv(data.frame(collapse_key = grid$keys, grid$M, check.names = FALSE),
               filled_csv, row.names = FALSE)
     # 0/1 numerics, not TRUE/FALSE — run.jl's read_mask parses Float64.
+    # The mask is holdout ELIGIBILITY (real observations of introduced
+    # columns), not the full real-observation set.
     write.csv(data.frame(collapse_key = grid$keys, grid$mask + 0L, check.names = FALSE),
               mask_csv, row.names = FALSE)
-    cat(sprintf("  input: %d x %d — %d real cells, %d seeded from %s\n",
-                nrow(grid$M), ncol(grid$M), sum(grid$mask),
-                sum(!is.na(grid$M)) - sum(grid$mask), d1))
+    cat(sprintf(paste0("  input: %d x %d — %d real cells (%d in %d",
+                       " introduced columns graded), %d seeded from %s\n"),
+                nrow(grid$M), ncol(grid$M), n_real, sum(grid$mask),
+                length(new_cols), sum(!is.na(grid$M)) - n_real, d1))
 
     pm <- prep_matrix(filled_csv)
     x <- pm$x
@@ -896,10 +925,16 @@ run_hier_cell <- function(method, dz, st, densities) {
 # step's R2 is weighted by the columns it INTRODUCES (setdiff vs the running
 # matrix P; the seed introduces all of its columns), summed and divided by the
 # running matrix's total column count: wr2 at step d is the
-# introduced-column-weighted mean R2 of the matrix factored at d. The R2
-# itself is mode-dependent: held-out r2 for the real corpus, TRUTH-recovery
-# gt_r2 (scored against the planted truth on the density's missing cells) for
-# the synth corpus. Every input is re-derived from artifacts on disk
+# introduced-column-weighted mean R2 of the matrix factored at d. Each step's
+# R2 grades ONLY its introduced columns — the peel's keep-sets nest, so those
+# columns' cells were never observed or trained on before their introduction;
+# each column is therefore graded exactly once, wr2 never re-grades a column
+# under conditions its value helped create, and the weighting makes wr2 the
+# exact column-balanced mean score of the final matrix. The R2 itself is
+# mode-dependent: held-out r2 for the real corpus, TRUTH-recovery
+# gt_r2 (scored against the planted truth on the introduced columns' missing
+# cells) for the synth corpus. Every input is re-derived from artifacts on
+# disk
 # (per-step imputed CSVs + rank sweeps + input tables + truth), so the numbers
 # come out identically on --reimpute reuse and a cached re-run refreshes
 # wr2/gt_r2 without re-imputing. Also hands the FINAL step's artifacts to the
@@ -913,10 +948,12 @@ hier_finalize_cell <- function(method, dz, st, densities) {
   # Synth: the wr2 weight is TRUTH recovery, not held-out r2 — the planted
   # truth is what this corpus exists for. Per step, gt_r2 scores that step's
   # completed matrix against the planted truth on exactly the cells the
-  # density's sparse input table is missing (gt_r2_score's column-balanced
-  # definition); the seed step's number matches what the non-hier --synth
-  # pass computes at the densest density.
-  gt_for <- function(d, csv) {
+  # density's sparse input table is missing IN THE STEP'S INTRODUCED COLUMNS
+  # (column-restricted, column-balanced) — matching the held-out side's
+  # restriction, and grading each column exactly once, at its introduction.
+  # The seed step's number matches what the non-hier --synth pass computes at
+  # the densest density.
+  gt_for <- function(d, csv, cols_keep) {
     if (!SYNTH) return(NA_real_)
     truth_csv <- file.path(REPO, "data", "synth", d, "truth",
                            paste0(dataset, "_", SYNTH_CELL, "_complete.csv"))
@@ -925,7 +962,8 @@ hier_finalize_cell <- function(method, dz, st, densities) {
       return(NA_real_)
     }
     gt <- gt_r2_score(combos_path(dz, st, density = d), csv, truth_csv,
-                      R_mat = recovered_matrix_for(method, dz, st, csv, density = d))
+                      R_mat = recovered_matrix_for(method, dz, st, csv, density = d),
+                      cols_keep = cols_keep)
     cat(sprintf("  gt: %s @ %s gt_r2=%s\n", dataset, d,
                 if (is.na(gt)) "NA" else sprintf("%.4f", gt)))
     gt
@@ -954,7 +992,7 @@ hier_finalize_cell <- function(method, dz, st, densities) {
     }
     cols <- setdiff(names(read.csv(csv, nrow = 0, check.names = FALSE)),
                     "collapse_key")
-    step_gt <- gt_for(d, csv)
+    step_gt <- gt_for(d, csv, setdiff(cols, prev_cols))
     step_r2 <- NA_real_; step_rmse <- NA_real_; step_desc <- NA_character_
     has_sweep <- file.exists(sweep)
     if (has_sweep) {
