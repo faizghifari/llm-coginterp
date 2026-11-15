@@ -397,13 +397,22 @@ def build_jobs(cells: dict[CellKey, list[Cell]]) -> list[Job]:
 
 
 def composite_distance(
-    cell_list: Sequence[Cell], *, drop_g: bool = False
+    cell_list: Sequence[Cell], *, drop_g: bool = False, square: bool = False
 ) -> tuple[np.ndarray, list[str]]:
     """Average pairwise cosine distance across cells (union of benchmarks).
 
     With drop_g, the general-factor column is excluded so the distance
     reflects only the group factors. A cell whose sole factor column is g
     contributes nothing in that mode and is skipped.
+
+    With square, loadings are squared before normalizing: the sign is
+    discarded, so distance reflects shared factor MEMBERSHIP (which factors
+    drive each benchmark) rather than directional agreement. A strong negative
+    loader then sits next to a strong positive loader on the same factor.
+    Squared loadings are per-(benchmark, factor) variance shares, so this is a
+    different geometry, not a sign fix -- the quadratic warp also suppresses
+    small loadings, weighting distances toward each benchmark's dominant
+    factors.
     """
     bench_union: list[str] = []
     seen: set[str] = set()
@@ -424,6 +433,8 @@ def composite_distance(
             if not keep:
                 continue
             mat = mat[:, keep]
+        if square:
+            mat = mat * mat
         norms = np.linalg.norm(mat, axis=1, keepdims=True)
         unit = np.where(norms > 0, mat / np.maximum(norms, 1e-12), 0.0)
         cos = unit @ unit.T
@@ -1071,6 +1082,14 @@ def parse_args() -> argparse.Namespace:
         help="also match untagged *_bifactor_loadings.csv (requires --out)",
     )
     ap.add_argument("--linkage", choices=LINKAGE_METHODS, default="average")
+    ap.add_argument(
+        "--square",
+        action="store_true",
+        help="square loadings before the cosine, discarding loading sign: distance "
+        "then reflects shared factor membership rather than directional agreement "
+        "(a strong negative loader sits next to a strong positive one on the same "
+        "factor)",
+    )
     ap.add_argument("--k-min", type=int, default=K_MIN)
     ap.add_argument(
         "--k-max",
@@ -1195,8 +1214,10 @@ def main() -> None:
                 out[key] = carry_forward(old, categories, label_params)
                 print(f"{key}: local loadings differ from the prior's -- carried forward")
                 continue
-            dist, bench = composite_distance(job.cells)
-            dist_ng, bench_ng = composite_distance(job.cells, drop_g=True)
+            dist, bench = composite_distance(job.cells, square=args.square)
+            dist_ng, bench_ng = composite_distance(
+                job.cells, drop_g=True, square=args.square
+            )
             pristine, pristine_ng = dist.copy(), dist_ng.copy()
             if bench_ng != bench:
                 raise RuntimeError("drop_g changed the benchmark ordering")
@@ -1252,6 +1273,7 @@ def main() -> None:
             entry["clusters"] = {
                 "params": {
                     "linkage": args.linkage,
+                    "square": args.square,
                     "k_values": k_values,
                     "hdbscan": {
                         "min_samples": args.hdbscan_min_samples,

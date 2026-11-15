@@ -183,8 +183,8 @@ def main():
     else:
         g = df
         print("== no imputation DB — UNGATED, one row per run ==")
-    print(md(g.sort_values(["method", "dataset", "mask", "cell"])[raw]
-             .rename(columns=ren)[cols]))
+    print(md(g.sort_values("imp_r2", ascending=False, na_position="last")
+             [raw].rename(columns=ren)[cols]))
     print(f"\nwrote {FDIR / 'scored.csv'}")
 
 

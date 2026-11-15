@@ -855,6 +855,127 @@ $("dl").addEventListener("click", () => {
   }, "image/png");
 });
 
+// Minimal stored (uncompressed) ZIP writer. PNGs are already deflated, so
+// storing them costs nothing and keeps the viewer dependency-free.
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c;
+  }
+  return t;
+})();
+
+function crc32(u8) {
+  let c = 0xffffffff;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+async function zipFiles(files) {
+  const enc = new TextEncoder();
+  const now = new Date();
+  const dostime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosdate =
+    (((now.getFullYear() - 1980) & 0x7f) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, blob] of files) {
+    const data = new Uint8Array(await blob.arrayBuffer());
+    const nameU8 = enc.encode(name);
+    const crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true);
+    h.setUint16(4, 20, true);
+    h.setUint16(8, 0, true); // method: store
+    h.setUint16(10, dostime, true);
+    h.setUint16(12, dosdate, true);
+    h.setUint32(14, crc, true);
+    h.setUint32(18, data.length, true);
+    h.setUint32(22, data.length, true);
+    h.setUint16(26, nameU8.length, true);
+    chunks.push(new Uint8Array(h.buffer), nameU8, data);
+    central.push({ nameU8, crc, size: data.length, offset });
+    offset += 30 + nameU8.length + data.length;
+  }
+  const cdStart = offset;
+  for (const e of central) {
+    const h = new DataView(new ArrayBuffer(46));
+    h.setUint32(0, 0x02014b50, true);
+    h.setUint16(4, 20, true);
+    h.setUint16(6, 20, true);
+    h.setUint16(12, dostime, true);
+    h.setUint16(14, dosdate, true);
+    h.setUint32(16, e.crc, true);
+    h.setUint32(20, e.size, true);
+    h.setUint32(24, e.size, true);
+    h.setUint16(28, e.nameU8.length, true);
+    h.setUint32(42, e.offset, true);
+    chunks.push(new Uint8Array(h.buffer), e.nameU8);
+    offset += 46 + e.nameU8.length;
+  }
+  const eocd = new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0, 0x06054b50, true);
+  eocd.setUint16(8, central.length, true);
+  eocd.setUint16(10, central.length, true);
+  eocd.setUint32(12, offset - cdStart, true);
+  eocd.setUint32(16, cdStart, true);
+  chunks.push(new Uint8Array(eocd.buffer));
+  return new Blob(chunks, { type: "application/zip" });
+}
+
+// Render EVERY view at the current cluster/layout/color settings and bundle
+// the PNGs into a ZIP. Each view is selected by driving the real dropdowns and
+// dispatching change events, so the dependent-option resync (collapsing ->
+// imputer -> cohort) runs exactly as it does for a user click, and the restore
+// at the end is the same cascade in reverse.
+$("dlall").addEventListener("click", async () => {
+  if (!state.data) return;
+  const btn = $("dlall");
+  const saved = ["density", "dz", "collapsing", "imputer", "year"].map((id) => [id, $(id).value]);
+  const setSel = (id, v) => {
+    const el = $(id);
+    if (el.value === v || ![...el.options].some((o) => o.value === v)) return false;
+    el.value = v;
+    el.dispatchEvent(new Event("change"));
+    return true;
+  };
+  btn.disabled = true;
+  try {
+    const files = [];
+    for (const key of Object.keys(state.data)) {
+      const [density, dz] = key.split("|");
+      let coll = "aggregate", imp = "aggregate", year = "all";
+      for (const seg of key.split("|").slice(2)) {
+        if (seg.startsWith("s_")) coll = seg.slice(2);
+        else if (seg.startsWith("y")) year = seg.slice(1);
+        else imp = seg.slice(1);
+      }
+      setSel("density", density);
+      setSel("dz", dz);
+      setSel("collapsing", coll);
+      setSel("imputer", imp);
+      setSel("year", year);
+      if (!current()) continue; // stale-selection guard kept the old view
+      const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+      files.push([key.replaceAll("|", "_") + ".png", blob]);
+    }
+    if (files.length) {
+      const zip = await zipFiles(files);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(zip);
+      a.download = "plots.zip";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  } finally {
+    for (const [id, v] of saved) setSel(id, v);
+    btn.disabled = false;
+  }
+});
+
 function init(data) {
   state.data = data;
   const keys = Object.keys(data);
