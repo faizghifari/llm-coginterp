@@ -38,7 +38,7 @@ from sklearn.metrics import adjusted_rand_score
 REPO = Path(__file__).resolve().parent.parent
 ST = "all_standard"
 HIER = False   # --density 0: score the hierarchical (impute.R --hier --synth) end result
-WR2_GATE = 0.25
+WR2_GATE = 0.35
 
 def resolve_density_0():
     """density 0 aliases the SPARSEST density slice (final step of the hier descent)."""
