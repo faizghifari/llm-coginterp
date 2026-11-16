@@ -262,7 +262,7 @@ for a descent step. The mode itself stays pure imputation — no factoring, no
 
 1. **Gate on imputation quality.** Reads the cell's gate value from the SQLite
    `imputation` table (`db_read_r2`): `COALESCE(wr2, r2)` — the hierarchical
-   weighted R² when present, else the plain held-out R². If the value `< 0.3`
+   weighted R² when present, else the plain held-out R². If the value `< 0.4`
    (or absent), the cell is
    skipped — every method is gated, the fill-smooth pair included (they are
    imputers now and their held-out R² lives in the same table). Fill-smooth

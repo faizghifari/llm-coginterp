@@ -83,6 +83,31 @@ def sparse_csv_path(data_root: Path, dz: str, st: str) -> Path:
     return data_root / sub / st / "model_benchmark_table.csv"
 
 
+def sparse_data_root(data_root: Path, density: str) -> Path:
+    """Data root holding the sparse tables behind this density's loadings.
+
+    Density 0 is the hierarchical hand-off slice: it contains only the final
+    imputed matrix (densify never runs there), so its frequencies resolve in
+    the sparsest real density slice the hier descent bottomed out at --
+    the numerically smallest density directory under the data root.
+    """
+    if density != "0":
+        return data_root
+    densities = []
+    for entry in data_root.parent.iterdir():
+        if not entry.is_dir():
+            continue
+        try:
+            d = float(entry.name)
+        except ValueError:
+            continue
+        if d > 0:
+            densities.append((d, entry.name))
+    if not densities:
+        return data_root
+    return data_root.parent / min(densities)[1]
+
+
 def bench_frequencies(csv_path: Path, min_obs: int = 2) -> dict[str, float]:
     """{benchmark: non-missing proportion} from a sparse CSV (omega_loco filter)."""
     with open(csv_path, newline="") as f:
@@ -130,6 +155,7 @@ def main():
     args.results_root = os.path.join(args.results_root, args.density)
     global DATA_ROOT
     DATA_ROOT = DATA_ROOT / args.density
+    sparse_root = sparse_data_root(DATA_ROOT, args.density)
     allowed = registered_pa_runs(os.path.join(args.results_root, "database.db"))
     if allowed is None:
         print(
@@ -159,7 +185,7 @@ def main():
             continue
         if ds not in freq_by_dataset:
             dz, st = ds.split("_", 1)
-            csv_path = sparse_csv_path(DATA_ROOT, dz, st)
+            csv_path = sparse_csv_path(sparse_root, dz, st)
             freq_by_dataset[ds] = (
                 bench_frequencies(csv_path) if csv_path.exists() else {}
             )

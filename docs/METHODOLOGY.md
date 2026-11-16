@@ -458,7 +458,7 @@ can never quietly factor:
 
 - `src/run/impute.R` — imputes and runs the held-out RMSE/R² sweep, writing the
   completed matrix to `<data-root>/imputed/<method>/<densifier>/<strategy>/`.
-- `src/run/factor.R` — reads that back, **gates on imputation R² ≥ 0.3** (read
+- `src/run/factor.R` — reads that back, **gates on imputation R² ≥ 0.4** (read
   from SQLite), and factors. Each cell is factored twice: at the parallel-analysis
   factor count and forced to 2 factors. Output is bifactor / Schmid-Leiman
   (`psych::omega`) only, landing under `<results-root>/<method>/` with flat
@@ -479,7 +479,7 @@ Flags — `impute.R`: `--method`, `--data-root`, `--results-root`, `--raw`,
   recipe (fill never-co-observed pairs with the mean off-diagonal, resp. with 0,
   then PSD-smooth) and factor the cached smoothed correlation their imputation
   persists. Every method — fill-smooth included — is gated on its held-out
-  imputation R² (>= 0.3).
+  imputation R² (>= 0.4).
 - `--raw` — run ONLY the undensified `raw` level (slow); default runs C/S/R.
 - `--reimpute` — force fresh imputation; **default reuses** an existing imputed CSV.
 - `--loco` (`factor.R`) — leave-one-benchmark-out Δω_h.

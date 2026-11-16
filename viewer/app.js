@@ -636,10 +636,59 @@ function draw() {
   ctx.fillRect(0, 0, w, h);
   if (!d) return;
 
+  // Legend entries for the bottom bar, computed before layout: the bar owns a
+  // strip of the canvas, so the dot fit below must reserve it. Same content
+  // and trigger as before (category mode with active highlights); only the
+  // placement changed -- a floating box covered dots, a reserved strip does
+  // not. Drawn on the canvas, so PNG/ZIP exports carry it.
+  let legendItems = null;
+  if (inCategoryMode() && d.categories && state.highlights.size) {
+    const hmap = highlightMap(d);
+    const [groupRows_] = groupRows(d);
+    const sizeOf = (label) =>
+      label === NO_LABEL
+        ? d.categories.filter((_, i) => !axisLabelsAt(d, i).length).length
+        : groupRows_.find((r) => r.value === label)?.size ?? 0;
+    legendItems = [...hmap.idx.entries()].map(([label, ci]) => ({
+      col: colorFor(ci, false),
+      text: `${label === NO_LABEL ? "unlabelled" : displayOf(d, label)} (${sizeOf(label)})`,
+    }));
+  }
+
+  // Greedy line-wrap of the legend entries across the canvas width; the bar
+  // grows one lineH per wrapped line.
+  let legendLines = null;
+  let barH = 0;
+  if (legendItems && legendItems.length) {
+    const pad = 8, lineH = 18, sw = 10, itemGap = 14;
+    ctx.font = "12px system-ui";
+    const items = legendItems.map((it) => ({
+      ...it,
+      w: sw + 6 + ctx.measureText(it.text).width + itemGap,
+    }));
+    const lines = [];
+    let line = [], lw = 0;
+    const maxW = w - 2 * pad;
+    for (const it of items) {
+      if (line.length && lw + it.w - itemGap > maxW) {
+        lines.push(line);
+        line = [];
+        lw = 0;
+      }
+      line.push(it);
+      lw += it.w;
+    }
+    if (line.length) lines.push(line);
+    legendLines = lines;
+    barH = pad * 2 + lines.length * lineH - 6;
+  }
+
+  // Plot area is everything above the legend strip.
+  const ph = h - barH;
   const m = 40; // margin covering the largest dot radius
   const e = extent(d);
   const sx = (w - 2 * m) / Math.max(e.xmax - e.xmin, 1e-9);
-  const sy = (h - 2 * m) / Math.max(e.ymax - e.ymin, 1e-9);
+  const sy = (ph - 2 * m) / Math.max(e.ymax - e.ymin, 1e-9);
   const s = Math.min(sx, sy);
 
   // map at raw scale, then fit the actual mapped bounding box onto the
@@ -660,13 +709,13 @@ function draw() {
     if (p.y > bymax) bymax = p.y;
   }
   const bw = bxmax - bxmin, bh = bymax - bymin;
-  const s2 = Math.min(1, (w - 2 * m) / Math.max(bw, 1e-9), (h - 2 * m) / Math.max(bh, 1e-9));
+  const s2 = Math.min(1, (w - 2 * m) / Math.max(bw, 1e-9), (ph - 2 * m) / Math.max(bh, 1e-9));
   if (s2 < 1) {
     for (const p of pts) { p.x *= s2; p.y *= s2; }
     bxmin *= s2; bxmax *= s2; bymin *= s2; bymax *= s2;
   }
   const ox = w / 2 - (bxmin + bxmax) / 2;
-  const oy = h / 2 - (bymin + bymax) / 2;
+  const oy = ph / 2 - (bymin + bymax) / 2;
 
   d.screen = pts.map((p) => ({ ...p, x: p.x + ox, y: p.y + oy }));
 
@@ -717,40 +766,28 @@ function draw() {
     ctx.fillText(p.b, p.x + 9, p.y - 8);
   }
 
-  // In-plot legend for color-by highlight colors, drawn on the canvas itself
-  // (not the side panel) so right-click "Copy image" retains the mapping.
-  // Swatches read the same highlightMap the dots and panel swatches use.
-  if (inCategoryMode() && d.categories && state.highlights.size) {
-    const hmap = highlightMap(d);
-    const [groupRows_] = groupRows(d);
-    const sizeOf = (label) =>
-      label === NO_LABEL
-        ? d.categories.filter((_, i) => !axisLabelsAt(d, i).length).length
-        : groupRows_.find((r) => r.value === label)?.size ?? 0;
-    const rows = [...hmap.idx.entries()].map(([label, ci]) => ({
-      col: colorFor(ci, false),
-      text: `${label === NO_LABEL ? "unlabelled" : displayOf(d, label)} (${sizeOf(label)})`,
-    }));
-    if (rows.length) {
-      const pad = 8;
-      const lineH = 18;
-      const sw = 10;
-      ctx.font = "12px system-ui";
-      const tw = Math.max(...rows.map((row) => ctx.measureText(row.text).width));
-      const bw = pad * 2 + sw + 6 + tw;
-      const bh = pad * 2 + rows.length * lineH - 6;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-      ctx.fillRect(8, 8, bw, bh);
-      ctx.strokeStyle = "#d9d9e0";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(8.5, 8.5, bw - 1, bh - 1);
-      rows.forEach((row, i) => {
-        const y = 8 + pad + i * lineH + 9;
-        ctx.fillStyle = row.col;
-        ctx.fillRect(8 + pad, y - 9, sw, sw);
+  // The legend bar itself, in the strip reserved above. Opaque white with a
+  // top rule separating it from the plot; entries wrap left-to-right.
+  if (legendLines) {
+    const pad = 8, lineH = 18, sw = 10;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, ph, w, barH);
+    ctx.strokeStyle = "#d9d9e0";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, ph + 0.5);
+    ctx.lineTo(w, ph + 0.5);
+    ctx.stroke();
+    for (let li = 0; li < legendLines.length; li++) {
+      let x = pad;
+      const rowTop = ph + pad + li * lineH;
+      for (const it of legendLines[li]) {
+        ctx.fillStyle = it.col;
+        ctx.fillRect(x, rowTop, sw, sw);
         ctx.fillStyle = "#22222a";
-        ctx.fillText(row.text, 8 + pad + sw + 6, y);
-      });
+        ctx.fillText(it.text, x + sw + 6, rowTop + 9);
+        x += it.w;
+      }
     }
   }
 }
