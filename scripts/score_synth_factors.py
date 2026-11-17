@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Score factor-level recovery on the synthetic MNAR corpus against planted truth.
+"""Score factor-level agreement on the synthetic MNAR corpus: compare the
+pipeline's output on masked data against the ORACLE (full-data) arm and the
+generating structure.
 
 Reads results/synth/<density>/factor/rows_*.csv + per-run SL loadings written by
-src/run/factor_synth.R, and the planted truth in data/synth/<density>/truth/. Per
+src/run/factor_synth.R, and the generating model in data/synth/<density>/truth/. Per
 (method, truth cell, mask, table):
 
   omega_h_est / omega_h_oracle / omega_bias -- omega bias vs the ORACLE
@@ -17,7 +19,7 @@ src/run/factor_synth.R, and the planted truth in data/synth/<density>/truth/. Pe
   g_congruence    -- |Tucker phi| between estimated g loadings and the
                      ORACLE arm's g loadings (no planted lam_g exists)
   domain_ari      -- adjusted Rand index between each benchmark's argmax
-                     |group loading| and its planted suite (domain recovery)
+                     |group loading| and its planted suite (domain agreement)
   imp_r2          -- held-out imputation R² from
                      results/synth/<density>/database.db
                      (imputation_synth), so the R² >= 0.45 gate can be applied

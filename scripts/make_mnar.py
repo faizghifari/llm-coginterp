@@ -1,13 +1,15 @@
 """Generate synthetic MNAR stress-test datasets under data/synth/<density>/.
 
-Design axes (no single planted truth: the truth grid spans weak-to-loud
+Design axes (the planted factor model is the data-generating process: a
+plausible simulation of the real corpus, NOT a recovery target; the grid
+spans weak-to-loud
 factor structure so no imputer's inductive bias is favored by
 construction; rankings are only reported per truth cell):
 
   truth cells : F DENSE background factors x loading draw range
                 F in {5, 10}, per-benchmark-per-factor loadings ~
                 U(0.1, 0.5) "weak" or U(0.5, 0.9) "loud" -> 4 planted
-                truths per table; every benchmark ALSO loads its SUITE
+                truth cells per table; every benchmark ALSO loads its SUITE
                 factor strongly (N_SUITES clusters, loud range) -- so the
                 structure is wide cross-loadings PLUS suite clusters,
                 matching the real corpus on both counts
@@ -99,8 +101,8 @@ jointly feasible, s is scaled down by halves until calibration converges
 (mech_scale < 1 in the meta/summary records how much survived).
 
 Outputs (nested under a density segment, like densify.py). The planted
-truth is SHARED across density slices: the hierarchical descent chains a
-denser slice's completions into sparser ones, so the truth those
+model is SHARED across density slices: the hierarchical descent chains a
+denser slice's completions into sparser ones, so the complete matrix those
 completions are scored against must be one fixed matrix at every
 density. The truth grid is the union of every slice's source table; the
 mean-r calibration target comes from the densest slice; each slice's

@@ -1,16 +1,19 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Factor-level recovery on the synthetic MNAR corpus (scripts/make_mnar.py).
+# Factor-level scoring on the synthetic MNAR corpus (scripts/make_mnar.py).
 #
 # impute.R --synth imputes every data/synth/<cell>/<mask>/s0 root and scores
-# CELL recovery; this script closes the loop at the FACTOR level, which is what
+# CELL-level agreement; this script closes the loop at the FACTOR level, which is what
 # the analysis actually reports: it runs the exact factor.R recipe (Horn PA
 # factor count -> minres/promax -> Schmid-Leiman via psych::omega, flip=FALSE)
-# on each completed synthetic matrix, plus an ORACLE arm that factors the
-# complete, unmasked truth matrix (separates EFA/SL estimator bias from
-# missingness damage). Scoring against the truth (omega bias and g
-# congruence vs the ORACLE arm, factor count, domain recovery) is done in
+# on each completed synthetic matrix, plus an ORACLE arm (the full-data
+# reference) that factors the complete, unmasked simulated matrix
+# (separates EFA/SL estimator bias from
+# missingness damage). Scoring (omega bias and g
+# congruence vs the ORACLE arm, domain agreement with the planted suite
+# membership) is done in
 # Python by scripts/score_synth_factors.py. The generator plants no general
-# factor and no omega target (mean_r is the only calibrated quantity).
+# factor and no omega target (mean_r is the only calibrated quantity): the
+# planted model is the data-generating process, not a recovery target.
 #
 # No R² gate here: the gate is applied at scoring time (imputation_synth R²),
 # so the effect of the gate itself can be reported.

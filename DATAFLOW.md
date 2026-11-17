@@ -363,12 +363,14 @@ the comment block at the top of `scripts/latent_scores.py`.
 
 ## Side branch — synthetic MNAR stress corpus (`scripts/make_mnar.py`)
 
-Python, outside the main cross-product. Generates synthetic tables with
-**known ground truth** (true correlation R, true factor count, true ω_h) so
-imputers and factorers can be scored against the planted structure instead
-of only held-out RMSE. Reads two real `text_only` tables, plants a truth,
-and punches calibrated, cross-density-nested holes; each output root is a
-drop-in `--data-root`.
+Python, outside the main cross-product. Generates synthetic tables from a
+**planted data-generating process** — a plausible simulation of the real
+corpus with a known correlation R and factor structure (NO planted ω_h; the
+model is a simulation, not a recovery target) — so imputers and factorers
+can be scored against the generating structure instead
+of only held-out RMSE. Reads two real `text_only` tables, plants a
+generating model, and punches calibrated, cross-density-nested holes; each
+output root is a drop-in `--data-root`.
 
 | | path |
 |---|---|
@@ -463,30 +465,30 @@ completed CSVs land inside each root as usual, flat results go to
 `cell, mask, dataset, method` — the extra columns are what keep the roots'
 shared `dataset` names from colliding; `wr2` = hierarchical weighted R², NULL
 outside `--hier --synth`). After the imputation pass, every completed matrix
-is scored against the planted truth
+is scored against the simulation's complete matrix
 (`data/synth/<density>/truth/<tag>_<cell>_complete.csv`) on its masked-in
 cells — column-balanced, same aggregation shape as the held-out metric — and
 the result lands in `imputation_synth.gt_r2`. That pass is refreshed on every
 `--synth` invocation even when the imputation itself is skipped (no
 `--reimpute`), since it only reads artifacts from disk. Scoring against the
-truth is otherwise external: compare outputs to the truth files (truth R,
-`true_nfactors = 1 + N_SUITES`). Nothing in `main.R` consumes
-the corpus.
+generating model is otherwise external: compare outputs to the `truth/`
+files (planted R, `true_nfactors = 1 + N_SUITES`). Nothing in `main.R`
+consumes the corpus.
 
 **Factor-level scoring on the synth corpus** (`src/run/factor_synth.R`): runs
 the exact `factor.R` recipe (Horn PA → minres/promax → Schmid-Leiman via
-`psych::omega`) on each completed synthetic matrix, plus an ORACLE arm that
-factors the complete, unmasked truth (separates estimator bias from
+`psych::omega`) on each completed synthetic matrix, plus an ORACLE arm (the
+full-data reference) that factors the complete, unmasked simulated matrix
+(separates estimator bias from
 missingness damage; no R² gate — the gate is applied at scoring time).
 Outputs: `results/synth/<density>/factor/<cell>/<mask>/<method>_<dz>_loadings.csv`
 + `rows_<method>.csv`. `factor_synth.R --density 0` factors the HIERARCHICAL
 end result: density 0 aliases the SPARSEST slice, reads its
 `s0/hierarchical/imputed/...` matrices and the hier correlation caches from
 `results/synth/hierarchical/<cell>/<mask>/<density>/`, and writes to
-`results/synth/0/factor/`. `scripts/score_synth_factors.py` then scores
-against the truth (ω bias and g congruence vs the ORACLE arm, factor count,
-domain
-ARI), gated on the imputation R².
+`results/synth/0/factor/`. `scripts/score_synth_factors.py` then scores the runs (ω bias and g
+congruence vs the full-data ORACLE arm, domain ARI vs the planted suite
+membership), gated on the imputation R².
 
 **Hier over the synth corpus** (`impute.R --hier --synth`): for each (cell,
 mask), the standard hier descent runs over the synth density slices,
@@ -500,10 +502,11 @@ CSVs land in
 results + per-step DB in `results/synth/hierarchical/<cell>/<mask>/<density>/`
 (ONE unified DB for the whole run: `results/synth/hierarchical/database.db`,
 table `imputation_synth_hier`, keyed `cell, mask, density, dataset, method`;
-each row's `gt_r2` scores that step against the planted truth on the
-introduced columns' missing cells (column-restricted, like the held-out
+each row's `gt_r2` scores that step against the simulation's complete
+matrix on the introduced columns' missing cells (column-restricted, like
+the held-out
 side), and `wr2` is the introduced-column-weighted mean of
-those gt_r2 values — truth-weighted, unlike the real corpus's held-out
+those gt_r2 values — DGP-based, unlike the real corpus's held-out
 weighting), and the final step is handed off to the density-0 slice
 (`data/synth/<cell>/<mask>/0/` + the density-"0" rows of the unified DB,
 which `factor_synth.R --density 0` and `score_synth_factors.py --density 0`
