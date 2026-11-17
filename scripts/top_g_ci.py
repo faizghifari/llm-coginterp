@@ -321,6 +321,12 @@ def main():
     # ---- main table ------------------------------------------------------
     top = sorted(avg_resid.items(), key=lambda kv: kv[1])[:TOP_N]
 
+    header = [
+        "no", "benchmark", "resid_rank", "ci95_lo", "ci95_hi", "sd",
+        "avg_norm_rank", "raw_ci95_lo", "raw_ci95_hi", "freq", "n_cells",
+        "best", "worst",
+    ]
+    csv_rows = [header]
     print(
         "| no | benchmark | resid rank | 95% ci | sd | avg norm rank | 95% ci "
         "| freq | n cells | best | worst |"
@@ -337,6 +343,18 @@ def main():
             f"| {freq.get(bench, float('nan')):.2f} "
             f"| {len(raw_vals)} | {min(raw_vals):.3f} | {max(raw_vals):.3f} |"
         )
+        csv_rows.append([
+            i, bench, f"{m:+.3f}", f"{lo:.3f}", f"{hi:.3f}", f"{sd:.3f}",
+            f"{avg[bench]:.3f}", f"{raw_lo:.3f}", f"{raw_hi:.3f}",
+            f"{freq.get(bench, float('nan')):.2f}", len(raw_vals),
+            f"{min(raw_vals):.3f}", f"{max(raw_vals):.3f}",
+        ])
+
+    csv_path = Path(REPO) / "results" / f"top_g_ci_density_{args.density}.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(csv_path, "w", newline="") as f:
+        csv.writer(f).writerows(csv_rows)
+    print(f"\n wrote {csv_path}")
 
 
 if __name__ == "__main__":
