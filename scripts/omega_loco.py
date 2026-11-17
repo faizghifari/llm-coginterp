@@ -33,12 +33,25 @@ def parse_dataset(dataset: str) -> tuple[str, str]:
 
 
 def sparse_csv_path(data_root: Path, dz: str, st: str) -> Path:
-    sub = "combinations" if dz == "raw" else f"combinations_{dz}"
-    return data_root / sub / st / "model_benchmark_table.csv"
+    per_letter = data_root / f"combinations_{dz}" / st / "model_benchmark_table.csv"
+    if per_letter.exists():
+        return per_letter
+    # Density 0 has no per-letter variants; the shared base table lives one
+    # level up (data/text_only/combinations/...).
+    return data_root.parent / "combinations" / st / "model_benchmark_table.csv"
 
 
 def loadings_csv_path(results_root: Path, method: str, dataset: str, model: str) -> Path:
     return results_root / method / f"{method}_{dataset}_{model}_loadings.csv"
+
+
+def bench_names_from_loadings(csv_path: Path) -> list[str]:
+    """Benchmark names in file order. The loadings CSV rows preserve the column
+    order of the correlation matrix R used by loco_delta, so delta vector
+    position i corresponds to the i-th name here."""
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        return [row["benchmark"].strip() for row in reader]
 
 
 def bench_g_loadings(csv_path: Path) -> dict[str, float]:
@@ -238,11 +251,24 @@ def main() -> None:
         if dataset not in freq_cache:
             freq_cache[dataset] = bench_frequencies(csv_path)
         bench_names, freqs = freq_cache[dataset]
-        if len(freqs) != len(pooled):
-            results_delta.append((method, dataset, nf, None, None, None, None, "column-filter mismatch"))
+        freq_map = dict(zip(bench_names, freqs))
+
+        # Delta vector position i = column i of cor(M). The loadings CSV rows
+        # carry the same benchmarks in the same order, so join by name.
+        load_path = loadings_csv_path(results_root, method, dataset, "bifactor_pa")
+        if not load_path.exists():
+            load_path = loadings_csv_path(results_root, method, dataset, "bifactor_2f")
+        if not load_path.exists():
+            results_delta.append((method, dataset, nf, None, None, None, None, "loadings CSV not found"))
+            continue
+        delta_names = bench_names_from_loadings(load_path)
+        if len(delta_names) != len(pooled):
+            results_delta.append((method, dataset, nf, None, None, None, None,
+                                  f"delta/loadings length mismatch ({len(pooled)} vs {len(delta_names)})"))
             continue
 
-        valid_pairs = [(f, d) for f, d in zip(freqs, pooled) if not math.isnan(d)]
+        valid_pairs = [(freq_map[n], d) for n, d in zip(delta_names, pooled)
+                       if n in freq_map and not math.isnan(d)]
         if len(valid_pairs) < 3:
             results_delta.append((method, dataset, nf, None, None, None, len(valid_pairs), "not enough pairs"))
             continue
@@ -261,12 +287,13 @@ def main() -> None:
     header = f"{'method':15s} {'dataset':20s} {'nf':>4s} {'r':>8s} {'t':>8s} {'df':>5s} {'n':>5s}"
     print(header)
     print("-" * len(header))
-    for method, dataset, nf_val, r_val, t_val, df, n, _ in results_delta:
+    for method, dataset, nf_val, r_val, t_val, df, n, reason in results_delta:
         r_str = f"{r_val:+.4f}" if r_val is not None else "   -"
         t_str = f"{t_val:+.3f}" if t_val is not None else "   -"
         df_str = f"{df}" if df is not None else "-"
         n_str = f"{n}" if n is not None else "-"
-        print(f"{method:15s} {dataset:20s} {nf_val:>4d} {r_str:>8s} {t_str:>8s} {df_str:>5s} {n_str:>5s}")
+        reason_str = f"  ({reason})" if reason else ""
+        print(f"{method:15s} {dataset:20s} {nf_val:>4d} {r_str:>8s} {t_str:>8s} {df_str:>5s} {n_str:>5s}{reason_str}")
 
     valid_r_delta = [r for _, _, _, r, _, _, _, _ in results_delta if r is not None and not math.isnan(r)]
     print("-" * len(header))
@@ -339,12 +366,13 @@ def main() -> None:
     header_g = f"{'method':15s} {'dataset':20s} {'nf':>4s} {'r':>8s} {'t':>8s} {'df':>5s} {'n':>5s}"
     print(header_g)
     print("-" * len(header_g))
-    for method, dataset, nf_val, r_val, t_val, df, n, _ in results_g:
+    for method, dataset, nf_val, r_val, t_val, df, n, reason in results_g:
         r_str = f"{r_val:+.4f}" if r_val is not None else "   -"
         t_str = f"{t_val:+.3f}" if t_val is not None else "   -"
         df_str = f"{df}" if df is not None else "-"
         n_str = f"{n}" if n is not None else "-"
-        print(f"{method:15s} {dataset:20s} {nf_val:>4d} {r_str:>8s} {t_str:>8s} {df_str:>5s} {n_str:>5s}")
+        reason_str = f"  ({reason})" if reason else ""
+        print(f"{method:15s} {dataset:20s} {nf_val:>4d} {r_str:>8s} {t_str:>8s} {df_str:>5s} {n_str:>5s}{reason_str}")
 
     valid_r_g = [r for _, _, _, r, _, _, _, _ in results_g if r is not None and not math.isnan(r)]
     print("-" * len(header_g))

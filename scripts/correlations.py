@@ -29,11 +29,14 @@ def main(db_path):
     con = sqlite3.connect(str(db_path))
     con.row_factory = sqlite3.Row
 
+    # Only the parallel-analysis run is correlated: skip 2f and forced2f,
+    # matching the tag filter in viewer/compute_positions.py.
     cur = con.execute("""
         SELECT f.run, f.omega_h, i.r2, f.dataset, f.method
         FROM factoring f
         JOIN imputation i ON f.dataset = i.dataset AND f.method = i.method
-        WHERE f.omega_h IS NOT NULL AND i.r2 IS NOT NULL
+        WHERE f.run NOT IN ('2f', 'forced2f')
+          AND f.omega_h IS NOT NULL AND i.r2 IS NOT NULL
         ORDER BY f.run, i.r2 DESC
     """)
     rows = cur.fetchall()

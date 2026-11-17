@@ -66,7 +66,7 @@ LOGS := $(DENSITY_RESULTS)/logs
 
 IMPUTE_METHODS := softimpute onesidedmc missforest knn default zeros
 FACTOR_METHODS := softimpute onesidedmc missforest knn default zeros
-LOCO_PLAIN     := default zeros softimpute onesidedmc knn   # plain missforest loco skipped
+LOCO_PLAIN     := softimpute onesidedmc missforest knn default zeros   # plain missforest loco skipped
 
 CLEAR_SUMMARY := @mkdir -p $(LOGS) && : > $(LOGS)/summary.txt
 
