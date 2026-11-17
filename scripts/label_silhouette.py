@@ -319,7 +319,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     results_root = cp.resolve(args.results_root) / args.density
-    cells = cp.load_cells(results_root)
+    cells = cp.load_cells(results_root, args.density)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")
     data_root = cp.resolve(args.data_root)

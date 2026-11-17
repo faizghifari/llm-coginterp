@@ -94,13 +94,18 @@ def test_analyse_raises_when_drop_g_reorders_benchmarks():
 
 
 def test_axes_summary_counts_aggregate_with_g_rows(capsys):
-    rows = [
-        lc.Row("C|pa", "with_g", 10, "subject:code", 5, 0.2, 0.8, -3.0, 0.001, 0.75),
-        lc.Row("C|pa", "without_g", 10, "subject:code", 5, 0.2, 0.8, -3.0, 0.001, 0.75),
-        lc.Row("C|pa|mzeros", "with_g", 10, "subject:code", 5, 0.2, 0.8, -3.0, 0.001, 0.75),
-        lc.Row("C|pa", "with_g", 10, "task:mc", 5, 0.7, 0.7, 0.0, 0.9, 0.0),
+    def rec(variant, category, p, *, method=None, collapsing="aggregate"):
+        return {"category": category, "variant": variant, "p": p,
+                "method": method, "collapsing": collapsing}
+
+    records = [
+        rec("with_g", "subject:code", 0.001),
+        rec("without_g", "subject:code", 0.001),
+        rec("with_g", "subject:code", 0.001, method="zeros"),
+        rec("with_g", "subject:code", 0.001, collapsing="standard"),
+        rec("with_g", "task:mc", 0.9),
     ]
-    lc.axes_summary(rows)
+    lc.axes_summary(records)
     out = capsys.readouterr().out
     assert "axes: subject, task" in out
     assert "subject: 1 label-cell rows (aggregate, with_g), 1 at p<0.05" in out

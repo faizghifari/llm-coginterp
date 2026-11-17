@@ -303,13 +303,17 @@ def analyse(
     return Row(key, variant, len(bench), len(disjoint), dropped, sep, contrast, named_pct)
 
 
-def iter_jobs(cells: dict, tags: tuple[str, ...] = DEFAULT_TAGS):
-    """Aggregate (all-years) cells of the given tags: all imputers pooled, then
-    one per imputer. Thin filter over cp.build_jobs(), the same job list the
+def aggregate_jobs(cells: dict, tags: tuple[str, ...] = DEFAULT_TAGS) -> list:
+    """Aggregate (all-years) cp.Job views of the given tags: all imputers pooled,
+    then one per imputer. Thin filter over cp.build_jobs(), the same job list the
     viewer itself builds -- no separate method-parsing logic here."""
-    for j in cp.build_jobs(cells):
-        if j.year is None and j.tag in tags:
-            yield j.key, list(j.cells)
+    return [j for j in cp.build_jobs(cells) if j.year is None and j.tag in tags]
+
+
+def iter_jobs(cells: dict, tags: tuple[str, ...] = DEFAULT_TAGS):
+    """(key, cells) pairs of aggregate_jobs()."""
+    for j in aggregate_jobs(cells, tags):
+        yield j.key, list(j.cells)
 
 
 def role_pcts(row: Row, role: str) -> list[float]:
@@ -389,7 +393,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     results_root = cp.resolve(args.results_root) / args.density
-    cells = cp.load_cells(results_root)
+    cells = cp.load_cells(results_root, args.density)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")
     data_root = cp.resolve(args.data_root)

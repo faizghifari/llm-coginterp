@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -96,9 +97,23 @@ def payload_from_csv(path: Path) -> dict:
     "benchmarks" only needs a length (--min-cell-n), not real ids, here."""
     payload: dict[str, dict] = {}
     with path.open(newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        need = {"density", "densifier", "tag", "collapsing", "method"}
+        missing = need - set(reader.fieldnames or ())
+        if missing:
+            raise SystemExit(f"{path} lacks {sorted(missing)}; re-run scripts/label_cohesion.py")
+        for row in reader:
             entry = payload.setdefault(
-                row["cell"], {"benchmarks": [None] * int(row["n_bench"]), "category_cohesion": {}}
+                row["cell"],
+                {
+                    "density": row["density"],
+                    "densifier": row["densifier"],
+                    "tag": row["tag"],
+                    "collapsing": row["collapsing"],
+                    **({"method": row["method"]} if row["method"] else {}),
+                    "benchmarks": [None] * int(row["n_bench"]),
+                    "category_cohesion": {},
+                },
             )
             entry["category_cohesion"].setdefault(row["variant"], []).append(
                 {
@@ -121,7 +136,24 @@ def axes_in(payload: dict, cells: list[str]) -> list[str]:
     return sorted(found)
 
 
-def plot(data, cells, variant, axis, out: Path, note: str = "") -> None:
+def density_labels() -> dict[str, str]:
+    """viewer/compute_positions.py's DENSITY_LABELS, the single source of truth."""
+    spec = importlib.util.spec_from_file_location(
+        "compute_positions", REPO / "viewer" / "compute_positions.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("compute_positions", mod)
+    spec.loader.exec_module(mod)
+    return mod.DENSITY_LABELS
+
+
+def column_label(entry: dict) -> str:
+    """'densifier · imputer'; a bare densifier is its all-imputer aggregate.
+    Imputers are abbreviated: the full names do not fit under a column."""
+    m = entry.get("method")
+    return f"{entry['densifier']} · {IMPUTER_ABBR.get(m, m)}" if m else entry["densifier"]
+
+
+def plot(data, cells, shown: list[str], variant, axis, out: Path, note: str = "") -> None:
     labels = sorted(data, key=lambda l: -np.median([v[0] for v in data[l].values()]))
     grid = np.full((len(labels), len(cells)), np.nan)
     for i, lab in enumerate(labels):
@@ -145,13 +177,6 @@ def plot(data, cells, variant, axis, out: Path, note: str = "") -> None:
             if cell in data[lab] and data[lab][cell][1]:
                 # significance is marked, never colour-alone
                 ax.plot(j, i, marker="o", markersize=2.6, color="#ffffff", zorder=3)
-    # "|pa" is constant across columns (the title carries it) and "|m" just marks
-    # the imputer, so a bare densifier is its aggregate over every imputer.
-    # Imputers are abbreviated: the full names do not fit under a column.
-    shown = []
-    for c in cells:
-        dz, _, rest = c.replace("|pa", "", 1).partition("|m")
-        shown.append(f"{dz} · {IMPUTER_ABBR.get(rest, rest)}" if rest else dz)
     ax.set_xticks(range(len(cells)), shown, rotation=90, fontsize=7.5, color=INK)
     ax.set_yticks(range(len(labels)), labels, fontsize=8, color=INK)
     ax.set_xticks(np.arange(-0.5, len(cells)), minor=True)
@@ -329,7 +354,7 @@ def run_axis(payload: dict, cells: list[str], axis: str, args, cell_note: str, o
     suffix = "" if args.variant == "with_g" else "_nog"
     stem = out_dir / f"{axis}{suffix}"
     if not args.table_only:
-        plot(data, cells, args.variant, axis, stem, note)
+        plot(data, cells, [column_label(payload[c]) for c in cells], args.variant, axis, stem, note)
     write_table(everything, cells, stem.with_suffix(".csv"))  # every label, unfiltered
     if not args.figure_only:
         # the paste-into-the-paper tables cover the displayed labels only
@@ -353,6 +378,10 @@ def main() -> None:
         "pipeline (UMAP + clustering just to reach the cohesion numbers) again",
     )
     ap.add_argument("--variant", default="with_g", choices=("with_g", "without_g"))
+    ap.add_argument(
+        "--collapsing", default="aggregate", choices=("aggregate", "standard", "aggressive"),
+        help="collapsing stage of the views to plot (default: aggregate over both stages)",
+    )
     ap.add_argument(
         "--axis", action="append",
         help="label axis to plot (repeatable); default: every axis present in the data "
@@ -378,14 +407,18 @@ def main() -> None:
     ap.add_argument("--figure-only", action="store_true",
                     help="write the figure and the unfiltered CSV, skip MD/LaTeX")
     ap.add_argument("--out-dir", default=None,
-                    help="directory for output files (default: results/figures/cohesion/summary)")
+                    help="directory for output files "
+                    "(default: results/figures/cohesion/summary/<density>/<collapsing>)")
     args = ap.parse_args()
     if args.table_only and args.figure_only:
         raise SystemExit("--table-only and --figure-only are mutually exclusive")
 
+    density = args.density
     if args.positions:
         payload = json.loads(Path(args.positions).read_text(encoding="utf-8"))
         source = args.positions
+        # the payload reports a display label for reserved slices ("0" -> "hier")
+        density = density_labels().get(args.density, args.density)
     else:
         csv_path = Path(args.csv) if args.csv else (
             REPO / "results" / "text_only" / args.density /
@@ -398,13 +431,16 @@ def main() -> None:
         payload = payload_from_csv(csv_path)
         source = str(csv_path)
 
+    # all-years pa views of one density and collapsing stage; positions.json holds all
+    if any("collapsing" not in v for v in payload.values()):
+        raise SystemExit(f"{source} has views without 'collapsing'; regenerate it")
     cells = sorted(
-        k for k in payload
-        if k.split("|")[1:2] == ["pa"]
-        and not any(p.startswith("y") for p in k.split("|")[2:])
+        k for k, v in payload.items()
+        if v["density"] == density and v["tag"] == "pa" and "year" not in v
+        and v["collapsing"] == args.collapsing
     )
     if not cells:
-        raise SystemExit(f"no pa cells in {source}")
+        raise SystemExit(f"no density-{args.density} {args.collapsing} pa cells in {source}")
     cell_note = ""
     if args.min_cell_n:
         small = [c for c in cells if len(payload[c]["benchmarks"]) < args.min_cell_n]
@@ -422,7 +458,8 @@ def main() -> None:
     axes = args.axis or axes_in(payload, cells)
     if not axes:
         raise SystemExit(f"no labels scored in any pa cell of {source}")
-    out_dir = Path(args.out_dir) if args.out_dir else REPO / "results" / "figures" / "cohesion" / "summary"
+    out_dir = (Path(args.out_dir) if args.out_dir
+               else REPO / "results" / "figures" / "cohesion" / "summary" / args.density / args.collapsing)
     out_dir.mkdir(parents=True, exist_ok=True)
     for axis in axes:
         run_axis(payload, cells, axis, args, cell_note, out_dir)

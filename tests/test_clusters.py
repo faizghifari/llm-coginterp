@@ -35,17 +35,17 @@ def blocks(n_per=10, k=4, within=0.15, between=0.9, sigma=0.02, seed=0):
     return d, truth
 
 
-def cell(key, mat, bench, cols, *, method=None, dz="C", st="all_standard", tag="pa", year=None):
+def cell(key, mat, bench, cols, *, method=None, density="0.1", dz="C", st="all_standard", tag="pa", year=None):
     """cp.Cell() with defaults filled in; tests only vary key/mat/bench/cols."""
     return cp.Cell(
-        key=key, method=method or key, dz=dz, st=st, tag=tag, year=year,
+        key=key, density=density, method=method or key, dz=dz, st=st, tag=tag, year=year,
         mat=mat, bench=bench, cols=cols,
     )
 
 
-def job(cells, *, dz="C", tag="pa", year=None, method=None):
+def job(cells, *, density="0.1", dz="C", tag="pa", st="aggregate", year=None, method=None):
     """cp.Job() wrapping the given cells, for functions that now take a Job."""
-    return cp.Job(dz=dz, tag=tag, year=year, method=method, cells=tuple(cells))
+    return cp.Job(density=density, dz=dz, tag=tag, st=st, year=year, method=method, cells=tuple(cells))
 
 
 def test_hac_recovers_planted_blocks():

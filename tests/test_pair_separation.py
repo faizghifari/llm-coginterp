@@ -23,10 +23,10 @@ cp = ps.cp
 N_PERM = 500
 
 
-def cell(key, mat, bench, cols, *, method=None, dz="C", st="all_standard", tag="pa", year=None):
+def cell(key, mat, bench, cols, *, method=None, density="0.1", dz="C", st="all_standard", tag="pa", year=None):
     """cp.Cell() with defaults filled in; tests only vary key/mat/bench/cols."""
     return cp.Cell(
-        key=key, method=method or key, dz=dz, st=st, tag=tag, year=year,
+        key=key, density=density, method=method or key, dz=dz, st=st, tag=tag, year=year,
         mat=mat, bench=bench, cols=cols,
     )
 
@@ -148,12 +148,18 @@ def test_iter_jobs_filters_tag_and_year():
         method="softimpute", tag=tag, year=year,
     )
     cells = {
-        ("C", "pa", None): [make("pa", None)],
-        ("C", "2f", None): [make("2f", None)],
-        ("C", "pa", 2020): [make("pa", 2020)],
+        ("0.1", "C", "pa", None): [make("pa", None)],
+        ("0.1", "C", "2f", None): [make("2f", None)],
+        ("0.1", "C", "pa", 2020): [make("pa", 2020)],
     }
-    assert [k for k, _ in ps.iter_jobs(cells)] == ["C|pa", "C|pa|msoftimpute"]
-    assert [k for k, _ in ps.iter_jobs(cells, ("2f",))] == ["C|2f", "C|2f|msoftimpute"]
+    assert [k for k, _ in ps.iter_jobs(cells)] == [
+        "0.1|C|pa|s_aggregate", "0.1|C|pa|s_aggregate|msoftimpute",
+        "0.1|C|pa|s_standard", "0.1|C|pa|s_standard|msoftimpute",
+    ]
+    assert [k for k, _ in ps.iter_jobs(cells, ("2f",))] == [
+        "0.1|C|2f|s_aggregate", "0.1|C|2f|s_aggregate|msoftimpute",
+        "0.1|C|2f|s_standard", "0.1|C|2f|s_standard|msoftimpute",
+    ]
 
 
 def test_percentile():

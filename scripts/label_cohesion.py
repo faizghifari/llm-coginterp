@@ -105,16 +105,18 @@ def analyse(
     return out
 
 
-def axes_summary(rows: list[Row]) -> None:
-    axes = sorted({r.category.split(cp.LABEL_SEP, 1)[0] for r in rows})
+def axes_summary(records: list[dict]) -> None:
+    """Counts over the all-imputer, all-stage aggregate views only."""
+    axes = sorted({r["category"].split(cp.LABEL_SEP, 1)[0] for r in records})
     print(f"axes: {', '.join(axes)}")
     for axis in axes:
         prefix = f"{axis}{cp.LABEL_SEP}"
         sub = [
-            r for r in rows
-            if r.category.startswith(prefix) and r.variant == "with_g" and "|m" not in r.cell
+            r for r in records
+            if r["category"].startswith(prefix) and r["variant"] == "with_g"
+            and r["method"] is None and r["collapsing"] == "aggregate"
         ]
-        sig = sum(1 for r in sub if r.p < 0.05)
+        sig = sum(1 for r in sub if r["p"] < 0.05)
         print(f"  {axis}: {len(sub)} label-cell rows (aggregate, with_g), {sig} at p<0.05")
 
 
@@ -138,7 +140,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     results_root = cp.resolve(args.results_root) / args.density
-    cells = cp.load_cells(results_root)
+    cells = cp.load_cells(results_root, args.density)
     if not cells:
         raise SystemExit(f"no loadings found under {results_root}")
     data_root = cp.resolve(args.data_root)
@@ -147,23 +149,31 @@ def main() -> None:
     coverage = cp.load_coverage(data_root)
     rng = np.random.default_rng(args.seed)
 
-    jobs = list(ps.iter_jobs(cells, tuple(args.tag or ps.DEFAULT_TAGS)))
+    jobs = ps.aggregate_jobs(cells, tuple(args.tag or ps.DEFAULT_TAGS))
     if not jobs:
         raise SystemExit(f"no cells for tag(s) {args.tag or ps.DEFAULT_TAGS}")
 
     rows: list[Row] = []
-    for key, cell_list in jobs:
-        print(f"{key} ...", file=sys.stderr)
-        rows += analyse(key, cell_list, labels, coverage, rng)
+    records: list[dict] = []
+    for job in jobs:
+        print(f"{job.key} ...", file=sys.stderr)
+        job_rows = analyse(job.key, list(job.cells), labels, coverage, rng)
+        rows += job_rows
+        # view identity as explicit columns, so readers never split `cell`
+        meta = {
+            "density": job.density, "densifier": job.dz, "tag": job.tag,
+            "collapsing": job.st, "method": job.method,
+        }
+        records += [{**meta, **asdict(r)} for r in job_rows]
     if not rows:
         raise SystemExit("no cell produced a result")
 
     out_path = (cp.resolve(args.csv) if args.csv
                 else results_root / "distance_tests" / "label_cohesion_pa.csv")
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    pl.DataFrame([asdict(r) for r in rows]).write_csv(out_path)
+    pl.DataFrame(records).write_csv(out_path)
     print(f"wrote {out_path}: {len(rows)} rows")
-    axes_summary(rows)
+    axes_summary(records)
 
 
 if __name__ == "__main__":

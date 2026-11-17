@@ -1048,6 +1048,7 @@ def build_entry(
         "density": DENSITY_LABELS.get(job.density, job.density),
         "densifier": job.dz,
         "tag": job.tag,
+        "collapsing": job.st,
         **({} if job.method is None else {"method": job.method}),
         **({} if job.year is None else {"year": job.year}),
         **({"imputation": imp} if imp else {}),
